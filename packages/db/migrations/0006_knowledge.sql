@@ -118,6 +118,11 @@ create index if not exists brain_chunks_content_fts
 -- normalizar la distancia coseno contra el ts_rank, que viven en escalas
 -- incomparables.
 -- =============================================================================
+-- NOTA: cada funcion que use el operador <=> necesita `extensions` en SU PROPIO
+-- search_path. El `set search_path` del script solo afecta al momento de aplicar
+-- la migracion; dentro de una funcion con `set search_path` propio, ese valor no
+-- se hereda. Sin esto falla con "operator does not exist: vector <=> vector",
+-- y es un fallo que un Postgres sin pgvector no puede detectar.
 create or replace function public.search_knowledge(
   brain_ids uuid[],
   query     text,
@@ -138,7 +143,7 @@ returns table (
 language sql
 stable
 security invoker
-set search_path = public, pg_temp
+set search_path = public, extensions, pg_temp
 as $$
   with params as (
     select 60::double precision as k_const,      -- constante clasica de RRF
@@ -199,7 +204,7 @@ create or replace function public.refresh_brain_counts()
 returns trigger
 language plpgsql
 security definer
-set search_path = public, pg_temp
+set search_path = public, extensions, pg_temp
 as $$
 declare
   v_brain  uuid := coalesce(new.brain_id, old.brain_id);
