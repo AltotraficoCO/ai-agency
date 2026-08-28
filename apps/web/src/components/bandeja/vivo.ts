@@ -17,6 +17,7 @@
  *   · `caido`      — HABÍA tiempo real y se cayó. Esto sí se avisa en ámbar,
  *                    con botón de reintentar, y mientras tanto se sondea.
  */
+import { claveDeNavegador } from "../../lib/supabase/config";
 import * as React from "react";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 
@@ -33,7 +34,7 @@ const MS_SONDEO = 8_000;
  */
 function credenciales(): { url: string; clave: string } | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const clave = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const clave = claveDeNavegador();
   if (!url || !clave) return null;
   return { url, clave };
 }

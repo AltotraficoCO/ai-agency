@@ -13,6 +13,7 @@
  * Se llama `proxy.ts` y no `middleware.ts` porque Next 16 renombró la
  * convención; `middleware` sigue funcionando pero avisa de que está obsoleta.
  */
+import { claveDeNavegador } from "./lib/supabase/config";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
@@ -21,7 +22,7 @@ const PUBLICAS = ["/entrar", "/registro", "/recuperar", "/actualizar-clave", "/a
 
 export async function proxy(peticion: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const anon = claveDeNavegador();
 
   // Sin Supabase configurado no hay sesión que refrescar ni puerta que cerrar:
   // es el modo de desarrollo local, donde `obtenerUsuarioActual()` devuelve la

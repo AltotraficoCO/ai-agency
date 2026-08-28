@@ -6,12 +6,13 @@
  * `lib/identidad.ts` y del middleware debería llamar a esto: ver el comentario
  * de aquel archivo.
  */
+import { claveDeNavegador } from "./config";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 export function hayAutenticacionConfigurada(): boolean {
   return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_URL && claveDeNavegador(),
   );
 }
 
@@ -19,7 +20,7 @@ export async function crearClienteServidor() {
   const almacen = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    claveDeNavegador()!,
     {
       cookies: {
         getAll() {
