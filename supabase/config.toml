@@ -1,0 +1,48 @@
+# Configuracion local de Supabase para Strappy.
+#
+# Las migraciones NO viven aqui: son propiedad de packages/db/migrations, que es
+# la fuente de verdad. `supabase/migrations` es un enlace simbolico a ese
+# directorio para que la CLI las encuentre sin duplicar ficheros.
+project_id = "strappy"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.pooler]
+enabled = true
+default_pool_size = 20
+max_client_conn = 200
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[analytics]
+enabled = false

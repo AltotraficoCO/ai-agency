@@ -1,0 +1,21 @@
+{
+  "name": "@strappy/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "db:apply": "./scripts/apply.sh",
+    "db:test": "./scripts/test-isolation.sh",
+    "db:validate": "./scripts/validate-local.sh"
+  },
+  "files": [
+    "src",
+    "migrations",
+    "tests",
+    "scripts"
+  ]
+}
