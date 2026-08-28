@@ -10,6 +10,17 @@
 import { z } from "zod";
 import type { CapabilityDef } from "../registry/capability.js";
 
+/** Etiquetas legibles de los datos a recoger, para no repetirlas en la interfaz. */
+export const ETIQUETAS_RECOGER: Readonly<Record<string, string>> = {
+  nombre: "nombre",
+  telefono: "teléfono",
+  correo: "correo",
+  ciudad: "ciudad",
+  interes: "producto de interés",
+  presupuesto: "presupuesto",
+};
+
+
 export const CAPACIDAD_AGENTE_MENSAJERIA = "agente_mensajeria";
 
 const campoARecoger = z.object({
@@ -18,6 +29,21 @@ const campoARecoger = z.object({
   pista: z.string().optional(),
   obligatorio: z.boolean().optional(),
 });
+
+/**
+ * Un dato a recoger admite escribirse como texto suelto.
+ *
+ * Los modelos económicos mandan `["nombre", "telefono"]` la mitad de las
+ * veces, y rechazarlo obliga a un turno entero de correccion que la persona
+ * ve como un tartamudeo. Aceptarlo y completarlo cuesta tres líneas.
+ */
+const campoFlexible = z.preprocess(
+  (valor) =>
+    typeof valor === "string"
+      ? { clave: valor, etiqueta: ETIQUETAS_RECOGER[valor] ?? valor }
+      : valor,
+  campoARecoger,
+);
 
 /**
  * El borrador. Cada rama corresponde a una pregunta o a un resultado de
@@ -47,7 +73,7 @@ export const esquemaBorradorAgente = z
     objetivo: z.string().optional(),
     hace: z.array(z.string()).default([]),
     noHace: z.array(z.string()).default([]),
-    recoger: z.array(campoARecoger).default([]),
+    recoger: z.array(campoFlexible).default([]),
     escalar: z.array(z.string()).default([]),
     /** Instrucciones ya compiladas por `generar_prompt_agente`. */
     instrucciones: z.string().optional(),
@@ -61,7 +87,12 @@ export const esquemaBorradorAgente = z
     versionId: z.string().optional(),
     huellaPrompt: z.string().optional(),
   })
-  .loose();
+  // Estricto a propósito. Un modelo economico escribe `agente_nombre` en vez de
+  // `agente.nombre` con una regularidad deprimente, y con un esquema permisivo
+  // eso se guarda como basura al lado del campo bueno: la pregunta vuelve a
+  // salir, la persona la contesta otra vez y nadie entiende por qué. Fallar
+  // aquí devuelve al modelo un mensaje que puede corregir en el mismo turno.
+  .strict();
 
 export type BorradorAgente = z.infer<typeof esquemaBorradorAgente>;
 
@@ -152,6 +183,18 @@ export const capacidadAgenteMensajeria: CapabilityDef = {
           ],
         },
         {
+          key: "hace",
+          prompt: "¿Qué debe hacer con tus clientes?",
+          multiple: true,
+          allowFreeText: true,
+          options: [
+            { value: "Responde precios y disponibilidad", label: "Responder precios" },
+            { value: "Toma pedidos o reservas", label: "Tomar pedidos o reservas" },
+            { value: "Resuelve dudas frecuentes", label: "Resolver dudas frecuentes" },
+            { value: "Pasa el contacto a una persona del equipo", label: "Pasar el contacto al equipo" },
+          ],
+        },
+        {
           key: "recoger",
           prompt: "¿Qué datos quieres que averigüe durante la conversación?",
           multiple: true,
@@ -196,16 +239,6 @@ export const capacidadAgenteMensajeria: CapabilityDef = {
       "cliente molesto que pide hablar con una persona",
     ],
   },
-};
-
-/** Etiquetas legibles de los datos a recoger, para no repetirlas en la interfaz. */
-export const ETIQUETAS_RECOGER: Readonly<Record<string, string>> = {
-  nombre: "nombre",
-  telefono: "teléfono",
-  correo: "correo",
-  ciudad: "ciudad",
-  interes: "producto de interés",
-  presupuesto: "presupuesto",
 };
 
 /**

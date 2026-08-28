@@ -20,6 +20,8 @@ import {
   faseCompleta,
   faseParaColumna,
   fusionarBorrador,
+  normalizarClave,
+  rutasConocidas,
   huecosDeLaFase,
   preguntasPendientes,
   registrarCapacidades,
@@ -45,9 +47,17 @@ describe("el registro de capacidades", () => {
     expect(cap.verify.kind).toBe("simulator");
   });
 
-  it("ninguna fase pide más de tres cosas", () => {
+  it("ninguna RONDA pide más de tres cosas", () => {
+    // Una fase puede tener cuatro preguntas: entonces son dos rondas, y la
+    // fase no avanza hasta que estén todas. Lo que nunca puede pasar es que
+    // salgan cuatro botones de golpe.
     for (const fase of cap.phases) {
-      expect(fase.questions.length).toBeLessThanOrEqual(3);
+      const pendientes = preguntasPendientes({
+        capacidad: cap,
+        fase: fase.slug as (typeof FASES_META)[number],
+        borrador: BORRADOR_AGENTE_VACIO,
+      });
+      expect(pendientes.length).toBeLessThanOrEqual(3);
     }
   });
 
@@ -240,5 +250,27 @@ describe("el prompt publicado es reproducible", () => {
     expect(spec.identidad.nombre).toBe("Asistente");
     expect(spec.hace).toEqual([]);
     expect(spec.instruccionesManuales).toBeUndefined();
+  });
+});
+
+describe("las claves que escribe el modelo", () => {
+  it("conoce las rutas del esquema, no solo las de las preguntas", () => {
+    const rutas = rutasConocidas(cap);
+    expect(rutas).toContain("agente.nombre");
+    // `hace` no lo pregunta ninguna fase, pero es un campo del borrador que
+    // Strap escribe y puede necesitar preguntar.
+    expect(rutas).toContain("hace");
+    expect(rutas).toContain("noHace");
+    expect(rutas).toContain("empresa.sitioWeb");
+  });
+
+  it("corrige el guion bajo por el punto", () => {
+    expect(normalizarClave("agente_nombre", cap)).toBe("agente.nombre");
+    expect(normalizarClave("empresa_sitioWeb", cap)).toBe("empresa.sitioWeb");
+  });
+
+  it("rechaza lo que no puede resolver en vez de adivinar", () => {
+    expect(normalizarClave("agente.perfil", cap)).toBeNull();
+    expect(normalizarClave("cualquier_cosa", cap)).toBeNull();
   });
 });

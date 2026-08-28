@@ -9,3 +9,4 @@ allowBuilds:
   unrs-resolver: false
 minimumReleaseAgeExclude:
   - ai@6.0.271
+  - '@ai-sdk/react@3.0.274'

@@ -9,6 +9,7 @@
 import { indexarDocumento, type DepsIndexado, type OpcionesIndexado, prepararDocumento } from "./indexar.js";
 import { ingerirArchivo, ingerirTexto, type ArchivoEntrante } from "./ingest/archivos.js";
 import { rastrearSitio, type OpcionesWeb, type ResultadoRastreo } from "./ingest/web.js";
+import { explicacionDelModo, modoEfectivo, type ModoConocimiento } from "./modo.js";
 import type {
   ConocimientoDbPort,
   EmbeddingsPort,
@@ -17,8 +18,13 @@ import type {
   GeneradorPreguntasPort,
   OcrPort,
   RegistroPort,
+  RevectorizadoDbPort,
   TurnosPort,
 } from "./ports.js";
+import {
+  revectorizarPendientes,
+  type ResultadoRevectorizado,
+} from "./revectorizar.js";
 import { recuperar, TIMEOUT_MS, type ResultadoRecuperacion } from "./recuperar.js";
 import type {
   AjustesRecuperacion,
@@ -33,7 +39,14 @@ import { verificarFuente, type ResultadoVerificacion } from "./verificar.js";
 
 export type DepsCerebro = {
   readonly db: ConocimientoDbPort;
-  readonly embeddings: EmbeddingsPort;
+  /**
+   * Ausente = modo solo texto. Es la decisión explícita de trabajar sin
+   * búsqueda por significado cuando no hay proveedor de embeddings (la cartera
+   * del proyecto es OpenRouter, que no ofrece ninguno). Ver `modo.ts`.
+   */
+  readonly embeddings?: EmbeddingsPort;
+  /** Solo hace falta el día que se active el modo completo. */
+  readonly revectorizado?: RevectorizadoDbPort;
   readonly fetch?: FetchPort;
   readonly extractor?: ExtractorDocumentosPort;
   /** Gancho para el OCR con visión. Aún sin implementación: ver README. */
@@ -44,6 +57,7 @@ export type DepsCerebro = {
   readonly registro?: RegistroPort;
   readonly timeoutMs?: number;
   readonly ahora?: () => Date;
+  readonly forzarSoloTexto?: boolean;
 };
 
 /** Entrada de búsqueda del motor (`KnowledgePort.search`), más lo nuestro. */
@@ -82,8 +96,11 @@ export class Cerebro {
     return recuperar(
       {
         db: this.deps.db,
-        embeddings: this.deps.embeddings,
+        ...(this.deps.embeddings ? { embeddings: this.deps.embeddings } : {}),
         ...(this.deps.registro ? { registro: this.deps.registro } : {}),
+        ...(this.deps.forzarSoloTexto === undefined
+          ? {}
+          : { forzarSoloTexto: this.deps.forzarSoloTexto }),
         timeoutMs: this.deps.timeoutMs ?? TIMEOUT_MS,
       },
       {
@@ -124,8 +141,11 @@ export class Cerebro {
     const r = await recuperar(
       {
         db: this.deps.db,
-        embeddings: this.deps.embeddings,
+        ...(this.deps.embeddings ? { embeddings: this.deps.embeddings } : {}),
         ...(this.deps.registro ? { registro: this.deps.registro } : {}),
+        ...(this.deps.forzarSoloTexto === undefined
+          ? {}
+          : { forzarSoloTexto: this.deps.forzarSoloTexto }),
         // Probar no es responder: aquí se prefiere esperar a mentir con vacío.
         timeoutMs: 5_000,
       },
@@ -142,6 +162,11 @@ export class Cerebro {
       cerebrosConsultados: cerebroIds,
       degradado: r.degradado,
       milisegundos: r.milisegundos,
+      modo: r.modo,
+      // Sin esto, un cerebro en modo solo texto parece uno roto: encuentra el
+      // precio si preguntas con las palabras del catálogo y no encuentra nada
+      // si preguntas de otra manera, y nadie sabe por qué.
+      explicacion: r.explicacion,
       candidatos: r.candidatos.map((c) => {
         const cita = fuentes.get(c.sourceId);
         const documento =
@@ -158,6 +183,21 @@ export class Cerebro {
         };
       }),
     };
+  }
+
+  /** Con qué mitad de la búsqueda está trabajando este Cerebro ahora mismo. */
+  get modo(): ModoConocimiento {
+    return modoEfectivo({
+      embeddings: this.deps.embeddings,
+      ...(this.deps.forzarSoloTexto === undefined
+        ? {}
+        : { forzarSoloTexto: this.deps.forzarSoloTexto }),
+    });
+  }
+
+  /** El mismo texto llano que ve quien pulsa «Pruébalo». */
+  get explicacionDelModo(): string {
+    return explicacionDelModo(this.modo);
   }
 
   // -------------------------------------------------------------------------
@@ -244,7 +284,7 @@ export class Cerebro {
     const verificacion = await verificarFuente(
       {
         db: this.deps.db,
-        embeddings: this.deps.embeddings,
+        ...(this.deps.embeddings ? { embeddings: this.deps.embeddings } : {}),
         ...(this.deps.generadorPreguntas ? { generador: this.deps.generadorPreguntas } : {}),
         ...(this.deps.registro ? { registro: this.deps.registro } : {}),
       },
@@ -259,6 +299,41 @@ export class Cerebro {
     return { ingesta, verificacion };
   }
 
+  /**
+   * Completa el conocimiento que se indexó sin búsqueda por significado.
+   *
+   * Solo tiene sentido cuando ya hay proveedor de embeddings: recorre los
+   * trozos sin vector y los vectoriza sin volver a descargar ni trocear nada.
+   */
+  async completarPendientes(input: {
+    workspaceId: string;
+    cerebroId?: IdCerebro;
+    maximo?: number;
+  }): Promise<ResultadoRevectorizado> {
+    if (!this.deps.embeddings) {
+      throw new Error(
+        "Todavía no hay proveedor de búsqueda por significado configurado: pon OPENAI_API_KEY y vuelve a intentarlo.",
+      );
+    }
+    if (!this.deps.revectorizado) {
+      throw new Error(
+        "Falta el acceso a los fragmentos pendientes: quien monta el Cerebro debe aportar el puerto de reindexado.",
+      );
+    }
+    return revectorizarPendientes(
+      {
+        db: this.deps.revectorizado,
+        embeddings: this.deps.embeddings,
+        ...(this.deps.registro ? { registro: this.deps.registro } : {}),
+      },
+      {
+        workspaceId: input.workspaceId,
+        ...(input.cerebroId ? { cerebroId: input.cerebroId } : {}),
+        ...(input.maximo !== undefined ? { maximo: input.maximo } : {}),
+      },
+    );
+  }
+
   // -------------------------------------------------------------------------
 
   private async indexar(
@@ -269,7 +344,10 @@ export class Cerebro {
   ): Promise<ResultadoIngesta> {
     const deps: DepsIndexado = {
       db: this.deps.db,
-      embeddings: this.deps.embeddings,
+      ...(this.deps.embeddings ? { embeddings: this.deps.embeddings } : {}),
+      ...(this.deps.forzarSoloTexto === undefined
+        ? {}
+        : { forzarSoloTexto: this.deps.forzarSoloTexto }),
       ...(this.deps.registro ? { registro: this.deps.registro } : {}),
       ...(this.deps.ahora ? { ahora: this.deps.ahora } : {}),
     };

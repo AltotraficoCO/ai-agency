@@ -203,7 +203,11 @@ export function crearConocimientoDb(scope: TenantScope): ConocimientoDbPort {
         metadata: Record<string, unknown> | null;
       }>(
         `select * from public.search_knowledge($1::uuid[], $2, $3::vector, $4)`,
-        [[...cerebroIds], consulta, toVectorLiteral([...embedding]), k],
+        // Sin embedding se pasa NULL a proposito: es el modo "solo texto", que
+        // existe porque OpenRouter no ofrece endpoint de embeddings. La rama
+        // vectorial de search_knowledge lleva `and qvec is not null`, asi que
+        // se queda vacia y la fusion devuelve solo los aciertos por palabras.
+        [[...cerebroIds], consulta, embedding ? toVectorLiteral([...embedding]) : null, k],
       );
       return rows.map((r) => ({
         chunkId: r.chunk_id,

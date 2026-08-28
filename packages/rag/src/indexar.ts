@@ -14,6 +14,7 @@ import type {
   RegistroPort,
   TrozoAEscribir,
 } from "./ports.js";
+import { modoEfectivo, type ModoConocimiento } from "./modo.js";
 import { hashContenido } from "./texto.js";
 import { trocear, type OpcionesTroceado } from "./trocear.js";
 import type { DocumentoCrudo, IdCerebro, ResultadoIngesta, Trozo } from "./types.js";
@@ -30,10 +31,21 @@ export const LOTE_EMBEDDINGS = 96;
 
 export type DepsIndexado = {
   readonly db: ConocimientoDbPort;
-  readonly embeddings: EmbeddingsPort;
+  /**
+   * Ausente = modo solo texto. No es un olvido ni un fallo: sin proveedor de
+   * embeddings se trocea igual, se guarda con `embedding = NULL` y el
+   * contenido queda buscable por palabras desde el primer momento. Ver
+   * `modo.ts` para el porqué.
+   */
+  readonly embeddings?: EmbeddingsPort;
   readonly registro?: RegistroPort;
   readonly ahora?: () => Date;
+  /** Apaga la mitad semántica aunque haya proveedor. Para pruebas y soporte. */
+  readonly forzarSoloTexto?: boolean;
 };
+
+/** Marca que queda en la metadata del trozo indexado sin vectorizar. */
+export const MARCA_SIN_VECTORIZAR = "sinVectorizar";
 
 /**
  * Calcula qué se conserva, qué se escribe y qué se borra.
@@ -125,6 +137,10 @@ export async function indexarDocumento(
   const { db, embeddings } = deps;
   const ahora = deps.ahora ?? ((): Date => new Date());
   const { documento, opciones } = input;
+  const modo: ModoConocimiento = modoEfectivo({
+    embeddings,
+    ...(deps.forzarSoloTexto === undefined ? {} : { forzarSoloTexto: deps.forzarSoloTexto }),
+  });
 
   const fuente = await db.registrarFuente({
     workspaceId: input.workspaceId,
@@ -151,6 +167,7 @@ export async function indexarDocumento(
       trozosReutilizados: trozos.length,
       trozosEliminados: 0,
       textosIncrustados: 0,
+      modo,
       estado: "indexed",
       necesitaOcr: documento.necesitaOcr === true,
     };
@@ -179,6 +196,7 @@ export async function indexarDocumento(
       trozosReutilizados: 0,
       trozosEliminados: 0,
       textosIncrustados: 0,
+      modo,
       estado: "stale",
       necesitaOcr: documento.necesitaOcr === true,
       aviso,
@@ -202,26 +220,39 @@ export async function indexarDocumento(
       trozosExistentes: existentes.map((t) => ({ id: t.id, posicion: t.posicion, hash: t.hash })),
     });
 
-    // Atajo nº2: solo se incrusta lo que de verdad cambió.
-    const vectores = await incrustarPorLotes(
-      embeddings,
-      plan.aIncrustar.map((t) => t.contenido),
-      opciones?.loteEmbeddings ?? LOTE_EMBEDDINGS,
-    );
+    // Atajo nº2: solo se incrusta lo que de verdad cambió. Y en modo solo
+    // texto no se incrusta NADA: ni una llamada, ni un céntimo, ni un 401.
+    const vectores =
+      modo === "completo" && embeddings
+        ? await incrustarPorLotes(
+            embeddings,
+            plan.aIncrustar.map((t) => t.contenido),
+            opciones?.loteEmbeddings ?? LOTE_EMBEDDINGS,
+          )
+        : [];
 
-    const escribir: TrozoAEscribir[] = plan.aIncrustar.map((t, i) => ({
-      posicion: t.posicion,
-      contenido: t.contenido,
-      hash: t.hash,
-      tokens: t.tokensEstimados,
-      embedding: vectores[i] ?? [],
-      metadata: {
-        titulo: documento.titulo,
-        ruta: t.rutaEncabezados,
-        ...(documento.uri ? { uri: documento.uri } : {}),
-        modelo: embeddings.modelo,
-      },
-    }));
+    const escribir: TrozoAEscribir[] = plan.aIncrustar.map((t, i) => {
+      const vector = vectores[i];
+      return {
+        posicion: t.posicion,
+        contenido: t.contenido,
+        hash: t.hash,
+        tokens: t.tokensEstimados,
+        // Sin vector se omite la clave: el adaptador escribe `NULL` y el trozo
+        // sigue entrando en la mitad léxica de `search_knowledge`.
+        ...(vector ? { embedding: vector } : {}),
+        metadata: {
+          titulo: documento.titulo,
+          ruta: t.rutaEncabezados,
+          ...(documento.uri ? { uri: documento.uri } : {}),
+          ...(vector
+            ? { modelo: embeddings?.modelo ?? null }
+            : // Queda anotado para que el reindexado posterior sepa qué recorrer
+              // y para que nadie confunda «sin vector» con «mal indexado».
+              { [MARCA_SIN_VECTORIZAR]: true, modo: "solo-texto" }),
+        },
+      };
+    });
 
     const planEscritura: PlanEscritura = {
       fuenteId: fuente.id,
@@ -237,6 +268,7 @@ export async function indexarDocumento(
       estado: "indexed",
       hashContenido: hash,
       detalle: null,
+      metadata: { modo, ...(modo === "solo-texto" ? { [MARCA_SIN_VECTORIZAR]: true } : {}) },
       indexadoEn: ahora(),
     });
 
@@ -248,9 +280,17 @@ export async function indexarDocumento(
       trozosNuevos: plan.aIncrustar.length,
       trozosReutilizados: plan.conservar.length,
       trozosEliminados: plan.eliminar.length,
-      textosIncrustados: plan.aIncrustar.length,
+      textosIncrustados: vectores.length,
+      modo,
       estado: "indexed",
       necesitaOcr: false,
+      ...(modo === "solo-texto"
+        ? {
+            aviso:
+              "El contenido quedó buscable por coincidencia de palabras. " +
+              "Cuando se configure el proveedor de búsqueda por significado, se completa sin volver a subir nada.",
+          }
+        : {}),
     };
   } catch (error) {
     const detalle = error instanceof Error ? error.message : String(error);

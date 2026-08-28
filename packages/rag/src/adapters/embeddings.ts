@@ -8,12 +8,19 @@
  * esquema: cambiarla obliga a reindexar todo.
  */
 import { embedMany } from "ai";
+import {
+  detectarModoConocimiento,
+  hayProveedorDeEmbeddings,
+  type Entorno,
+} from "../modo.js";
 import type { EmbeddingsPort, ModelTiersPort } from "../ports.js";
 
 export const MODELO_EMBED_POR_DEFECTO = "openai/text-embedding-3-small";
 export const DIMENSION_ESPERADA = 1536;
 
 export type OpcionesEmbeddings = {
+  /** Entorno a inspeccionar. Por defecto, `process.env`. */
+  readonly entorno?: Entorno;
   /** Se consulta una vez y se memoriza: no se pide el modelo por cada lote. */
   readonly modelTiers?: ModelTiersPort;
   readonly modo?: "lite" | "max";
@@ -71,4 +78,32 @@ export function crearEmbeddings(opciones: OpcionesEmbeddings = {}): EmbeddingsPo
       return embeddings;
     },
   };
+}
+
+/**
+ * El gancho para encender el modo completo sin tocar código.
+ *
+ * Devuelve `null` cuando no hay clave de embeddings, y entonces el Cerebro se
+ * monta sin proveedor y trabaja en modo solo texto (ver `modo.ts`: la cartera
+ * del proyecto es OpenRouter y OpenRouter no tiene endpoint de embeddings).
+ * El día que se ponga `OPENAI_API_KEY` esta misma función devuelve un puerto
+ * real, la ingesta empieza a vectorizar y `completarPendientes()` rellena lo
+ * anterior. Nada más que cambiar: ni un despliegue de código, ni una migración.
+ *
+ * `text-embedding-3-small` cuesta 0,02 USD por millón de tokens: indexar el
+ * catálogo entero de un cliente cuesta céntimos.
+ */
+export function crearEmbeddingsSiHayProveedor(
+  opciones: OpcionesEmbeddings = {},
+): (EmbeddingsPort & { resolverModelo(): Promise<string> }) | null {
+  const entorno = opciones.entorno;
+  const hay = entorno ? hayProveedorDeEmbeddings(entorno) : hayProveedorDeEmbeddings();
+  return hay ? crearEmbeddings(opciones) : null;
+}
+
+/** Diagnóstico del modo tal como lo ve este adaptador. Útil para registrarlo. */
+export function diagnosticoEmbeddings(entorno?: Entorno): ReturnType<
+  typeof detectarModoConocimiento
+> {
+  return entorno ? detectarModoConocimiento(entorno) : detectarModoConocimiento();
 }

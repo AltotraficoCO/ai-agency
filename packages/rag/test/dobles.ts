@@ -9,6 +9,8 @@ import type {
   FetchPort,
   PlanEscritura,
   RespuestaHttp,
+  RevectorizadoDbPort,
+  TrozoSinVector,
 } from "../src/ports.js";
 import type { FilaBusqueda } from "../src/types.js";
 
@@ -29,16 +31,25 @@ type FilaTrozo = {
   posicion: number;
   hash: string;
   contenido: string;
-  embedding: readonly number[];
+  /** `null` = indexado en modo solo texto. Es exactamente lo que hay en la tabla. */
+  embedding: readonly number[] | null;
+  metadata: Record<string, unknown>;
 };
 
-export class DbFalsa implements ConocimientoDbPort {
+export class DbFalsa implements ConocimientoDbPort, RevectorizadoDbPort {
   readonly fuentes = new Map<string, FilaFuente>();
   readonly trozos = new Map<string, FilaTrozo>();
   private secuencia = 0;
   /** Se puede sustituir para simular latencia o error en la búsqueda. */
-  respuestaBusqueda: (input: { consulta: string; k: number }) => Promise<readonly FilaBusqueda[]> =
-    async () => [];
+  respuestaBusqueda: (input: {
+    consulta: string;
+    k: number;
+    embedding: readonly number[] | null;
+  }) => Promise<readonly FilaBusqueda[]> = async () => [];
+  /** Vectores tal como llegaron a `search_knowledge`, en orden de llamada. */
+  readonly vectoresRecibidos: (readonly number[] | null)[] = [];
+  /** Modelos con los que se completaron trozos pendientes. */
+  readonly modelosDeRevectorizado: string[] = [];
 
   async cerebrosDeAgente(): Promise<readonly { id: string; workspaceId: string; nombre: string; idioma: string; modeloEmbedding: string }[]> {
     return [{ id: "cerebro-1", workspaceId: "ws", nombre: "Cerebro", idioma: "spanish", modeloEmbedding: "openai/text-embedding-3-small" }];
@@ -111,13 +122,45 @@ export class DbFalsa implements ConocimientoDbPort {
         posicion: nuevo.posicion,
         hash: nuevo.hash,
         contenido: nuevo.contenido,
-        embedding: nuevo.embedding ?? [],
+        embedding: nuevo.embedding ?? null,
+        metadata: { ...nuevo.metadata },
       });
     }
   }
 
-  async buscar(input: { consulta: string; k: number }): Promise<readonly FilaBusqueda[]> {
-    return this.respuestaBusqueda({ consulta: input.consulta, k: input.k });
+  async buscar(input: {
+    consulta: string;
+    k: number;
+    embedding: readonly number[] | null;
+  }): Promise<readonly FilaBusqueda[]> {
+    this.vectoresRecibidos.push(input.embedding);
+    return this.respuestaBusqueda({ consulta: input.consulta, k: input.k, embedding: input.embedding });
+  }
+
+  async trozosSinVector(input: { limite: number }): Promise<readonly TrozoSinVector[]> {
+    return [...this.trozos.values()]
+      .filter((t) => t.embedding === null)
+      .sort((a, b) => a.posicion - b.posicion)
+      .slice(0, input.limite)
+      .map((t) => ({
+        id: t.id,
+        fuenteId: t.fuenteId,
+        cerebroId: "cerebro-1",
+        contenido: t.contenido,
+      }));
+  }
+
+  async guardarVectores(input: {
+    modelo: string;
+    vectores: readonly { id: string; embedding: readonly number[] }[];
+  }): Promise<void> {
+    this.modelosDeRevectorizado.push(input.modelo);
+    for (const v of input.vectores) {
+      const fila = this.trozos.get(v.id);
+      if (!fila) throw new Error(`trozo desconocido ${v.id}`);
+      fila.embedding = v.embedding;
+      fila.metadata = { ...fila.metadata, modelo: input.modelo, sinVectorizar: false };
+    }
   }
 
   async fuentesPorId(input: { ids: readonly string[] }): Promise<ReadonlyMap<string, { titulo: string; uri: string | null }>> {

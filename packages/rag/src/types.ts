@@ -1,3 +1,5 @@
+import type { ModoConocimiento } from "./modo.js";
+
 /**
  * Tipos del Cerebro.
  *
@@ -133,6 +135,11 @@ export type ResultadoIngesta = {
   readonly trozosEliminados: number;
   /** Llamadas de embedding realmente hechas. En una repetición debe ser 0. */
   readonly textosIncrustados: number;
+  /**
+   * Con qué mitad de la búsqueda quedó indexado. En «solo-texto» los trozos se
+   * guardan sin vector y quedan buscables por palabras desde el primer momento.
+   */
+  readonly modo: ModoConocimiento;
   readonly estado: EstadoFuente;
   readonly necesitaOcr: boolean;
   readonly aviso?: string;
@@ -153,4 +160,11 @@ export type ExplicacionBusqueda = {
   }[];
   readonly degradado: boolean;
   readonly milisegundos: number;
+  readonly modo: ModoConocimiento;
+  /**
+   * Cómo está buscando el cerebro, en español llano y sin jerga. Es lo que lee
+   * quien pulsa «Pruébalo» y no tiene por qué saber qué es una búsqueda
+   * semántica.
+   */
+  readonly explicacion: string;
 };

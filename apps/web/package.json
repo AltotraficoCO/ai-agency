@@ -7,10 +7,12 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/provider": "3.0.15",
+    "@ai-sdk/react": "3.0.274",
     "@codemirror/lang-markdown": "^6.5.2",
     "@codemirror/language": "^6.12.4",
     "@codemirror/state": "^6.7.1",
@@ -20,6 +22,7 @@
     "@strappy/rag": "workspace:*",
     "@strappy/tools": "workspace:*",
     "@strappy/ui": "workspace:*",
+    "@strappy/whatsapp": "workspace:*",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
     "@uiw/react-codemirror": "^4.25.11",
@@ -29,7 +32,9 @@
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "recharts": "^3.10.1",
     "server-only": "^0.0.1",
+    "stripe": "^22.6.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -41,7 +46,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   },
   "packageManager": "pnpm@11.17.0"
 }

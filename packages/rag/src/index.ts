@@ -12,6 +12,8 @@ export * from "./texto.js";
 export * from "./trocear.js";
 export * from "./indexar.js";
 export * from "./recuperar.js";
+export * from "./modo.js";
+export * from "./revectorizar.js";
 export * from "./verificar.js";
 export * from "./cerebro.js";
 export * from "./ingest/html.js";

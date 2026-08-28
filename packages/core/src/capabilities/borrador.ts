@@ -189,3 +189,123 @@ function aPendiente(pregunta: CapabilityQuestion): PreguntaPendiente {
     ...(pregunta.allowFreeText === true ? { allowFreeText: true } : {}),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Claves: la red de seguridad
+// ---------------------------------------------------------------------------
+
+/**
+ * Todas las rutas que una capacidad conoce, en notación de punto.
+ *
+ * Salen del ESQUEMA del borrador, no de las preguntas: hay campos que ninguna
+ * pregunta cubre —`hace`, `noHace`, `escalar`— y que el meta-agente escribe y
+ * puede necesitar preguntar. Derivarlas del esquema significa además que
+ * añadir un campo al borrador lo hace preguntable sin tocar nada más.
+ */
+export function rutasConocidas(capacidad: CapabilityDef): readonly string[] {
+  const rutas = new Set<string>(rutasDelEsquema(capacidad.draftSchema));
+  for (const fase of capacidad.phases) {
+    for (const pregunta of fase.questions) rutas.add(pregunta.key);
+  }
+  return [...rutas];
+}
+
+/**
+ * Las rutas de un esquema Zod, hasta dos niveles.
+ *
+ * Dos niveles es lo que hay y lo que debe haber: un borrador con tres niveles
+ * de anidamiento no lo rellena bien ningún modelo, y tampoco lo edita bien
+ * ninguna persona en un checklist.
+ */
+function rutasDelEsquema(esquema: unknown, prefijo = "", profundidad = 0): string[] {
+  const forma = formaDeObjeto(esquema);
+  if (!forma) return [];
+
+  const rutas: string[] = [];
+  for (const [clave, valor] of Object.entries(forma)) {
+    const ruta = prefijo ? `${prefijo}.${clave}` : clave;
+    rutas.push(ruta);
+    if (profundidad < 1) rutas.push(...rutasDelEsquema(valor, ruta, profundidad + 1));
+  }
+  return rutas;
+}
+
+/** Desenvuelve `.optional()`, `.default()` y compañía hasta dar con el objeto. */
+function formaDeObjeto(esquema: unknown): Record<string, unknown> | null {
+  let actual = esquema;
+  for (let i = 0; i < 6; i++) {
+    if (actual === null || typeof actual !== "object") return null;
+    const def = (actual as { _def?: { type?: string; shape?: unknown; innerType?: unknown } })._def;
+    const forma = (actual as { shape?: unknown }).shape;
+    if (forma && typeof forma === "object") return forma as Record<string, unknown>;
+    const interno = def?.innerType;
+    if (!interno) return null;
+    actual = interno;
+  }
+  return null;
+}
+
+/**
+ * Normaliza la clave que escribió el modelo.
+ *
+ * Los modelos económicos escriben `agente_nombre` en vez de `agente.nombre`
+ * con una regularidad deprimente. Traducirlo cuesta una línea y ahorra un
+ * turno entero de corrección que la persona lee como un tartamudeo. Lo que NO
+ * se hace es adivinar: si después de normalizar la clave sigue sin existir, se
+ * devuelve `null` y quien llama decide —normalmente, rechazar con un mensaje
+ * que el modelo pueda corregir en el mismo turno.
+ */
+export function normalizarClave(
+  clave: string,
+  capacidad: CapabilityDef,
+): string | null {
+  const rutas = rutasConocidas(capacidad);
+  const limpia = clave.trim();
+  if (rutas.includes(limpia)) return limpia;
+
+  const conPuntos = limpia.replace(/_/g, ".");
+  if (rutas.includes(conPuntos)) return conPuntos;
+
+  // `nombre_del_agente` → la ruta que termina en `.nombre` es la única
+  // candidata razonable; con dos candidatas no se adivina.
+  const cola = limpia.split(/[._]/).pop() ?? "";
+  const candidatas = rutas.filter((r) => r === cola || r.endsWith(`.${cola}`));
+  return candidatas.length === 1 ? candidatas[0]! : null;
+}
+
+/**
+ * Endereza un parcial antes de fundirlo.
+ *
+ * `{"agente_nombre": "Espiga"}` se convierte en `{"agente": {"nombre": …}}`.
+ * Lo que no se puede enderezar se rechaza con la lista de rutas válidas, que
+ * es un mensaje que el modelo puede corregir en el mismo turno; el esquema, en
+ * cambio, solo sabe decir «entrada inválida».
+ */
+export function normalizarParcial(
+  parcial: Borrador,
+  capacidad: CapabilityDef,
+): Borrador {
+  const rutas = rutasConocidas(capacidad);
+  let salida: Borrador = {};
+  const rechazadas: string[] = [];
+
+  for (const [clave, valor] of Object.entries(parcial)) {
+    if (rutas.includes(clave)) {
+      salida[clave] = valor;
+      continue;
+    }
+    const enderezada = normalizarClave(clave, capacidad);
+    if (enderezada === null) {
+      rechazadas.push(clave);
+      continue;
+    }
+    salida = escribirEnRuta(salida, enderezada, valor);
+  }
+
+  if (rechazadas.length > 0) {
+    throw new BorradorInvalidoError([
+      `estas claves no existen: ${rechazadas.join(", ")}. Las válidas son: ${rutas.join(", ")}`,
+    ]);
+  }
+  return salida;
+}

@@ -12,6 +12,7 @@
  *     uno que lo tiene; uno que deja a la persona esperando en visto es mucho
  *     peor que los dos.
  */
+import { explicacionDelModo, modoEfectivo, type ModoConocimiento } from "./modo.js";
 import type { ConocimientoDbPort, EmbeddingsPort, RegistroPort } from "./ports.js";
 import {
   AJUSTES_POR_DEFECTO,
@@ -99,6 +100,9 @@ export type ResultadoRecuperacion = {
   /** True si se agotó el tiempo o falló algo: el turno sigue sin conocimiento. */
   readonly degradado: boolean;
   readonly milisegundos: number;
+  readonly modo: ModoConocimiento;
+  /** Cómo buscó, en español llano. Alimenta el botón «Pruébalo». */
+  readonly explicacion: string;
 };
 
 /**
@@ -112,9 +116,16 @@ export function aplicarUmbral(
   filas: readonly FilaBusqueda[],
   ajustes: AjustesRecuperacion,
   limite: number,
+  modo: ModoConocimiento = "completo",
 ): readonly (FilaBusqueda & { usado: boolean; motivo: string })[] {
   if (filas.length === 0) return [];
   const umbral = UMBRALES[ajustes.exigencia];
+  // En modo solo texto no existe distancia: no se buscó por significado. El
+  // corte se hace por posición (el límite de fragmentos) y por la fuerza
+  // relativa del `ts_rank`, que es lo que la fusión RRF ya ordenó. Aplicar
+  // aquí un umbral de distancia sería descartarlo todo por no tener un dato
+  // que en este modo no puede existir.
+  const distanciaMaxima = modo === "solo-texto" ? null : umbral.distanciaMaxima;
   const mejor = Math.max(...filas.map((f) => f.puntuacion));
   const minimo = mejor * umbral.fraccionDelMejor;
 
@@ -128,9 +139,9 @@ export function aplicarUmbral(
     // no tener distancia: es justo el caso que la parte léxica existe para
     // rescatar.
     if (
-      umbral.distanciaMaxima !== null &&
+      distanciaMaxima !== null &&
       fila.distancia !== null &&
-      fila.distancia > umbral.distanciaMaxima
+      fila.distancia > distanciaMaxima
     ) {
       return { ...fila, usado: false, motivo: "se parece poco a la pregunta" };
     }
@@ -139,11 +150,13 @@ export function aplicarUmbral(
     }
     admitidos += 1;
     const via =
-      fila.rangoVectorial !== null && fila.rangoLexico !== null
-        ? "coincide por significado y por palabras"
-        : fila.rangoVectorial !== null
-          ? "coincide por significado"
-          : "coincide por palabras exactas";
+      modo === "solo-texto"
+        ? "coincide por palabras exactas"
+        : fila.rangoVectorial !== null && fila.rangoLexico !== null
+          ? "coincide por significado y por palabras"
+          : fila.rangoVectorial !== null
+            ? "coincide por significado"
+            : "coincide por palabras exactas";
     return { ...fila, usado: true, motivo: via };
   });
 }
@@ -175,10 +188,12 @@ async function conTope<T>(
 
 export type DepsRecuperacion = {
   readonly db: ConocimientoDbPort;
-  readonly embeddings: EmbeddingsPort;
+  /** Ausente = modo solo texto: se busca con `qvec = null`. Ver `modo.ts`. */
+  readonly embeddings?: EmbeddingsPort;
   readonly registro?: RegistroPort;
   readonly timeoutMs?: number;
   readonly ahora?: () => number;
+  readonly forzarSoloTexto?: boolean;
 };
 
 export async function recuperar(
@@ -198,17 +213,38 @@ export async function recuperar(
   const consulta = componerConsulta(input.turnosUsuario);
   const reloj = deps.ahora ?? ((): number => Date.now());
   const inicio = reloj();
+  const modo = modoEfectivo({
+    embeddings: deps.embeddings,
+    ...(deps.forzarSoloTexto === undefined ? {} : { forzarSoloTexto: deps.forzarSoloTexto }),
+  });
+  const explicacion = explicacionDelModo(modo);
 
   if (consulta === "" || input.cerebroIds.length === 0) {
-    return { consulta, fragmentos: [], candidatos: [], degradado: false, milisegundos: 0 };
+    return {
+      consulta,
+      fragmentos: [],
+      candidatos: [],
+      degradado: false,
+      milisegundos: 0,
+      modo,
+      explicacion,
+    };
   }
 
   const timeout = deps.timeoutMs ?? TIMEOUT_MS;
   // Embedding y búsqueda comparten el mismo tope: al motor le da igual dónde
   // se fue el tiempo, lo que no puede es esperar más de 800 ms en total.
   const resultado = await conTope(async (signal) => {
-    const [embedding] = await deps.embeddings.incrustar([consulta]);
-    if (!embedding) throw new Error("el proveedor no devolvió ningún vector");
+    // En modo solo texto se manda `null` como vector: la rama vectorial de
+    // `search_knowledge` lleva `and qvec is not null`, se queda vacía y la
+    // fusión RRF devuelve solo los resultados léxicos. Sin SQL nuevo y sin
+    // gastar una sola llamada de embedding.
+    let embedding: readonly number[] | null = null;
+    if (modo === "completo" && deps.embeddings) {
+      const [vector] = await deps.embeddings.incrustar([consulta]);
+      if (!vector) throw new Error("el proveedor no devolvió ningún vector");
+      embedding = vector;
+    }
     // Se piden más filas de las que se van a usar: el umbral descarta, y sin
     // margen una sola fila floja dejaría la respuesta sin contexto.
     const filas = await deps.db.buscar({
@@ -230,10 +266,18 @@ export async function recuperar(
       milisegundos,
       consulta,
     });
-    return { consulta, fragmentos: [], candidatos: [], degradado: true, milisegundos };
+    return {
+      consulta,
+      fragmentos: [],
+      candidatos: [],
+      degradado: true,
+      milisegundos,
+      modo,
+      explicacion,
+    };
   }
 
-  const candidatos = aplicarUmbral(resultado.valor, ajustes, limite);
+  const candidatos = aplicarUmbral(resultado.valor, ajustes, limite, modo);
   const usados = candidatos.filter((c) => c.usado);
   const fuentes = await citarFuentes(deps.db, input.workspaceId, usados);
 
@@ -256,6 +300,8 @@ export async function recuperar(
     candidatos,
     degradado: false,
     milisegundos,
+    modo,
+    explicacion,
   };
 }
 

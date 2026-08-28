@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Los paquetes del monorepo se publican en TypeScript sin compilar: Next los
   // transpila con el resto de la aplicación.
-  transpilePackages: ["@strappy/ui", "@strappy/core", "@strappy/db", "@strappy/tools", "@strappy/rag"],
+  transpilePackages: ["@strappy/ui", "@strappy/core", "@strappy/db", "@strappy/tools", "@strappy/rag", "@strappy/whatsapp"],
 
   // `pg` carga sus dialectos con require dinámico; empaquetarlo lo rompe.
   serverExternalPackages: ["pg"],

@@ -57,7 +57,8 @@ export function preguntasHeuristicas(trozos: readonly Trozo[], cuantas: number):
 
 export type DepsVerificacion = {
   readonly db: ConocimientoDbPort;
-  readonly embeddings: EmbeddingsPort;
+  /** Ausente = modo solo texto: se verifica contra la búsqueda por palabras. */
+  readonly embeddings?: EmbeddingsPort;
   readonly generador?: GeneradorPreguntasPort;
   readonly registro?: RegistroPort;
   /** La verificación no compite con una conversación: puede tardar más. */
@@ -96,7 +97,7 @@ export async function verificarFuente(
     const r = await recuperar(
       {
         db: deps.db,
-        embeddings: deps.embeddings,
+        ...(deps.embeddings ? { embeddings: deps.embeddings } : {}),
         // La verificación corre en segundo plano, no dentro de un turno: aquí
         // degradar por 800 ms falsearía la medida.
         timeoutMs: deps.timeoutMs ?? 15_000,

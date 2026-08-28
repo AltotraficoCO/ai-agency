@@ -10,13 +10,20 @@
  * conocimiento. Es lo correcto —un agente mudo es peor que uno sin catálogo—
  * pero conviene saberlo al leer una respuesta genérica en desarrollo.
  */
-import { Cerebro, crearEmbeddings } from "@strappy/rag";
+import { Cerebro, crearEmbeddingsSiHayProveedor } from "@strappy/rag";
 import type { PuertosDeBase, TenantScope } from "@strappy/db";
 
 export function crearCerebro(scope: TenantScope, puertos: PuertosDeBase): Cerebro {
+  const embeddings = crearEmbeddingsSiHayProveedor({ modelTiers: puertos.modelTiers });
+
   return new Cerebro({
     db: puertos.conocimiento,
-    embeddings: crearEmbeddings({ modelTiers: puertos.modelTiers }),
+    // Sin proveedor de embeddings el cerebro entra en modo "solo texto" en vez
+    // de fallar: encuentra por coincidencia de palabras, que es gratis y sirve
+    // para nombres de producto, precios y referencias exactas. OpenRouter, que
+    // es nuestra cartera, no ofrece embeddings; basta anadir OPENAI_API_KEY
+    // para que el modo completo se active solo, sin tocar codigo.
+    ...(embeddings ? { embeddings } : {}),
     turnos: {
       async ultimosTurnosUsuario({ workspaceId, conversationId, cuantos }) {
         scope.assertSameWorkspace(workspaceId);

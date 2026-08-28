@@ -13,6 +13,7 @@ import type {
   IdCerebro,
   IdFuente,
   TipoFuente,
+  IdTrozo,
   Trozo,
   TrozoGuardado,
 } from "./types.js";
@@ -112,7 +113,15 @@ export interface ConocimientoDbPort {
      * nada. Se pasa tal cual al tercer argumento de `search_knowledge`.
      */
     consulta: string;
-    embedding: readonly number[];
+    /**
+     * Vector de la pregunta, o `null` en modo solo texto.
+     *
+     * `search_knowledge` acepta `qvec = null` sin error: su rama vectorial
+     * lleva `and qvec is not null`, así que se queda vacía y la fusión RRF
+     * devuelve solo la mitad léxica. Por eso el modo solo texto no necesita ni
+     * una línea de SQL nueva: basta con no mandar vector.
+     */
+    embedding: readonly number[] | null;
     k: number;
     signal?: AbortSignal;
   }): Promise<readonly FilaBusqueda[]>;
@@ -133,6 +142,37 @@ export interface EmbeddingsPort {
   readonly modelo: string;
   /** Orden de salida = orden de entrada. */
   incrustar(textos: readonly string[]): Promise<readonly (readonly number[])[]>;
+}
+
+/** Un trozo guardado que todavía no tiene vector. Materia prima del reindexado. */
+export type TrozoSinVector = {
+  readonly id: IdTrozo;
+  readonly fuenteId: IdFuente;
+  readonly cerebroId: IdCerebro;
+  readonly contenido: string;
+};
+
+/**
+ * Puerto del reindexado posterior.
+ *
+ * Va aparte de `ConocimientoDbPort` a propósito: solo hace falta el día que
+ * aparezca un proveedor de embeddings, y separarlo permite montarlo entonces
+ * sin tocar nada de lo que ya funciona.
+ */
+export interface RevectorizadoDbPort {
+  /** Trozos con `embedding IS NULL`, en lotes. El orden debe ser estable. */
+  trozosSinVector(input: {
+    workspaceId: string;
+    cerebroId?: IdCerebro;
+    limite: number;
+  }): Promise<readonly TrozoSinVector[]>;
+
+  /** Escribe SOLO el vector (y el modelo en la metadata). No re-trocea nada. */
+  guardarVectores(input: {
+    workspaceId: string;
+    modelo: string;
+    vectores: readonly { id: IdTrozo; embedding: readonly number[] }[];
+  }): Promise<void>;
 }
 
 /** Resuelve el modelo de la tarea `embed` desde `model_tiers`. */
