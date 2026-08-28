@@ -116,6 +116,17 @@ function makeScope(conn: SqlExecutor, workspaceId: Uuid): TenantScope {
 export interface WorkerClientOptions {
   /** Statement timeout por transaccion, en milisegundos. */
   statementTimeoutMs?: number;
+  /**
+   * Rol que se asume dentro de la transaccion, p.ej. `strappy_worker`.
+   *
+   * `strappy_worker` se crea NOLOGIN a proposito: no es un rol al que uno se
+   * conecte, es un rol al que uno BAJA. Quien se conecta lo hace con una
+   * cuenta con permiso de conexion y aqui renuncia a sus privilegios para lo
+   * que queda de transaccion. Asi el codigo de aplicacion nunca corre con
+   * BYPASSRLS, que es justo lo que convierte un join mal escrito en una fuga
+   * entre clientes.
+   */
+  assumeRole?: string;
 }
 
 export interface WorkerClient {
@@ -151,6 +162,12 @@ export function createWorkerClient(pool: SqlPool, options: WorkerClientOptions =
       const conn = await pool.connect();
       try {
         await conn.query('begin');
+        if (options.assumeRole) {
+          if (!/^[a-z_][a-z0-9_]*$/.test(options.assumeRole)) {
+            throw new Error(`Nombre de rol invalido: ${options.assumeRole}`);
+          }
+          await conn.query(`set local role ${options.assumeRole}`);
+        }
         // SET LOCAL no acepta parametros vinculados: por eso se valida el UUID.
         await conn.query(`set local app.workspace_id = '${id}'`);
         await conn.query(`set local statement_timeout = ${Number(timeout) | 0}`);
