@@ -1,0 +1,324 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   Strappy · sistema de diseño
+   El color codifica quién habla: índigo = la IA, fucsia = el humano.
+   Esta es la única fuente de verdad visual del producto.
+   ========================================================================= */
+
+@theme {
+  /* ── Marca: índigo (la IA, acciones primarias) ─────────────────────────── */
+  --color-brand-50:  #EFEFFE;
+  --color-brand-100: #E0DFFD;
+  --color-brand-200: #C6C3FB;
+  --color-brand-300: #A49EF8;
+  --color-brand-400: #8479F4;
+  --color-brand-500: #6355F0;
+  --color-brand-600: #4F3EE0;
+  --color-brand-700: #4130BE;
+  --color-brand-800: #362A96;
+  --color-brand-900: #2F2777;
+  --color-brand-950: #1B1746;
+
+  /* ── Acento: fucsia (el humano, control manual) ────────────────────────── */
+  --color-human-50:  #FDF0F8;
+  --color-human-100: #FBE0F1;
+  --color-human-200: #F8C2E3;
+  --color-human-300: #F396CE;
+  --color-human-400: #EC6BB6;
+  --color-human-500: #E549A0;
+  --color-human-600: #C92C81;
+  --color-human-700: #A31F67;
+  --color-human-800: #7D1A50;
+  --color-human-900: #5C1540;
+
+  /* ── Neutros fríos (matiz azulado, no gris puro) ───────────────────────── */
+  --color-ink-0:   #FFFFFF;
+  --color-ink-25:  #FAFBFD;
+  --color-ink-50:  #F4F5F8;
+  --color-ink-100: #EDEFF4;
+  --color-ink-200: #DFE3EB;
+  --color-ink-300: #C3CAD8;
+  --color-ink-400: #98A1B5;
+  --color-ink-500: #7C8699;
+  --color-ink-600: #55607A;
+  --color-ink-700: #3A4356;
+  --color-ink-800: #2A313F;
+  --color-ink-850: #1F2531;
+  --color-ink-900: #161A22;
+  --color-ink-925: #101319;
+  --color-ink-950: #0B0D12;
+  --color-ink-975: #07090D;
+
+  /* ── Semánticos ────────────────────────────────────────────────────────── */
+  --color-success-50:  #E9FBF0;
+  --color-success-100: #CDF5DC;
+  --color-success-400: #4ADE80;
+  --color-success-500: #22C55E;
+  --color-success-600: #16A34A;
+  --color-success-700: #157F3C;
+
+  --color-warning-50:  #FFF8E6;
+  --color-warning-100: #FDEEC2;
+  --color-warning-400: #FBBF24;
+  --color-warning-500: #F0A511;
+  --color-warning-600: #C4820A;
+  --color-warning-700: #96650B;
+
+  --color-danger-50:  #FEECEC;
+  --color-danger-100: #FCD5D5;
+  --color-danger-400: #F87171;
+  --color-danger-500: #EF4444;
+  --color-danger-600: #DC2626;
+  --color-danger-700: #B31B1B;
+
+  --color-info-50:  #E8F3FE;
+  --color-info-100: #CFE5FC;
+  --color-info-400: #60A5FA;
+  --color-info-500: #3B82F6;
+  --color-info-600: #2563EB;
+  --color-info-700: #1D4FD1;
+
+  /* Color de terceros: solo en el logotipo del canal y su punto de estado. */
+  --color-whatsapp: #25D366;
+
+  /* ── Tipografía ────────────────────────────────────────────────────────── */
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont,
+               "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular,
+               "SF Mono", Menlo, Consolas, monospace;
+
+  --text-2xs: 0.6875rem;  --text-2xs--line-height: 1rem;      /* 11/16 */
+  --text-xs:  0.75rem;    --text-xs--line-height: 1rem;       /* 12/16 */
+  --text-sm:  0.8125rem;  --text-sm--line-height: 1.125rem;   /* 13/18 */
+  --text-base:0.875rem;   --text-base--line-height: 1.25rem;  /* 14/20 — cuerpo de UI */
+  --text-md:  0.9375rem;  --text-md--line-height: 1.375rem;   /* 15/22 — burbujas de chat */
+  --text-lg:  1rem;       --text-lg--line-height: 1.375rem;   /* 16/22 */
+  --text-xl:  1.125rem;   --text-xl--line-height: 1.5rem;     /* 18/24 — título de página */
+  --text-2xl: 1.375rem;   --text-2xl--line-height: 1.75rem;   /* 22/28 */
+  --text-3xl: 1.75rem;    --text-3xl--line-height: 2rem;      /* 28/32 — cifra de KPI */
+  --text-4xl: 2rem;       --text-4xl--line-height: 2.375rem;  /* 32/38 — saludo del inicio */
+
+  --tracking-tightest: -0.03em;
+  --tracking-tight:    -0.015em;
+  --tracking-wide:      0.04em;
+
+  --spacing: 0.25rem;
+
+  /* ── Radios ────────────────────────────────────────────────────────────── */
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius-md:   8px;   /* botón, input, select */
+  --radius-lg:   10px;  /* popover, dropdown, toast */
+  --radius-xl:   14px;  /* card, panel, modal */
+  --radius-2xl:  18px;  /* burbuja de chat, composer */
+  --radius-full: 9999px;
+
+  /* ── Alturas de control ────────────────────────────────────────────────── */
+  --size-control-xs: 24px;
+  --size-control-sm: 30px;
+  --size-control-md: 36px;
+  --size-control-lg: 44px;
+  --size-row:        44px;
+  --size-row-head:   40px;
+  --size-topbar:     52px;
+  --size-sidebar:    248px;
+  --size-rail:       64px;
+
+  /* ── Motion ────────────────────────────────────────────────────────────── */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring:    cubic-bezier(0.34, 1.4, 0.64, 1);
+  --dur-instant: 90ms;
+  --dur-fast:    140ms;
+  --dur-base:    200ms;
+  --dur-slow:    320ms;
+}
+
+/* ============================================================================
+   Semánticas por tema. Oscuro primero.
+   Regla de elevación: en oscuro cada nivel SUBE la superficie y añade borde;
+   en claro cada nivel añade SOMBRA real y mantiene el blanco.
+   ========================================================================= */
+
+@layer base {
+  :root {
+    color-scheme: dark;
+
+    --s-canvas:   #07090D;
+    --s-page:     #0B0D12;
+    --s-nav:      #101319;
+    --s-raised:   #161A22;
+    --s-overlay:  #1C212B;
+    --s-inset:    #0D1015;
+    --s-hover:    #1B2029;
+    --s-active:   #222836;
+    --s-selected: #1A1B36;
+
+    --border-subtle:  #1B2130;
+    --border-default: #262E3D;
+    --border-strong:  #3A4356;
+    --border-focus:   #8479F4;
+
+    --fg-default:   #E8EBF2;
+    --fg-secondary: #9AA3B5;
+    --fg-muted:     #6B7488;
+    --fg-disabled:  #4A5265;
+    --fg-on-brand:  #FFFFFF;
+    --fg-on-human:  #FFFFFF;
+    --fg-inverse:   #0B0D12;
+
+    --brand:        #6355F0;
+    --brand-hover:  #7264F5;
+    --brand-active: #4F3EE0;
+    --brand-fg:     #A49EF8;
+    --brand-soft:   #1A1740;
+    --brand-ring:   #8479F4;
+
+    --human:      #E549A0;
+    --human-fg:   #F396CE;
+    --human-soft: #37122A;
+
+    --success: #22C55E; --success-fg: #4ADE80; --success-soft: #0E2A1A;
+    --warning: #F0A511; --warning-fg: #FBBF24; --warning-soft: #2E2209;
+    --danger:  #EF4444; --danger-fg:  #F87171; --danger-soft:  #2E1213;
+    --info:    #3B82F6; --info-fg:    #60A5FA; --info-soft:    #0F1F3D;
+
+    --shadow-1: 0 1px 2px 0 rgb(0 0 0 / 0.40);
+    --shadow-2: 0 4px 12px -2px rgb(0 0 0 / 0.50), 0 1px 2px 0 rgb(0 0 0 / 0.40);
+    --shadow-3: 0 16px 40px -8px rgb(0 0 0 / 0.62), 0 2px 6px 0 rgb(0 0 0 / 0.40);
+    --shadow-inner-top: inset 0 1px 0 0 rgb(255 255 255 / 0.04);
+
+    --scrim: rgb(3 5 9 / 0.72);
+    --skeleton-from: #161A22;
+    --skeleton-to:   #222836;
+  }
+
+  .light {
+    color-scheme: light;
+
+    --s-canvas:   #EEF0F5;
+    --s-page:     #F4F5F8;
+    --s-nav:      #FFFFFF;
+    --s-raised:   #FFFFFF;
+    --s-overlay:  #FFFFFF;
+    --s-inset:    #F7F8FB;
+    --s-hover:    #F1F3F7;
+    --s-active:   #E8EBF1;
+    --s-selected: #EFEEFE;
+
+    --border-subtle:  #EDEFF4;
+    --border-default: #DFE3EB;
+    --border-strong:  #C3CAD8;
+    --border-focus:   #6355F0;
+
+    --fg-default:   #10131A;
+    --fg-secondary: #55607A;
+    --fg-muted:     #7C8699;
+    --fg-disabled:  #A9B1C1;
+    --fg-on-brand:  #FFFFFF;
+    --fg-on-human:  #FFFFFF;
+    --fg-inverse:   #FFFFFF;
+
+    --brand:        #5947EE;
+    --brand-hover:  #4F3EE0;
+    --brand-active: #4130BE;
+    --brand-fg:     #4F3EE0;
+    --brand-soft:   #EFEEFE;
+    --brand-ring:   #6355F0;
+
+    --human:      #C92C81;
+    --human-fg:   #A31F67;
+    --human-soft: #FDF0F8;
+
+    --success: #16A34A; --success-fg: #157F3C; --success-soft: #E9FBF0;
+    --warning: #C4820A; --warning-fg: #96650B; --warning-soft: #FFF8E6;
+    --danger:  #DC2626; --danger-fg:  #B31B1B; --danger-soft:  #FEECEC;
+    --info:    #2563EB; --info-fg:    #1D4FD1; --info-soft:    #E8F3FE;
+
+    --shadow-1: 0 1px 2px 0 rgb(16 19 26 / 0.06),
+                0 1px 1px -0.5px rgb(16 19 26 / 0.04);
+    --shadow-2: 0 2px 4px -1px rgb(16 19 26 / 0.07),
+                0 8px 16px -4px rgb(16 19 26 / 0.08);
+    --shadow-3: 0 4px 8px -2px rgb(16 19 26 / 0.08),
+                0 24px 48px -12px rgb(16 19 26 / 0.18);
+    --shadow-inner-top: none;
+
+    --scrim: rgb(16 19 26 / 0.40);
+    --skeleton-from: #EDEFF4;
+    --skeleton-to:   #F7F8FB;
+  }
+}
+
+/* Puente: expone las semánticas como utilidades de Tailwind (bg-raised, text-fg-muted…). */
+@theme inline {
+  --color-canvas:   var(--s-canvas);
+  --color-page:     var(--s-page);
+  --color-nav:      var(--s-nav);
+  --color-raised:   var(--s-raised);
+  --color-overlay:  var(--s-overlay);
+  --color-inset:    var(--s-inset);
+  --color-hover:    var(--s-hover);
+  --color-active:   var(--s-active);
+  --color-selected: var(--s-selected);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border:        var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  --color-fg:           var(--fg-default);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-muted:     var(--fg-muted);
+  --color-fg-disabled:  var(--fg-disabled);
+  --color-fg-inverse:   var(--fg-inverse);
+
+  --color-primary:      var(--brand);
+  --color-primary-fg:   var(--brand-fg);
+  --color-primary-soft: var(--brand-soft);
+  --color-on-primary:   var(--fg-on-brand);
+
+  --color-human:      var(--human);
+  --color-human-fg:   var(--human-fg);
+  --color-human-soft: var(--human-soft);
+
+  --color-success: var(--success); --color-success-fg: var(--success-fg); --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning); --color-warning-fg: var(--warning-fg); --color-warning-soft: var(--warning-soft);
+  --color-danger:  var(--danger);  --color-danger-fg:  var(--danger-fg);  --color-danger-soft:  var(--danger-soft);
+  --color-info:    var(--info);    --color-info-fg:    var(--info-fg);    --color-info-soft:    var(--info-soft);
+
+  --shadow-e1: var(--shadow-1);
+  --shadow-e2: var(--shadow-2);
+  --shadow-e3: var(--shadow-3);
+}
+
+@layer base {
+  * { border-color: var(--border-default); }
+
+  html { font-size: 16px; }
+
+  body {
+    background: var(--s-page);
+    color: var(--fg-default);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.4286;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Cifras tabulares en datos; nunca en prosa. */
+  table, .tnum, [data-numeric] { font-variant-numeric: tabular-nums; }
+
+  :focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

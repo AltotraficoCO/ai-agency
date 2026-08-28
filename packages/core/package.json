@@ -1,0 +1,16 @@
+{
+  "name": "@strappy/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ai": "6.0.271",
+    "zod": "^4.4.3"
+  }
+}

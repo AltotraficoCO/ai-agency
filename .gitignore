@@ -1,0 +1,17 @@
+node_modules/
+.next/
+dist/
+.turbo/
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
+.DS_Store
+.vercel/
+storybook-static/
+
+# Capturas de referencia de la competencia (no versionadas, pesan mucho)
+.playwright-mcp/
+*.png

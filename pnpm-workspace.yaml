@@ -1,0 +1,5 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+minimumReleaseAgeExclude:
+  - ai@6.0.271
