@@ -62,9 +62,25 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   },
   ref,
 ) {
-  const Comp = asChild ? Slot : "button";
+  // Con `asChild` el hijo (normalmente un enlace) recibe los estilos y se
+  // renderiza tal cual. No se envuelve ni se le anade el indicador de carga:
+  // `Slot` exige un unico hijo y con dos lanza "Slot failed to slot onto its
+  // children". Ademas un enlace de navegacion no tiene estado de carga, asi que
+  // `loading` no aplica aqui, y por eso el tipo lo prohibe.
+  if (asChild) {
+    return (
+      <Slot
+        ref={ref}
+        className={cn(buttonVariants({ variant, size }), className)}
+        {...props}
+      >
+        {children}
+      </Slot>
+    );
+  }
+
   return (
-    <Comp
+    <button
       ref={ref}
       className={cn(buttonVariants({ variant, size }), className)}
       disabled={disabled ?? loading}
@@ -81,7 +97,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
           <Spinner size={size === "sm" ? "sm" : "md"} label={loadingLabel} />
         </span>
       )}
-    </Comp>
+    </button>
   );
 });
 
