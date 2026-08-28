@@ -1,0 +1,21 @@
+{
+  "name": "@strappy/analysis",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@strappy/core": "workspace:*",
+    "ai": "6.0.271",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.11"
+  }
+}

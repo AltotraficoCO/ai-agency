@@ -2,6 +2,7 @@ export * from "./types/message.js";
 export * from "./registry/channel.js";
 export * from "./registry/agent-type.js";
 export * from "./registry/capability.js";
+export * from "./capabilities/index.js";
 export * from "./prompt/index.js";
 export * from "./engine/index.js";
 export * from "./credits/index.js";

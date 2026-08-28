@@ -65,6 +65,19 @@ export type OpcionesCartera = {
   readonly apiKey?: string;
   /** Inyectable en tests para no salir a la red. */
   readonly fetch?: typeof globalThis.fetch;
+  /**
+   * Si el modelo puede "pensar" antes de responder.
+   *
+   * Varios modelos economicos razonan por defecto, y eso se paga: medido
+   * contra GLM-4.7-flash, una respuesta de una frase gasta 60 tokens de
+   * salida pensando en vez de 16, cuesta cuatro veces mas y encima **llega
+   * vacia** si el tope de tokens se agota antes de escribir. En una
+   * conversacion de WhatsApp no aporta nada y solo anade latencia.
+   *
+   * Por eso el valor por defecto es `false`. Se activa a proposito para
+   * tareas donde equivocarse sale caro, como construir un agente.
+   */
+  readonly razonamiento?: boolean;
 };
 
 /**
@@ -87,16 +100,37 @@ export function crearResolvedorDeModelo(opciones: OpcionesCartera = {}) {
     );
   }
 
+  const razonamiento = opciones.razonamiento ?? false;
+  const fetchBase = opciones.fetch ?? globalThis.fetch;
+
+  // El parametro `reasoning` no forma parte del protocolo de OpenAI, asi que
+  // se inyecta en el cuerpo. Hacerlo aqui y no en cada llamada evita que a
+  // alguien se le olvide y pague de mas sin enterarse.
+  const fetchConRazonamiento: typeof globalThis.fetch = async (input, init) => {
+    if (!init?.body || typeof init.body !== "string") {
+      return fetchBase(input, init);
+    }
+    try {
+      const cuerpo = JSON.parse(init.body) as Record<string, unknown>;
+      cuerpo["reasoning"] = { enabled: razonamiento };
+      return fetchBase(input, { ...init, body: JSON.stringify(cuerpo) });
+    } catch {
+      // Si el cuerpo no es JSON, no es una llamada de chat: pasa sin tocar.
+      return fetchBase(input, init);
+    }
+  };
+
   const proveedor = createOpenAICompatible({
     name: cartera,
     baseURL: config.baseURL,
     apiKey,
     ...(config.headers ? { headers: config.headers } : {}),
-    ...(opciones.fetch ? { fetch: opciones.fetch } : {}),
+    fetch: fetchConRazonamiento,
   });
 
   return {
     cartera,
+    razonamiento,
     resolver(modelo: string): LanguageModel {
       return proveedor(traducirId(modelo, cartera));
     },

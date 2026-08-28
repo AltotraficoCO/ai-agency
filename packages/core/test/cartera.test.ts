@@ -50,3 +50,33 @@ describe("seleccion automatica de modelo", () => {
     expect(c.chain.length).toBeGreaterThan(0);
   });
 });
+
+describe("razonamiento", () => {
+  it("lo desactiva por defecto e inyecta el parametro en el cuerpo", async () => {
+    // Medido contra GLM-4.7-flash: razonando gasta 60 tokens de salida en una
+    // frase y llega vacia si se agota el tope; sin razonar gasta 16. Cuatro
+    // veces mas barato y sin respuestas cortadas.
+    let cuerpoEnviado: unknown = null;
+    const fetchEspia = (async (_url: unknown, init: { body?: string }) => {
+      cuerpoEnviado = JSON.parse(init.body ?? "{}");
+      return new Response(JSON.stringify({ choices: [], usage: {} }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof globalThis.fetch;
+
+    const r = crearResolvedorDeModelo({ apiKey: "sk-prueba", fetch: fetchEspia });
+    expect(r.razonamiento).toBe(false);
+
+    const modelo = r.resolver("zai/glm-4.7-flash");
+    await modelo.doGenerate({ prompt: [{ role: "user", content: [{ type: "text", text: "hola" }] }] })
+      .catch(() => undefined); // la respuesta vacia hace fallar el parseo; da igual, ya espiamos el cuerpo
+
+    expect((cuerpoEnviado as { reasoning?: unknown })?.reasoning).toEqual({ enabled: false });
+  });
+
+  it("se puede activar a proposito para construir agentes", () => {
+    const r = crearResolvedorDeModelo({ apiKey: "sk-prueba", razonamiento: true });
+    expect(r.razonamiento).toBe(true);
+  });
+});
