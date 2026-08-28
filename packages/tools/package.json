@@ -1,5 +1,5 @@
 {
-  "name": "@strappy/core",
+  "name": "@strappy/tools",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -15,7 +15,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@ai-sdk/provider": "3.0.15",
     "vitest": "^4.1.11"
   }
 }
