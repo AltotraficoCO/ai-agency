@@ -1,0 +1,377 @@
+/**
+ * Doble de la REST API de WordPress.
+ *
+ * Es un WordPress de mentira con estado en memoria: responde en las mismas
+ * rutas, con las mismas formas (`title.rendered` frente a `title.raw`, el
+ * `context=edit` que hace falta para leer el HTML crudo, el 401 sin
+ * credenciales) y guarda de verdad lo que se escribe. Las respuestas están
+ * calcadas de lo que el cliente del proyecto anterior lee, que es la mejor
+ * fuente disponible de "cómo responde de verdad esta API".
+ *
+ * Sirve para probar el agente entero sin un WordPress delante. No sustituye a
+ * una prueba contra un sitio real, y el reporte lo dice.
+ */
+
+export type PaginaDoble = {
+  id: number;
+  tipo: "page" | "post";
+  titulo: string;
+  contenido: string;
+  slug: string;
+  status: string;
+  meta: Record<string, unknown>;
+};
+
+export type EstadoWordPress = {
+  nombre: string;
+  usuario: string;
+  appPassword: string;
+  /** El plugin conector instalado: sin él no se pueden escribir metas de Elementor. */
+  conectorInstalado: boolean;
+  contenido: PaginaDoble[];
+  ajustes: Record<string, unknown>;
+  plugins: { plugin: string; name: string; status: string; version: string }[];
+  comentarios: { id: number; author_name: string; content: { rendered: string }; status: string; post: number }[];
+  usuarios: { id: number; name: string; email: string; roles: string[] }[];
+};
+
+export type DobleWordPress = {
+  readonly estado: EstadoWordPress;
+  readonly fetch: typeof globalThis.fetch;
+  /** Peticiones vistas, para poder afirmar que NO se llamó a algo. */
+  readonly llamadas: { metodo: string; ruta: string }[];
+};
+
+export const BASE_DOBLE = "https://ejemplo.test";
+
+export function estadoInicial(): EstadoWordPress {
+  return {
+    nombre: "Panadería Aurora",
+    usuario: "admin",
+    appPassword: "abcd EFGH ijkl MNOP qrst UVWX",
+    conectorInstalado: true,
+    contenido: [
+      {
+        id: 2,
+        tipo: "page",
+        titulo: "Inicio",
+        contenido: "<p>Pan de verdad, todos los días.</p>",
+        slug: "inicio",
+        status: "publish",
+        meta: {},
+      },
+      {
+        id: 7,
+        tipo: "page",
+        titulo: "Nuestra historia",
+        contenido: "<p>Abrimos en 1998 en el barrio.</p>",
+        slug: "nuestra-historia",
+        status: "publish",
+        meta: {},
+      },
+      {
+        id: 11,
+        tipo: "page",
+        titulo: "Planes y precios",
+        contenido: "<p>Suscripción semanal: 20 €</p>",
+        slug: "planes-y-precios",
+        status: "publish",
+        meta: {},
+      },
+      {
+        id: 21,
+        tipo: "post",
+        titulo: "Masa madre en casa",
+        contenido: "<p>Receta paso a paso.</p>",
+        slug: "masa-madre-en-casa",
+        status: "publish",
+        meta: {},
+      },
+    ],
+    ajustes: {
+      title: "Panadería Aurora",
+      description: "Pan artesano desde 1998",
+      show_on_front: "page",
+      page_on_front: 2,
+      posts_per_page: 10,
+    },
+    plugins: [
+      { plugin: "elementor/elementor", name: "Elementor", status: "active", version: "3.25.0" },
+      { plugin: "akismet/akismet", name: "Akismet", status: "inactive", version: "5.3" },
+    ],
+    comentarios: [
+      {
+        id: 100,
+        author_name: "Marta",
+        content: { rendered: "¡Riquísimo!" },
+        status: "hold",
+        post: 21,
+      },
+    ],
+    usuarios: [{ id: 1, name: "admin", email: "admin@ejemplo.test", roles: ["administrator"] }],
+  };
+}
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function error(codigo: string, mensaje: string, status: number): Response {
+  return json({ code: codigo, message: mensaje, data: { status } }, status);
+}
+
+/** Renderiza el sitio como lo vería un visitante, para `verificar_http`. */
+function html(estado: EstadoWordPress, ruta: string): Response {
+  const slug = ruta.replace(/^\/|\/$/g, "");
+  const portadaId = estado.ajustes.page_on_front;
+  const pagina =
+    slug === ""
+      ? estado.contenido.find((c) => c.id === portadaId)
+      : estado.contenido.find((c) => c.slug === slug);
+  if (!pagina) return new Response("<html><body>404</body></html>", { status: 404 });
+  return new Response(
+    `<!doctype html><html><head><title>${pagina.titulo}</title></head><body><h1>${pagina.titulo}</h1>${pagina.contenido}</body></html>`,
+    { status: 200, headers: { "content-type": "text/html" } },
+  );
+}
+
+export function crearDobleWordPress(
+  inicial: Partial<EstadoWordPress> = {},
+  base = BASE_DOBLE,
+): DobleWordPress {
+  const estado: EstadoWordPress = { ...estadoInicial(), ...inicial };
+  const llamadas: { metodo: string; ruta: string }[] = [];
+  let siguienteId = 100;
+
+  const autorizado = (req: Request | RequestInit | undefined): boolean => {
+    const crudas = (req as RequestInit | undefined)?.headers;
+    const headers = new Headers((crudas ?? {}) as Record<string, string>);
+    const auth = headers.get("authorization") ?? "";
+    if (!auth.startsWith("Basic ")) return false;
+    const [usuario, ...resto] = Buffer.from(auth.slice(6), "base64").toString("utf8").split(":");
+    return usuario === estado.usuario && resto.join(":") === estado.appPassword;
+  };
+
+  const fetchDoble: typeof globalThis.fetch = async (entrada, init) => {
+    const url = new URL(typeof entrada === "string" ? entrada : String(entrada));
+    if (`${url.protocol}//${url.host}` !== base) {
+      throw new Error(`El doble solo atiende ${base}, y se pidió ${url.href}`);
+    }
+    const metodo = (init?.method ?? "GET").toUpperCase();
+    const ruta = url.pathname;
+    llamadas.push({ metodo, ruta });
+    const cuerpo = (): Record<string, unknown> =>
+      init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : {};
+
+    // Un archivo estático cualquiera: lo pide `wp_subir_media` al descargar.
+    if (/\.(png|jpe?g|gif|webp|svg)$/i.test(ruta)) {
+      return new Response(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), {
+        status: 200,
+        headers: { "content-type": "image/png" },
+      });
+    }
+
+    // --- Fuera de la REST API: el sitio tal cual lo ve un visitante ---
+    if (!ruta.startsWith("/wp-json")) return html(estado, ruta);
+
+    // --- Descubrimiento (público) ---
+    if (ruta === "/wp-json" || ruta === "/wp-json/") {
+      return json({ name: estado.nombre, description: estado.ajustes.description });
+    }
+
+    if (!autorizado(init)) {
+      return error("rest_not_logged_in", "No estás conectado actualmente.", 401);
+    }
+
+    if (ruta === "/wp-json/wp/v2/users/me") return json({ id: 1, name: estado.usuario });
+
+    // --- API del plugin conector ---
+    if (ruta === "/wp-json/strappy/v1/elementor/pagina") {
+      if (!estado.conectorInstalado) return error("rest_no_route", "No existe la ruta.", 404);
+      const b = cuerpo();
+      const paginaId = typeof b.pagina_id === "number" ? b.pagina_id : undefined;
+      const destino = paginaId
+        ? estado.contenido.find((c) => c.id === paginaId)
+        : (() => {
+            const nueva: PaginaDoble = {
+              id: ++siguienteId,
+              tipo: "page",
+              titulo: String(b.titulo ?? ""),
+              contenido: "",
+              slug: String(b.titulo ?? "pagina").toLowerCase().replace(/\s+/g, "-"),
+              status: "publish",
+              meta: {},
+            };
+            estado.contenido.push(nueva);
+            return nueva;
+          })();
+      if (!destino) return error("rest_post_invalid_id", "Identificador inválido.", 404);
+      destino.titulo = String(b.titulo ?? destino.titulo);
+      destino.meta._elementor_data = JSON.stringify(b.data ?? []);
+      destino.meta._elementor_edit_mode = "builder";
+      return json({ id: destino.id, link: `${base}/${destino.slug}/` });
+    }
+    if (ruta === "/wp-json/strappy/v1/elementor/header") {
+      if (!estado.conectorInstalado) return error("rest_no_route", "No existe la ruta.", 404);
+      return json({ id: ++siguienteId });
+    }
+    if (ruta.startsWith("/wp-json/strappy/")) return error("rest_no_route", "No existe la ruta.", 404);
+
+    // --- Ajustes ---
+    if (ruta === "/wp-json/wp/v2/settings") {
+      if (metodo === "POST") {
+        Object.assign(estado.ajustes, cuerpo());
+        return json(estado.ajustes);
+      }
+      return json(estado.ajustes);
+    }
+
+    // --- Plugins ---
+    if (ruta === "/wp-json/wp/v2/plugins") {
+      if (metodo === "POST") {
+        const slug = String(cuerpo().slug ?? "");
+        const ya = estado.plugins.find((p) => p.plugin.startsWith(`${slug}/`));
+        if (ya) return error("folder_exists", "El destino ya existe.", 500);
+        const nuevo = {
+          plugin: `${slug}/${slug}`,
+          name: slug,
+          status: "active",
+          version: "1.0.0",
+        };
+        estado.plugins.push(nuevo);
+        return json(nuevo, 201);
+      }
+      return json(estado.plugins);
+    }
+    if (ruta.startsWith("/wp-json/wp/v2/plugins/")) {
+      const id = decodeURIComponent(ruta.slice("/wp-json/wp/v2/plugins/".length));
+      const p = estado.plugins.find((x) => x.plugin === id);
+      if (!p) return error("rest_plugin_not_found", "Plugin no encontrado.", 404);
+      if (metodo === "PUT") {
+        p.status = String(cuerpo().status ?? p.status);
+        return json(p);
+      }
+      if (metodo === "DELETE") {
+        if (p.status === "active") {
+          return error("rest_cannot_delete_active_plugin", "Está activo.", 400);
+        }
+        estado.plugins = estado.plugins.filter((x) => x.plugin !== id);
+        return json({ deleted: true, previous: p });
+      }
+      return json(p);
+    }
+
+    // --- Comentarios ---
+    if (ruta === "/wp-json/wp/v2/comments") {
+      const estadoPedido = url.searchParams.get("status") ?? "hold";
+      return json(estado.comentarios.filter((c) => c.status === estadoPedido));
+    }
+    if (ruta.startsWith("/wp-json/wp/v2/comments/")) {
+      const id = Number(ruta.split("/").pop());
+      const c = estado.comentarios.find((x) => x.id === id);
+      if (!c) return error("rest_comment_invalid_id", "Comentario inválido.", 404);
+      c.status = String(cuerpo().status ?? c.status);
+      return json({ id: c.id, status: c.status });
+    }
+
+    // --- Usuarios ---
+    if (ruta === "/wp-json/wp/v2/users") {
+      if (metodo === "POST") {
+        const b = cuerpo();
+        const nuevo = {
+          id: ++siguienteId,
+          name: String(b.username ?? ""),
+          email: String(b.email ?? ""),
+          roles: [String(b.role ?? "subscriber")],
+        };
+        estado.usuarios.push(nuevo);
+        return json(nuevo, 201);
+      }
+      return json(estado.usuarios);
+    }
+    if (ruta.startsWith("/wp-json/wp/v2/users/")) {
+      const id = Number(ruta.split("/").pop());
+      const u = estado.usuarios.find((x) => x.id === id);
+      if (!u) return error("rest_user_invalid_id", "Usuario inválido.", 404);
+      const roles = cuerpo().roles;
+      if (Array.isArray(roles)) u.roles = roles.map(String);
+      return json(u);
+    }
+
+    // --- Taxonomías ---
+    if (ruta === "/wp-json/wp/v2/categories" || ruta === "/wp-json/wp/v2/tags") {
+      const b = cuerpo();
+      return json({ id: ++siguienteId, name: String(b.name ?? "") }, 201);
+    }
+
+    // --- Medios ---
+    if (ruta === "/wp-json/wp/v2/media") {
+      return json({ id: ++siguienteId, source_url: `${base}/wp-content/uploads/archivo.png` }, 201);
+    }
+
+    // --- Contenido ---
+    const coleccion = /^\/wp-json\/wp\/v2\/(pages|posts)$/.exec(ruta);
+    if (coleccion) {
+      const tipo = coleccion[1] === "pages" ? "page" : "post";
+      if (metodo === "POST") {
+        const b = cuerpo();
+        const nueva: PaginaDoble = {
+          id: ++siguienteId,
+          tipo,
+          titulo: String(b.title ?? ""),
+          contenido: String(b.content ?? ""),
+          slug: String(b.title ?? "sin-titulo").toLowerCase().replace(/[^\w]+/g, "-"),
+          status: String(b.status ?? "publish"),
+          // Sin el plugin conector, WordPress ignora en silencio los metas no
+          // registrados. Ese silencio es justo el fallo que hay que reproducir.
+          meta: estado.conectorInstalado ? ((b.meta as Record<string, unknown>) ?? {}) : {},
+        };
+        estado.contenido.push(nueva);
+        return json(vista(nueva, base, true), 201);
+      }
+      return json(estado.contenido.filter((c) => c.tipo === tipo).map((c) => vista(c, base, false)));
+    }
+
+    const item = /^\/wp-json\/wp\/v2\/(pages|posts)\/(\d+)$/.exec(ruta);
+    if (item) {
+      const tipo = item[1] === "pages" ? "page" : "post";
+      const id = Number(item[2]);
+      const c = estado.contenido.find((x) => x.id === id && x.tipo === tipo);
+      if (!c) return error("rest_post_invalid_id", "Identificador inválido.", 404);
+      if (metodo === "POST") {
+        const b = cuerpo();
+        if (b.title !== undefined) c.titulo = String(b.title);
+        if (b.content !== undefined) c.contenido = String(b.content);
+        if (b.status !== undefined) c.status = String(b.status);
+        if (b.meta !== undefined && estado.conectorInstalado) {
+          Object.assign(c.meta, b.meta as Record<string, unknown>);
+        }
+        return json(vista(c, base, true));
+      }
+      if (metodo === "DELETE") {
+        c.status = "trash";
+        return json({ id: c.id, status: "trash" });
+      }
+      return json(vista(c, base, url.searchParams.get("context") === "edit"));
+    }
+
+    return error("rest_no_route", `No existe la ruta ${ruta}.`, 404);
+  };
+
+  return { estado, fetch: fetchDoble, llamadas };
+}
+
+function vista(c: PaginaDoble, base: string, edit: boolean) {
+  return {
+    id: c.id,
+    title: edit ? { raw: c.titulo, rendered: c.titulo } : { rendered: c.titulo },
+    content: edit ? { raw: c.contenido, rendered: c.contenido } : { rendered: c.contenido },
+    link: `${base}/${c.slug}/`,
+    status: c.status,
+    slug: c.slug,
+    meta: c.meta,
+  };
+}

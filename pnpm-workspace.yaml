@@ -2,6 +2,10 @@ packages:
   - "apps/*"
   - "packages/*"
 allowBuilds:
+  # esbuild lo arrastra `tsx`, que es como arranca apps/worker. Su script de
+  # instalación solo comprueba el binario de la plataforma; declinarlo
+  # explícitamente evita que cada `pnpm install` termine en error.
+  esbuild: false
   unrs-resolver: false
 minimumReleaseAgeExclude:
   - ai@6.0.271

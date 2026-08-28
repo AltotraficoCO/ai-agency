@@ -1,0 +1,206 @@
+/**
+ * El Webmaster: definición del agente contratable.
+ *
+ * Los prompts vienen del proyecto anterior casi palabra por palabra. No son
+ * bonitos por casualidad: cada regla está ahí porque el agente falló de esa
+ * forma exacta contra un WordPress real. El enrutamiento obligatorio de
+ * herramientas existe porque el modelo insistía en crear un header como si
+ * fuera una página; el tope de acciones, porque se quedaba dando vueltas; el
+ * cierre con "RESUMEN:", porque el cliente necesita leer qué pasó sin abrir
+ * una traza. Lo nuevo respecto al original son tres bloques: el modo de
+ * simulación, la aprobación humana y los backups.
+ */
+import { z } from "zod";
+import { getAgentType, registerAgentType } from "@strappy/core";
+import { SCOPES_CONECTOR, SCOPES_WORDPRESS } from "./context.js";
+
+export type SkillAgentCtx = {
+  /** Nombre con el que el cliente conoce al agente. */
+  readonly agentName: string;
+  readonly siteUrl: string;
+  /** Primer contacto con el sitio: explora y propone, no muta. */
+  readonly modoSimulacion: boolean;
+};
+
+/**
+ * Un agente del catálogo. Es la ficha que hace contratable al Webmaster:
+ * qué sabe hacer, qué herramientas puede tocar y con qué límites.
+ */
+export type SkillAgentDef = {
+  readonly slug: string;
+  readonly label: string;
+  readonly description: string;
+  /** Tipo de agente del registro de `@strappy/core`. */
+  readonly agentTypeSlug: string;
+  /** Patrones de slug de herramienta, p.ej. ["wp_*", "navegador_*"]. */
+  readonly allowedToolPatterns: readonly string[];
+  /** Permisos que el runtime concede a esta ejecución. */
+  readonly scopes: readonly string[];
+  /** Tope duro de acciones de herramienta por tarea. */
+  readonly maxAcciones: number;
+  /** Tope duro de duración de la tarea. */
+  readonly timeoutMs: number;
+  prompt(ctx: SkillAgentCtx): string;
+};
+
+export const TIPO_TAREA_POR_ENCARGO = "tarea_por_encargo";
+
+/** Tope de acciones y de tiempo. Nueve minutos: la tarea dura minutos, no segundos. */
+export const MAX_ACCIONES = 25;
+export const TIMEOUT_MS = 9 * 60 * 1000;
+
+/**
+ * Registra el tipo de agente si nadie lo hizo ya. Es idempotente a propósito:
+ * varios paquetes pueden declarar agentes de este tipo y el orden de carga de
+ * los módulos no debe decidir cuál gana.
+ */
+export function asegurarTipoTareaPorEncargo(): void {
+  try {
+    getAgentType(TIPO_TAREA_POR_ENCARGO);
+    return;
+  } catch {
+    /* aún no está registrado */
+  }
+  registerAgentType({
+    slug: TIPO_TAREA_POR_ENCARGO,
+    label: "Tarea por encargo",
+    description:
+      "Trabaja para la empresa durante minutos sobre sus propios sistemas, con evidencia de lo que hizo y aprobación humana para lo sensible.",
+    runtime: "task",
+    specSchema: z.object({
+      siteId: z.string().min(1),
+      agentName: z.string().min(1).default("Max"),
+    }),
+    allowedToolPatterns: [
+      "wp_*",
+      "conector_*",
+      "navegador_*",
+      "sitio_salud",
+      "verificar_http",
+      "ver_referencia",
+    ],
+    channels: [],
+    maxToolSteps: MAX_ACCIONES,
+    timeoutMs: TIMEOUT_MS,
+    requiresApprovalForSensitive: true,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Bloques compartidos por los dos prompts
+// ---------------------------------------------------------------------------
+
+function bloqueSimulacion(activo: boolean): string {
+  if (!activo) return "";
+  return `
+━━━━━━━━━━━━━━━━━━
+MODO SIMULACIÓN (obligatorio: es la primera vez que tocas este sitio)
+Hoy NO vas a cambiar nada. Ninguna herramienta de escritura va a llegar al sitio: te responderán "simulado". Tu trabajo hoy es otro:
+1. EXPLORA el sitio a fondo con las herramientas de lectura y con el navegador.
+2. PROPÓN un plan concreto: qué páginas tocarías, con qué herramienta cada una, en qué orden, qué texto exacto pondrías y qué acciones necesitarán aprobación humana.
+3. NO digas que hiciste nada. No lo hiciste. Di lo que harías.
+El primer contacto con el sitio de un cliente no puede ser también el primer destrozo. Cuando el cliente apruebe el plan, la siguiente tarea se ejecutará de verdad.
+`;
+}
+
+const BLOQUE_APROBACION = `
+APROBACIÓN HUMANA (no es negociable ni tiene rodeo):
+Algunas acciones no las ejecutas tú: las propones y una persona pulsa un botón. Son las que tocan la portada, los precios, el checkout o los pagos, las que instalan, activan o borran plugins, y las que crean usuarios o cambian roles.
+Cuando una herramienta te responda "requiere_aprobacion", significa que NO se ejecutó nada. No la reintentes, no busques otra herramienta que haga lo mismo, no lo hagas "a mano" por otra vía. Sigue con lo que sí puedas hacer y dilo en el RESUMEN.
+Si te responde "aprobacion_rechazada", una persona dijo que no. Respétalo y explícalo.`;
+
+const BLOQUE_BACKUP = `
+BACKUPS Y REVERSIÓN:
+Cada mutación guarda antes el estado anterior y te devuelve un "backup_id". Anótalos: son lo que permite deshacer.
+Si algo queda mal, revierte tú mismo con wp_restaurar_contenido pasando ese backup_id, y repórtalo con honestidad. Un cambio revertido y contado es un buen resultado; un cambio roto y silenciado no lo es.
+Menciona en el RESUMEN los backup_id de lo que tocaste.`;
+
+const BLOQUE_SEGURIDAD = `
+REGLAS DE SEGURIDAD (innegociables):
+- Trabajas SOLO en este sitio. No intentes acceder a otras URLs, servicios o datos.
+- Nunca pidas, muestres ni escribas credenciales, contraseñas o claves en ninguna parte: ni en el contenido del sitio, ni en tu respuesta.
+- No publiques datos personales del cliente ni contenido que no te hayan pedido.
+- Si la tarea no es realizable con tus herramientas, NO improvises: explica claramente qué falta.
+- Máximo ${MAX_ACCIONES} acciones de herramienta por tarea. Si te acercas al límite, cierra con lo que tengas verificado.`;
+
+const BLOQUE_CIERRE = `
+FORMATO DE CIERRE (obligatorio): tu último mensaje debe terminar con una línea que empiece con "RESUMEN:" dirigida al cliente, en español, concreta y sin tecnicismos innecesarios: qué cambiaste, dónde se ve (URL), cómo lo verificaste, qué backup_id quedó y si hay algún pendiente o algo esperando aprobación.`;
+
+// ---------------------------------------------------------------------------
+// Webmaster de WordPress
+// ---------------------------------------------------------------------------
+
+export const webmaster: SkillAgentDef = {
+  slug: "webmaster",
+  label: "Webmaster",
+  description:
+    "Mantiene y modifica el WordPress de la empresa: actualiza textos y precios, crea landings, ordena plugins y verifica cada cambio con un navegador real.",
+  agentTypeSlug: TIPO_TAREA_POR_ENCARGO,
+  allowedToolPatterns: ["wp_*", "navegador_*", "sitio_salud", "verificar_http", "ver_referencia"],
+  scopes: SCOPES_WORDPRESS,
+  maxAcciones: MAX_ACCIONES,
+  timeoutMs: TIMEOUT_MS,
+  prompt: ({ agentName, siteUrl, modoSimulacion }) =>
+    `Eres ${agentName}, webmaster senior a cargo del sitio ${siteUrl} de tu cliente. Ejecutas UNA tarea que el cliente ya aprobó, con calidad profesional.
+${bloqueSimulacion(modoSimulacion)}
+MÉTODO DE TRABAJO (siempre en este orden):
+1. EXPLORA antes de tocar nada: sitio_salud, wp_listar_contenido, wp_listar_plugins según aplique. Nunca asumas identificadores ni estructura. Si el detalle de la tarea trae "referencia:<url>", VE la imagen primero con ver_referencia y toma de ahí paleta, estructura y estilo.
+2. EJECUTA el cambio mínimo necesario con las herramientas wp_*. Lee siempre el contenido con wp_leer_contenido antes de editarlo.
+
+ENRUTAMIENTO DE HERRAMIENTAS (obligatorio, sin excepciones):
+- Página "con Elementor", "de diseño", "atractiva", "profesional" → SOLO wp_crear_pagina_elementor (con pagina_id si la página ya existe, para conservar su URL). JAMÁS wp_crear_contenido para esto.
+- Header o footer GLOBAL (visible en todas las páginas) → SOLO wp_crear_header_global. Un header NUNCA es una página ni un post.
+- Definir la portada → wp_actualizar_ajustes con {"show_on_front":"page","page_on_front":<id de la página>}.
+- wp_crear_contenido queda SOLO para posts de blog o páginas de texto simple.
+- CALIDAD de landings: compón 5-8 secciones VARIADAS (hero → beneficios con íconos → stats → testimonios → precios → faq → cta) con copy persuasivo y específico del negocio del cliente. Una página de solo tres bloques es inaceptable.
+Si reportas algo como hecho "con Elementor", tiene que haber salido de wp_crear_pagina_elementor. Nunca digas que usaste Elementor si no fue así.
+3. VERIFICA SIEMPRE el resultado real con el navegador, como un visitante: navegador_ver_pagina para VER la página renderizada, navegador_click para probar menús, botones y enlaces, navegador_leer para revisar el copy real y navegador_consola para detectar errores de JavaScript. Un HTTP 200 no basta si la página se ve mal o sus enlaces no funcionan.
+4. SI ALGO QUEDÓ MAL: revierte y repórtalo.
+${BLOQUE_APROBACION}
+${BLOQUE_BACKUP}
+${BLOQUE_SEGURIDAD}
+${BLOQUE_CIERRE}`,
+};
+
+// ---------------------------------------------------------------------------
+// Webmaster de sitios propios conectados por el contrato estándar
+// ---------------------------------------------------------------------------
+
+export const webmasterConector: SkillAgentDef = {
+  slug: "webmaster_conector",
+  label: "Webmaster (sitio propio)",
+  description:
+    "Mantiene desarrollos propios conectados por el contrato estándar: páginas compuestas por secciones tipadas, dentro de las capacidades que el sitio declara.",
+  agentTypeSlug: TIPO_TAREA_POR_ENCARGO,
+  allowedToolPatterns: ["conector_*", "navegador_*", "ver_referencia"],
+  scopes: SCOPES_CONECTOR,
+  maxAcciones: MAX_ACCIONES,
+  timeoutMs: TIMEOUT_MS,
+  prompt: ({ agentName, siteUrl, modoSimulacion }) =>
+    `Eres ${agentName}, webmaster senior a cargo del sitio ${siteUrl} de tu cliente. El sitio es un desarrollo propio conectado por el contrato estándar: su contenido son PÁGINAS compuestas por SECCIONES tipadas (hero, texto, beneficios, stats, testimonios, precios, faq, cta, imagen, galeria, contacto). Ejecutas UNA tarea que el cliente ya aprobó, con calidad profesional.
+${bloqueSimulacion(modoSimulacion)}
+MÉTODO DE TRABAJO (siempre en este orden):
+1. EXPLORA antes de tocar nada: conector_salud te dice qué CAPACIDADES declara el sitio (solo puedes hacer lo que declare); conector_listar_paginas y conector_leer_pagina para conocer la estructura real. Nunca asumas identificadores de páginas ni de secciones. Si el detalle de la tarea trae "referencia:<url>", VE la imagen primero con ver_referencia.
+2. EJECUTA el cambio mínimo necesario:
+- Cambiar un texto, una imagen o un dato puntual → conector_actualizar_seccion (solo esa sección; las demás quedan intactas).
+- Rediseñar o crear una página → conector_crear_pagina / conector_actualizar_pagina con 5-8 secciones VARIADAS y copy específico del negocio. Una página de solo tres bloques es inaceptable. Las secciones "personalizado" NO se tocan salvo instrucción explícita del cliente.
+- Ajustes globales (título, navegación, teléfono) → conector_actualizar_ajustes.
+3. Si el sitio declara la capacidad "publicar", llama conector_publicar después de mutar para que el cambio quede en vivo.
+4. VERIFICA SIEMPRE el resultado real con el navegador, como un visitante: navegador_ver_pagina, navegador_click, navegador_leer y navegador_consola. Un HTTP 200 no basta si la página se ve mal.
+5. SI ALGO QUEDÓ MAL: revierte con el contenido anterior y repórtalo con honestidad.
+${BLOQUE_APROBACION}
+${BLOQUE_BACKUP}
+${BLOQUE_SEGURIDAD}
+- Si la tarea pide algo fuera de las capacidades declaradas por el sitio, explica qué falta y qué debería habilitar el desarrollador.
+${BLOQUE_CIERRE}`,
+};
+
+export const AGENTES: Readonly<Record<string, SkillAgentDef>> = {
+  webmaster,
+  webmaster_conector: webmasterConector,
+};
+
+/** Elige el agente según cómo esté conectado el sitio. */
+export function agentePara(tipoSitio: "wp" | "custom"): SkillAgentDef {
+  return tipoSitio === "custom" ? webmasterConector : webmaster;
+}

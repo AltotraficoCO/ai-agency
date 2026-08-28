@@ -1,0 +1,59 @@
+# WordPress de pruebas para el Webmaster.
+#
+# En la máquina donde se escribió esto no había Docker, así que este archivo
+# NO se ha ejecutado nunca: es una receta, no una prueba pasada. Con Docker
+# instalado levanta un WordPress real contra el que probar las 39 herramientas
+# de verdad, que es lo único que descarta los fallos que un doble no ve
+# (proxies que se comen la cabecera Authorization, REST API cerrada, metas de
+# Elementor que WordPress ignora en silencio).
+#
+#   docker compose -f docker-compose.wordpress.yml up -d
+#   # abre http://localhost:8080, completa la instalación
+#   # Usuarios → Perfil → Contraseñas de aplicación → añadir una
+#   export WP_URL=http://localhost:8080
+#   export WP_USER=admin
+#   export WP_APP_PASSWORD='la que acabas de generar'
+#   pnpm probar-sitio salud
+#
+# Para probar las herramientas de Elementor hacen falta además el plugin
+# Elementor y el plugin conector de la plataforma, que es quien expone los
+# metas `_elementor_data` en la REST API. Sin él, `wp_crear_pagina_elementor`
+# falla con un mensaje explícito, que es justo lo que debe hacer.
+
+services:
+  db:
+    image: mariadb:11
+    environment:
+      MARIADB_ROOT_PASSWORD: raiz-de-pruebas
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: wordpress
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      retries: 20
+
+  wordpress:
+    image: wordpress:6-apache
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+      # Las contraseñas de aplicación exigen HTTPS salvo que se declare que el
+      # entorno es local. Sin esto, /wp-json responde pero autenticar no.
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_ENVIRONMENT_TYPE', 'local');
+    volumes:
+      - wp:/var/www/html
+
+volumes:
+  db:
+  wp:
