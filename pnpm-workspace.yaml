@@ -1,5 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+allowBuilds:
+  unrs-resolver: false
 minimumReleaseAgeExclude:
   - ai@6.0.271

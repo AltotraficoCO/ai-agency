@@ -1,0 +1,62 @@
+/* ============================================================================
+   Strappy · animaciones de la librería de componentes.
+   CSS plano a propósito: no depende del pipeline de Tailwind y viaja con el
+   paquete. Los tokens de duración y curva vienen de globals.css.
+   ========================================================================= */
+
+@keyframes strappy-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes strappy-pop-in {
+  from { opacity: 0; transform: scale(0.97) translateY(-2px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes strappy-slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes strappy-slide-from-right {
+  from { transform: translateX(100%); }
+  to   { transform: none; }
+}
+
+@keyframes strappy-draw {
+  from { stroke-dashoffset: var(--strap-length); }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes strappy-breathe {
+  0%, 100% { transform: translateY(-3px); }
+  50%      { transform: translateY(3px); }
+}
+
+.strappy-fade-in   { animation: strappy-fade-in var(--dur-fast) var(--ease-out-quart) both; }
+.strappy-pop-in    { animation: strappy-pop-in var(--dur-fast) var(--ease-out-quart) both; }
+.strappy-slide-up  { animation: strappy-slide-up var(--dur-base) var(--ease-out-quart) both; }
+.strappy-slide-in-right { animation: strappy-slide-from-right var(--dur-base) var(--ease-out-quart) both; }
+
+.strappy-draw {
+  stroke-dasharray: var(--strap-length);
+  animation: strappy-draw 700ms var(--ease-out-quart) both;
+}
+
+.strappy-breathe {
+  animation: strappy-breathe 3.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .strappy-fade-in,
+  .strappy-pop-in,
+  .strappy-slide-up,
+  .strappy-slide-in-right,
+  .strappy-draw,
+  .strappy-breathe {
+    animation: none;
+  }
+  .strappy-draw { stroke-dasharray: none; stroke-dashoffset: 0; }
+}

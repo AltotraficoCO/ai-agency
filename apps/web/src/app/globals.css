@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* La librería de componentes vive fuera de esta app: hay que declararla para
+   que Tailwind genere sus utilidades. */
+@source "../../../../packages/ui/src";
+
 /* ============================================================================
    Strappy · sistema de diseño
    El color codifica quién habla: índigo = la IA, fucsia = el humano.
