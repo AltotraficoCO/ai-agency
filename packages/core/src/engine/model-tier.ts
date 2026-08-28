@@ -43,9 +43,12 @@ export const DEFAULT_MODEL_TABLE: ModelTable = {
       extraction: ["deepseek/deepseek-v4-flash", "zai/glm-4.7-flash"],
       classification: ["zai/glm-4.7-flash"],
       title: ["zai/glm-4.7-flash"],
-      // Construir un agente es la tarea donde equivocarse sale caro: incluso en
-      // modo lite el meta-agente sube de gama.
-      builder: ["anthropic/claude-sonnet-5", "zai/glm-4.7-flash"],
+      // Construir un agente en lite usa la familia economica, igual que el
+      // resto de tareas: si construir costara como max, el plan gratuito se
+      // quedaria sin suelo, que es justo lo que el modo lite existe para
+      // sostener. Que modelo economico construye mejor en espanol se decide
+      // con evaluaciones sobre conversaciones reales, no por intuicion.
+      builder: ["zai/glm-4.7-flash", "deepseek/deepseek-v4-flash"],
     },
     max: {
       conversation: ["anthropic/claude-sonnet-5", "anthropic/claude-opus-5"],

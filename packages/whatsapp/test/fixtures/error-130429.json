@@ -1,0 +1,9 @@
+{
+  "error": {
+    "message": "(#130429) Rate limit hit",
+    "type": "OAuthException",
+    "code": 130429,
+    "error_data": { "messaging_product": "whatsapp", "details": "Message failed to send because there were too many messages sent from this phone number in a short period of time." },
+    "fbtrace_id": "RaTeLiMiT01"
+  }
+}

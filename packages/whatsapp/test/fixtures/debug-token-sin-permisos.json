@@ -1,0 +1,11 @@
+{
+  "data": {
+    "app_id": "1234567890123456",
+    "type": "USER",
+    "application": "Strappy",
+    "expires_at": 0,
+    "is_valid": true,
+    "scopes": ["public_profile"],
+    "user_id": "7777777777"
+  }
+}

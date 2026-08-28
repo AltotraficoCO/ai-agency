@@ -1,0 +1,15 @@
+{
+  "conversation_analytics": {
+    "data": [
+      {
+        "data_points": [
+          { "start": 1755993600, "end": 1756080000, "conversation": 120, "cost": 4.812, "conversation_category": "SERVICE", "conversation_type": "FREE_ENTRY_POINT", "conversation_direction": "BUSINESS_INITIATED", "country": "CO" },
+          { "start": 1756080000, "end": 1756166400, "conversation": 90, "cost": 3.4059, "conversation_category": "MARKETING", "conversation_type": "REGULAR", "conversation_direction": "BUSINESS_INITIATED", "country": "CO" },
+          { "start": 1756166400, "end": 1756252800, "conversation": 45, "cost": 1.5, "conversation_category": "UTILITY", "conversation_type": "REGULAR", "conversation_direction": "BUSINESS_INITIATED", "country": "CO" },
+          { "start": 1756252800, "end": 1756339200, "conversation": 30, "cost": 1.0, "conversation_category": "SERVICE", "conversation_type": "REGULAR", "conversation_direction": "USER_INITIATED", "country": "CO" }
+        ]
+      }
+    ]
+  },
+  "id": "102290129340398"
+}

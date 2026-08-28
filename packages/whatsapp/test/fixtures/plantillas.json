@@ -1,0 +1,34 @@
+{
+  "data": [
+    {
+      "id": "1234567890",
+      "name": "recordatorio_cita",
+      "language": "es",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "quality_score": { "score": "GREEN" },
+      "components": [
+        { "type": "BODY", "text": "Hola {{1}}, te recordamos tu cita del {{2}} a las {{3}}." },
+        { "type": "FOOTER", "text": "Responde CANCELAR para anular." }
+      ]
+    },
+    {
+      "id": "1234567891",
+      "name": "promo_agosto",
+      "language": "es",
+      "status": "REJECTED",
+      "category": "MARKETING",
+      "rejected_reason": "ABUSIVE_CONTENT",
+      "components": [{ "type": "BODY", "text": "¡Aprovecha nuestro descuento de agosto!" }]
+    },
+    {
+      "id": "1234567892",
+      "name": "pausada_por_calidad",
+      "language": "es",
+      "status": "PAUSED",
+      "category": "MARKETING",
+      "components": [{ "type": "BODY", "text": "Novedades para ti, {{1}}." }]
+    }
+  ],
+  "paging": { "cursors": { "before": "MAZDZD" } }
+}

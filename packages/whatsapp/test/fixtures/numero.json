@@ -1,0 +1,10 @@
+{
+  "id": "106540352242922",
+  "display_phone_number": "+57 300 111 2233",
+  "verified_name": "Peluquería La Esquina",
+  "quality_rating": "GREEN",
+  "code_verification_status": "VERIFIED",
+  "platform_type": "CLOUD_API",
+  "throughput": { "level": "STANDARD" },
+  "messaging_limit_tier": "TIER_1K"
+}

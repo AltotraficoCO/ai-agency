@@ -1,0 +1,10 @@
+{
+  "id": "102290129340398",
+  "name": "Peluquería La Esquina",
+  "currency": "USD",
+  "timezone_id": "42",
+  "account_review_status": "APPROVED",
+  "business_verification_status": "verified",
+  "message_template_namespace": "abc_namespace",
+  "primary_funding_id": "9988776655"
+}

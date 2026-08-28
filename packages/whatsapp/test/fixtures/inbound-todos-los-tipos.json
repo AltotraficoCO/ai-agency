@@ -1,0 +1,65 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "102290129340398",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": { "display_phone_number": "573001112233", "phone_number_id": "106540352242922" },
+            "contacts": [{ "profile": { "name": "Andrés Gómez" }, "wa_id": "573009998877" }],
+            "messages": [
+              {
+                "from": "573009998877", "id": "wamid.IMG1", "timestamp": "1756300801", "type": "image",
+                "image": { "id": "media_img_1", "mime_type": "image/jpeg", "sha256": "abc", "caption": "Aquí está la foto" }
+              },
+              {
+                "from": "573009998877", "id": "wamid.AUD1", "timestamp": "1756300802", "type": "audio",
+                "audio": { "id": "media_aud_1", "mime_type": "audio/ogg; codecs=opus", "voice": true }
+              },
+              {
+                "from": "573009998877", "id": "wamid.VID1", "timestamp": "1756300803", "type": "video",
+                "video": { "id": "media_vid_1", "mime_type": "video/mp4", "caption": "Mira esto" }
+              },
+              {
+                "from": "573009998877", "id": "wamid.DOC1", "timestamp": "1756300804", "type": "document",
+                "document": { "id": "media_doc_1", "mime_type": "application/pdf", "filename": "cotización.pdf" }
+              },
+              {
+                "from": "573009998877", "id": "wamid.STK1", "timestamp": "1756300805", "type": "sticker",
+                "sticker": { "id": "media_stk_1", "mime_type": "image/webp" }
+              },
+              {
+                "from": "573009998877", "id": "wamid.LOC1", "timestamp": "1756300806", "type": "location",
+                "location": { "latitude": 4.710989, "longitude": -74.07209, "name": "Bogotá", "address": "Calle 100" }
+              },
+              {
+                "from": "573009998877", "id": "wamid.CON1", "timestamp": "1756300807", "type": "contacts",
+                "contacts": [{ "name": { "formatted_name": "Luis Fernández" }, "phones": [{ "phone": "+57 300 111 2233" }] }]
+              },
+              {
+                "from": "573009998877", "id": "wamid.INT1", "timestamp": "1756300808", "type": "interactive",
+                "interactive": { "type": "button_reply", "button_reply": { "id": "opcion_si", "title": "Sí, confirmo" } }
+              },
+              {
+                "from": "573009998877", "id": "wamid.LST1", "timestamp": "1756300809", "type": "interactive",
+                "interactive": { "type": "list_reply", "list_reply": { "id": "corte_cabello", "title": "Corte de cabello", "description": "45 minutos" } }
+              },
+              {
+                "from": "573009998877", "id": "wamid.REA1", "timestamp": "1756300810", "type": "reaction",
+                "reaction": { "message_id": "wamid.IMG1", "emoji": "👍" }
+              },
+              {
+                "from": "573009998877", "id": "wamid.RESP1", "timestamp": "1756300811", "type": "text",
+                "context": { "from": "573001112233", "id": "wamid.SALIENTE1" },
+                "text": { "body": "Sí, ese mismo" }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

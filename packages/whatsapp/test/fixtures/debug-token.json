@@ -1,0 +1,16 @@
+{
+  "data": {
+    "app_id": "1234567890123456",
+    "type": "USER",
+    "application": "Strappy",
+    "data_access_expires_at": 1780000000,
+    "expires_at": 0,
+    "is_valid": true,
+    "scopes": ["whatsapp_business_management", "whatsapp_business_messaging", "business_management"],
+    "granular_scopes": [
+      { "scope": "whatsapp_business_management", "target_ids": ["102290129340398"] },
+      { "scope": "whatsapp_business_messaging", "target_ids": ["102290129340398"] }
+    ],
+    "user_id": "7777777777"
+  }
+}

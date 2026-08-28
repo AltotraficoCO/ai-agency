@@ -1,0 +1,5 @@
+{
+  "messaging_product": "whatsapp",
+  "contacts": [{ "input": "573009998877", "wa_id": "573009998877" }],
+  "messages": [{ "id": "wamid.HBgMNTczMDA5OTk4ODc3FQIAERgSNzhCRDJGNTVGNkQ4RTQ5MDAA", "message_status": "accepted" }]
+}

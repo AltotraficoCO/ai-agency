@@ -1,0 +1,32 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "102290129340398",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "573001112233",
+              "phone_number_id": "106540352242922"
+            },
+            "contacts": [
+              { "profile": { "name": "María José Peña" }, "wa_id": "573009998877" }
+            ],
+            "messages": [
+              {
+                "from": "573009998877",
+                "id": "wamid.HBgMNTczMDA5OTk4ODc3FQIAEhgUM0E0RjVDQjkxMkI4RjA5MzQ1NkEA",
+                "timestamp": "1756300800",
+                "text": { "body": "Hola, ¿tienen disponibilidad para mañana?" },
+                "type": "text"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
