@@ -1,0 +1,13 @@
+<svg width="120" height="120" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Strappy">
+  <defs>
+    <linearGradient id="cinta" x1="24" y1="24" x2="136" y2="136" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6355F0"/>
+      <stop offset="100%" stop-color="#E549A0"/>
+    </linearGradient>
+  </defs>
+  <!-- La cinta: un solo trazo continuo que se pliega. Indigo (la IA) a fucsia (el humano). -->
+  <path d="M44 108 C44 68, 76 60, 96 76 C112 89, 104 112, 84 112 C60 112, 52 88, 64 66 C74 47, 100 42, 116 54"
+        stroke="url(#cinta)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="70" cy="79" r="4.5" fill="#E8EBF2"/>
+  <circle cx="89" cy="79" r="4.5" fill="#E8EBF2"/>
+</svg>

@@ -1,0 +1,23 @@
+<svg width="900" height="200" viewBox="0 0 900 200" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Strappy">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="900" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6355F0"/>
+      <stop offset="100%" stop-color="#E549A0"/>
+    </linearGradient>
+    <linearGradient id="fondo" x1="0" y1="0" x2="0" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#101319"/>
+      <stop offset="100%" stop-color="#07090D"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="200" rx="18" fill="url(#fondo)"/>
+  <path d="M92 138 C92 106, 118 100, 134 113 C147 123, 140 141, 124 141 C105 141, 98 122, 108 104 C116 89, 137 85, 150 94"
+        stroke="url(#g)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="117" cy="115" r="3.8" fill="#E8EBF2"/>
+  <circle cx="132" cy="115" r="3.8" fill="#E8EBF2"/>
+  <text x="200" y="98" font-family="Inter, Helvetica, Arial, sans-serif" font-size="46" font-weight="600" fill="#E8EBF2" letter-spacing="-1.4">Strappy</text>
+  <text x="202" y="132" font-family="Inter, Helvetica, Arial, sans-serif" font-size="17" fill="#9AA3B5">Habla con un agente. Construye tu equipo de IA.</text>
+  <circle cx="770" cy="72" r="6" fill="#6355F0"/>
+  <text x="788" y="78" font-family="Inter, Helvetica, Arial, sans-serif" font-size="14" fill="#9AA3B5">la IA</text>
+  <circle cx="770" cy="104" r="6" fill="#E549A0"/>
+  <text x="788" y="110" font-family="Inter, Helvetica, Arial, sans-serif" font-size="14" fill="#9AA3B5">tú</text>
+</svg>
