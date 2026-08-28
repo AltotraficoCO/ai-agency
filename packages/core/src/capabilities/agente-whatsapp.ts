@@ -106,6 +106,7 @@ export const capacidadAgenteMensajeria: CapabilityDef = {
     "Construye un agente que conversa con tus clientes por mensajería: sabe de tu negocio, recoge los datos que te importan y sabe cuándo pasarle la conversación a una persona.",
   produces: { kind: "agent", agentType: "conversational" },
   draftSchema: esquemaBorradorAgente,
+  internalFields: ["fuentes", "cerebroId", "agenteId", "versionId", "huellaPrompt", "instrucciones"],
   phases: [
     {
       slug: "intencion",

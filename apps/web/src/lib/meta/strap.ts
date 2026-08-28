@@ -71,7 +71,14 @@ export async function responderTurnoDeStrap(entrada: EntradaTurno): Promise<Resp
   if (entrada.respuestas && entrada.respuestas.length > 0) {
     const parcial = respuestasAParcial(entrada.respuestas);
     if (Object.keys(parcial).length > 0) {
-      await actualizarHilo(workspaceId, entrada.hiloId, { borrador: parcial });
+      // Una respuesta que no encaja en el esquema no puede tumbar el turno: el
+      // texto de la persona ya está escrito y merece una respuesta. Se registra
+      // y se sigue; el modelo verá el borrador sin ese dato y lo repreguntará.
+      await actualizarHilo(workspaceId, entrada.hiloId, { borrador: parcial }).catch(
+        (error: unknown) => {
+          console.error("[strap] respuesta descartada", error);
+        },
+      );
     }
   }
 

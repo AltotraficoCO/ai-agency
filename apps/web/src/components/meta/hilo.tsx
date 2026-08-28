@@ -293,7 +293,13 @@ function textoDe(mensaje: UIMessage): string {
     .trim();
 }
 
-/** Lo ya contestado, leído del borrador: la única fuente de verdad del check. */
+/**
+ * Lo ya contestado, leído del borrador: la única fuente de verdad del check.
+ *
+ * Se traduce el valor guardado a la etiqueta que la persona vio al elegir. El
+ * borrador guarda `whatsapp` porque es lo que entiende el sistema; el chip
+ * tiene que decir «WhatsApp», que es lo que ella pulsó.
+ */
 function respondidasDe(
   salida: SalidaPreguntar,
   borrador: Record<string, unknown>,
@@ -301,7 +307,11 @@ function respondidasDe(
   const salidaMapa: Record<string, string> = {};
   for (const pregunta of salida.preguntas) {
     const valor = leerRutaLocal(borrador, pregunta.clave);
-    if (valor.length > 0) salidaMapa[pregunta.clave] = valor;
+    if (valor.length === 0) continue;
+    const etiquetas = valor
+      .split(", ")
+      .map((v) => pregunta.opciones.find((o) => o.valor === v)?.etiqueta ?? v);
+    salidaMapa[pregunta.clave] = etiquetas.join(", ");
   }
   return salidaMapa;
 }

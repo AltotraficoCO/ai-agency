@@ -34,6 +34,13 @@ export type CapabilityDef = {
   /** Qué tipo de agente produce, si produce uno. */
   readonly produces: { kind: "agent"; agentType: string } | { kind: "connection" } | { kind: "action" };
   readonly draftSchema: ZodType<unknown>;
+  /**
+   * Campos del borrador que el meta-agente escribe pero NUNCA pregunta: el id
+   * del agente publicado, el del cerebro, las fuentes ya rastreadas. Sin esta
+   * lista, derivar las rutas preguntables del esquema acaba enseñándole al
+   * cliente un botón que dice «¿cuál es tu huellaPrompt?».
+   */
+  readonly internalFields?: readonly string[];
   readonly phases: readonly CapabilityPhase[];
   /** Herramientas del meta-agente habilitadas mientras esta capacidad está activa. */
   readonly tools: readonly string[];

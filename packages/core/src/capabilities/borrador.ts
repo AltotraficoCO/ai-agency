@@ -203,7 +203,12 @@ function aPendiente(pregunta: CapabilityQuestion): PreguntaPendiente {
  * añadir un campo al borrador lo hace preguntable sin tocar nada más.
  */
 export function rutasConocidas(capacidad: CapabilityDef): readonly string[] {
-  const rutas = new Set<string>(rutasDelEsquema(capacidad.draftSchema));
+  const internos = capacidad.internalFields ?? [];
+  const rutas = new Set<string>(
+    rutasDelEsquema(capacidad.draftSchema).filter(
+      (r) => !internos.some((i) => r === i || r.startsWith(`${i}.`)),
+    ),
+  );
   for (const fase of capacidad.phases) {
     for (const pregunta of fase.questions) rutas.add(pregunta.key);
   }

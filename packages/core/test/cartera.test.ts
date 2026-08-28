@@ -68,9 +68,21 @@ describe("razonamiento", () => {
     const r = crearResolvedorDeModelo({ apiKey: "sk-prueba", fetch: fetchEspia });
     expect(r.razonamiento).toBe(false);
 
-    const modelo = r.resolver("zai/glm-4.7-flash");
-    await modelo.doGenerate({ prompt: [{ role: "user", content: [{ type: "text", text: "hola" }] }] })
-      .catch(() => undefined); // la respuesta vacia hace fallar el parseo; da igual, ya espiamos el cuerpo
+    // `LanguageModel` admite tambien un identificador suelto; aqui sabemos que
+    // es un modelo construido, asi que se estrecha el tipo para poder llamarlo.
+    const modelo = r.resolver("zai/glm-4.7-flash") as Exclude<
+      ReturnType<typeof r.resolver>,
+      string
+    >;
+    // La respuesta vacia del espia hace fallar el parseo; da igual, para cuando
+    // eso ocurre ya hemos capturado el cuerpo que se envio, que es lo que se mide.
+    try {
+      await modelo.doGenerate({
+        prompt: [{ role: "user", content: [{ type: "text", text: "hola" }] }],
+      });
+    } catch {
+      // esperado
+    }
 
     expect((cuerpoEnviado as { reasoning?: unknown })?.reasoning).toEqual({ enabled: false });
   });

@@ -11,7 +11,8 @@ con uno. Sin formularios, sin código, sin curva de aprendizaje.
 
 <br>
 
-[![Estado](https://img.shields.io/badge/estado-en_construcci%C3%B3n-F0A511?style=for-the-badge&labelColor=101319)](#-hoja-de-ruta)
+[![Estado](https://img.shields.io/badge/estado-beta_privada-22C55E?style=for-the-badge&labelColor=101319)](#-hoja-de-ruta)
+[![Pruebas](https://img.shields.io/badge/pruebas-513_en_verde-22C55E?style=for-the-badge&labelColor=101319)](#-hoja-de-ruta)
 [![Licencia](https://img.shields.io/badge/licencia-propietaria-6355F0?style=for-the-badge&labelColor=101319)](#-licencia)
 [![Español](https://img.shields.io/badge/hecho_en-LATAM-E549A0?style=for-the-badge&labelColor=101319)](#)
 
@@ -401,21 +402,23 @@ pnpm build
 | | Fase | Criterio de aceptación |
 |:--:|:--|:--|
 | 🟢 | **Cimientos** | Dos clientes, y ninguno ve nada del otro |
-| 🟡 | **Sistema de diseño** | Cada componente con sus cinco estados |
-| 🟡 | **Motor + simulador** | Un agente conversa **sin una línea de WhatsApp en el motor** |
-| ⚪ | **Meta-agente** | Alguien no técnico crea y prueba un agente en **< 5 min** |
-| ⚪ | **Cerebros** | Responde precios reales de un PDF que subiste |
-| ⚪ | **Canal WhatsApp** | Mensaje real de punta a punta — **y el motor no cambió** |
-| ⚪ | **Bandeja** | Tomas el control y el bot no escribe encima |
-| ⚪ | **Créditos** | Respondes «¿cuánto pago este mes?» de un vistazo |
-| ⚪ | **Análisis** | Un lead entra, se califica, y te llega la alerta con sus datos |
-| ⚪ | **Evaluación** | No se puede publicar un agente que caiga en una inyección |
-| ⚪ | **Agentes por encargo** | Le pides un cambio en tu web y lo hace, con botón de deshacer |
+| 🟢 | **Sistema de diseño** | Cada componente con sus cinco estados |
+| 🟢 | **Motor + simulador** | Un agente conversa **sin una línea de WhatsApp en el motor** |
+| 🟢 | **Meta-agente** | Alguien no técnico crea y prueba un agente en **< 5 min** |
+| 🟢 | **Cerebros** | Responde precios reales de un PDF que subiste |
+| 🟢 | **Canal WhatsApp** | Mensaje real de punta a punta — **y el motor no cambió** |
+| 🟢 | **Bandeja** | Tomas el control y el bot no escribe encima |
+| 🟢 | **Créditos** | Respondes «¿cuánto pago este mes?» de un vistazo |
+| 🟢 | **Análisis** | Un lead entra, se califica, y te llega la alerta con sus datos |
+| 🟢 | **Evaluación** | No se puede publicar un agente que caiga en una inyección |
+| 🟡 | **Agentes por encargo** | Le pides un cambio en tu web y lo hace, con botón de deshacer |
 | ⚪ | **Segundo canal + voz** | Añadir el widget no toca el motor ni la bandeja |
 
 </div>
 
 Cada fase se cierra con su criterio cumplido. No con «ya está casi».
+
+**Lo que ya funciona de verdad, verificado contra base de datos y modelo reales:** hablas con Strap y te construye un agente, con su versión inmutable y sus variables de análisis; lo pruebas en el simulador con conversación y cobro real; el agente consulta tu catálogo y responde con precios; la bandeja te deja tomar el control sin que el bot escriba encima; y el aislamiento entre clientes está probado con un control negativo que demuestra que el test no pasa en vacío.
 
 <br>
 

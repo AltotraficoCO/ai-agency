@@ -24,6 +24,7 @@ import {
   borradorAEspecificacion,
   capacidadDelBorrador,
   compilePrompt,
+  esFaseMeta,
   esquemaBorradorAgente,
   huecosDeLaFase,
   normalizarClave,
@@ -366,10 +367,18 @@ export function crearHerramientasDeStrap(entorno: EntornoStrap): ToolDef<never, 
     scopes: ["meta.write"],
     effect: "write_internal",
     async execute(_ctx, entrada): Promise<SalidaBorrador> {
+      // Los modelos meten `fase` y `titulo` DENTRO del parcial la mitad de las
+      // veces. Es una confusión razonable —los tres son argumentos de la misma
+      // llamada— y rechazarla cuesta un turno; sacarlos de ahí, tres líneas.
+      const { fase: faseIncrustada, titulo: tituloIncrustado, ...resto } = entrada.parcial;
+      const fase = entrada.fase ?? (typeof faseIncrustada === "string" ? faseIncrustada : undefined);
+      const titulo =
+        entrada.titulo ?? (typeof tituloIncrustado === "string" ? tituloIncrustado : undefined);
+
       const hilo = await actualizarHilo(entorno.workspaceId, entorno.hiloId, {
-        borrador: normalizarParcial(entrada.parcial, capacidadDelBorrador(undefined)),
-        ...(entrada.fase ? { fase: entrada.fase } : {}),
-        ...(entrada.titulo ? { titulo: entrada.titulo } : {}),
+        borrador: normalizarParcial(resto, capacidadDelBorrador(undefined)),
+        ...(esFaseMeta(fase) ? { fase } : {}),
+        ...(titulo ? { titulo } : {}),
       });
       const borrador = esquemaBorradorAgente.parse(hilo.borrador);
       return {

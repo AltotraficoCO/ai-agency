@@ -221,10 +221,15 @@ function LineaChecklist({
 }) {
   const [editando, setEditando] = React.useState(false);
   const [valor, setValor] = React.useState(item.valor);
+  const [ultimoVisto, setUltimoVisto] = React.useState(item.valor);
 
-  React.useEffect(() => {
+  // Sincronizar durante el render, no en un efecto: un efecto provocaría un
+  // segundo render con el valor viejo pintado por medio, y en un campo que se
+  // está editando eso se ve como un parpadeo.
+  if (ultimoVisto !== item.valor) {
+    setUltimoVisto(item.valor);
     setValor(item.valor);
-  }, [item.valor]);
+  }
 
   const guardar = (): void => {
     setEditando(false);
@@ -322,16 +327,17 @@ export function BloqueProgreso({
   salida: SalidaProgreso;
   enMarcha: boolean;
 }) {
-  const [abierto, setAbierto] = React.useState(enMarcha);
-  React.useEffect(() => {
-    if (!enMarcha) setAbierto(false);
-  }, [enMarcha]);
+  // Mientras la construcción corre, los pasos están abiertos; al terminar
+  // colapsan solos a una línea. `desplegado` solo existe cuando la persona
+  // decide lo contrario, y entonces manda ella.
+  const [desplegado, setDesplegado] = React.useState<boolean | null>(null);
+  const abierto = desplegado ?? enMarcha;
 
   if (!abierto) {
     return (
       <button
         type="button"
-        onClick={() => setAbierto(true)}
+        onClick={() => setDesplegado(true)}
         className="inline-flex items-center gap-2 rounded-lg border border-border bg-inset px-3 py-2 text-base text-fg-secondary transition-colors hover:bg-hover"
       >
         <Check size={15} strokeWidth={2.5} className="text-success-fg" aria-hidden />

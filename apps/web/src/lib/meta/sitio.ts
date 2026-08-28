@@ -20,7 +20,6 @@ const PAGINAS_POR_DEFECTO = 12;
 type Entrada = { readonly resultado: ResultadoRastreo; readonly caduca: number };
 
 declare global {
-  // eslint-disable-next-line no-var
   var __strappySitios: Map<string, Entrada> | undefined;
 }
 
