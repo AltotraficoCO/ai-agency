@@ -15,12 +15,25 @@ import "server-only";
  * cada cambio a un humano en vez de hacerlo.
  */
 import type { ToolApprovalResponse } from "ai";
+import type { TenantScope } from "@strappy/db";
 import { huellaAccion } from "@strappy/webmaster/aprobacion";
 import { conEspacio } from "@/lib/db/pool";
 
 export type EstadoEncargo = "queued" | "running" | "esperando_aprobacion" | "done" | "failed" | "cancelled";
 
-export type AprobacionVista = { id: string; herramienta: string; motivo: string; resumen: string };
+/** La herramienta con la que el agente hace preguntas de elegir o escribir. */
+const PREGUNTA = "preguntar_al_cliente";
+
+export type AprobacionVista = {
+  id: string;
+  herramienta: string;
+  motivo: string;
+  resumen: string;
+  /** `aprobacion` se contesta con Aprobar/Rechazar; `pregunta`, eligiendo o escribiendo. */
+  tipo: "aprobacion" | "pregunta";
+  opciones: string[];
+  permiteTexto: boolean;
+};
 
 export type EncargoVista = {
   id: string;
@@ -69,8 +82,13 @@ export async function encargosDelAgente(workspaceId: string, agentId: string): P
               t.creditos::text as creditos, t.created_at,
               coalesce((
                 select json_agg(json_build_object(
-                         'id', a.id, 'herramienta', a.tool_slug,
-                         'motivo', a.motivo, 'resumen', a.resumen)
+                         'id', a.id,
+                         'herramienta', a.tool_slug,
+                         'motivo', a.motivo,
+                         'resumen', a.resumen,
+                         'tipo', case when a.tool_slug = $3 then 'pregunta' else 'aprobacion' end,
+                         'opciones', coalesce(a.entrada->'opciones', '[]'::jsonb),
+                         'permiteTexto', coalesce((a.entrada->>'permite_texto')::boolean, true))
                        order by a.created_at)
                   from public.task_approvals a
                  where a.workspace_id = t.workspace_id and a.task_id = t.id and a.decision is null
@@ -79,7 +97,7 @@ export async function encargosDelAgente(workspaceId: string, agentId: string): P
         where t.workspace_id = $1 and t.agent_id = $2
         order by t.created_at desc
         limit 30`,
-      [workspaceId, agentId],
+      [workspaceId, agentId, PREGUNTA],
     );
     return rows.reverse().map((r) => ({
       id: r.id,
@@ -133,14 +151,15 @@ export async function crearEncargo(input: {
 }
 
 /**
- * Registra la decisión de una persona y, si ya no queda nada pendiente en la
- * tarea, la devuelve a la cola para que el worker la reanude.
+ * Registra la decisión de una persona sobre una aprobación (Aprobar/Rechazar)
+ * y, si ya no queda nada pendiente en la tarea, la devuelve a la cola.
  *
  * Hay dos caminos de aprobación y los dos acaban en `task_approvals`:
  *  · El de la propia herramienta (portada, precios): al reanudar, la acción se
  *    repite y la herramienta encuentra la decisión por su huella.
  *  · El del AI SDK (plugins, usuarios): la conversación guardada tiene una
  *    petición de aprobación que hay que contestar con su `approvalId`.
+ * Las preguntas no se deciden aquí: se contestan con `responderPregunta`.
  */
 export async function decidirAprobacion(input: {
   workspaceId: string;
@@ -152,47 +171,93 @@ export async function decidirAprobacion(input: {
     const decidida = await scope.query<{ task_id: string }>(
       `update public.task_approvals
           set decision = $3, decidida_por = $4, decidida_en = now()
-        where workspace_id = $1 and id = $2 and decision is null
+        where workspace_id = $1 and id = $2 and decision is null and tool_slug <> $5
         returning task_id`,
-      [input.workspaceId, input.aprobacionId, input.aprobada ? "aprobada" : "rechazada", input.usuarioId],
+      [input.workspaceId, input.aprobacionId, input.aprobada ? "aprobada" : "rechazada", input.usuarioId, PREGUNTA],
     );
     const taskId = decidida.rows[0]?.task_id;
     if (!taskId) return { ok: false, error: "Esta aprobación ya se había decidido." };
+    return reanudarSiNoQuedaNada(scope, input.workspaceId, taskId);
+  });
+}
 
-    const pendientes = await scope.query<{ n: string }>(
-      `select count(*)::text as n from public.task_approvals
-        where workspace_id = $1 and task_id = $2 and decision is null`,
-      [input.workspaceId, taskId],
-    );
-    if (Number(pendientes.rows[0]?.n ?? 0) > 0) return { ok: true };
+/**
+ * Contesta una pregunta del agente. La respuesta entra en la conversación
+ * guardada como un mensaje del cliente, que es exactamente lo que el modelo lee
+ * al reanudar; no hace falta que la herramienta la vuelva a buscar.
+ */
+export async function responderPregunta(input: {
+  workspaceId: string;
+  usuarioId: string;
+  aprobacionId: string;
+  respuesta: string;
+}): Promise<ResultadoEncargo> {
+  const respuesta = input.respuesta.trim();
+  if (!respuesta) return { ok: false, error: "Elige una opción o escribe tu respuesta." };
+  if (respuesta.length > 1000) return { ok: false, error: "La respuesta es demasiado larga." };
 
-    const tarea = await scope.query<{ mensajes: unknown }>(
-      `select mensajes from public.agent_tasks
-        where workspace_id = $1 and id = $2 and estado = 'esperando_aprobacion'
-        for update`,
-      [input.workspaceId, taskId],
+  return conEspacio(input.workspaceId, async (scope) => {
+    const contestada = await scope.query<{ task_id: string; pregunta: string }>(
+      `update public.task_approvals
+          set decision = 'aprobada', decidida_por = $3, decidida_en = now(),
+              entrada = entrada || jsonb_build_object('respuesta', $4::text)
+        where workspace_id = $1 and id = $2 and decision is null and tool_slug = $5
+        returning task_id, resumen as pregunta`,
+      [input.workspaceId, input.aprobacionId, input.usuarioId, respuesta, PREGUNTA],
     );
-    const fila = tarea.rows[0];
-    if (!fila) return { ok: true };
-
-    const decisiones = await scope.query<{ huella: string; decision: string | null }>(
-      `select huella, decision from public.task_approvals where workspace_id = $1 and task_id = $2`,
-      [input.workspaceId, taskId],
-    );
-    const respuestas = respuestasDeAprobacion(
-      taskId,
-      fila.mensajes,
-      new Map(decisiones.rows.map((d) => [d.huella, d.decision])),
-    );
+    const fila = contestada.rows[0];
+    if (!fila) return { ok: false, error: "Esta pregunta ya se había respondido." };
 
     await scope.query(
       `update public.agent_tasks
-          set estado = 'queued', aprobaciones = $3::jsonb, lease_until = null
-        where workspace_id = $1 and id = $2`,
-      [input.workspaceId, taskId, JSON.stringify(respuestas)],
+          set mensajes = coalesce(mensajes, '[]'::jsonb)
+                         || jsonb_build_array(jsonb_build_object('role', 'user', 'content', $3::text))
+        where workspace_id = $1 and id = $2 and estado = 'esperando_aprobacion'`,
+      [input.workspaceId, fila.task_id, `RESPUESTA DEL CLIENTE a «${fila.pregunta}»: ${respuesta}`],
     );
-    return { ok: true };
+    return reanudarSiNoQuedaNada(scope, input.workspaceId, fila.task_id);
   });
+}
+
+/** Si la tarea ya no espera nada, vuelve a la cola con las respuestas para el AI SDK. */
+async function reanudarSiNoQuedaNada(
+  scope: TenantScope,
+  workspaceId: string,
+  taskId: string,
+): Promise<ResultadoEncargo> {
+  const pendientes = await scope.query<{ n: string }>(
+    `select count(*)::text as n from public.task_approvals
+      where workspace_id = $1 and task_id = $2 and decision is null`,
+    [workspaceId, taskId],
+  );
+  if (Number(pendientes.rows[0]?.n ?? 0) > 0) return { ok: true };
+
+  const tarea = await scope.query<{ mensajes: unknown }>(
+    `select mensajes from public.agent_tasks
+      where workspace_id = $1 and id = $2 and estado = 'esperando_aprobacion'
+      for update`,
+    [workspaceId, taskId],
+  );
+  const fila = tarea.rows[0];
+  if (!fila) return { ok: true };
+
+  const decisiones = await scope.query<{ huella: string; decision: string | null }>(
+    `select huella, decision from public.task_approvals where workspace_id = $1 and task_id = $2`,
+    [workspaceId, taskId],
+  );
+  const respuestas = respuestasDeAprobacion(
+    taskId,
+    fila.mensajes,
+    new Map(decisiones.rows.map((d) => [d.huella, d.decision])),
+  );
+
+  await scope.query(
+    `update public.agent_tasks
+        set estado = 'queued', aprobaciones = $3::jsonb, lease_until = null
+      where workspace_id = $1 and id = $2`,
+    [workspaceId, taskId, JSON.stringify(respuestas)],
+  );
+  return { ok: true };
 }
 
 type Parte = {

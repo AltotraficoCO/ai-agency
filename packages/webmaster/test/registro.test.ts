@@ -27,11 +27,11 @@ import {
 } from "../src/index.js";
 
 describe("registro de herramientas", () => {
-  it("están las 43 herramientas y ninguna repetida", () => {
-    expect(HERRAMIENTAS_WEBMASTER).toHaveLength(43);
+  it("están las 44 herramientas y ninguna repetida", () => {
+    expect(HERRAMIENTAS_WEBMASTER).toHaveLength(44);
     const slugs = HERRAMIENTAS_WEBMASTER.map((t) => t.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
-    expect(webmasterToolRegistry.list()).toHaveLength(43);
+    expect(webmasterToolRegistry.list()).toHaveLength(44);
   });
 
   it("porta las familias del proyecto anterior", () => {
@@ -173,7 +173,7 @@ describe("cifrado de credenciales", () => {
 describe("los dos adaptadores salen de la misma definición", () => {
   it("el descriptor MCP se deriva del mismo Zod que valida en ejecución", () => {
     const descriptores = webmasterToolRegistry.list().map(toMcpDescriptor);
-    expect(descriptores).toHaveLength(43);
+    expect(descriptores).toHaveLength(44);
 
     const editar = descriptores.find((d) => d.name === "wp_editar_contenido");
     expect(editar?.annotations.readOnlyHint).toBe(false);
@@ -189,7 +189,7 @@ describe("los dos adaptadores salen de la misma definición", () => {
 
   it("el conjunto para el AI SDK tiene needsApproval donde la ficha lo pide", () => {
     const set = toAiToolSet(HERRAMIENTAS_WEBMASTER);
-    expect(Object.keys(set)).toHaveLength(43);
+    expect(Object.keys(set)).toHaveLength(44);
     expect(set.wp_instalar_plugin?.needsApproval).toBe(true);
     expect(set.wp_listar_contenido?.needsApproval).toBe(false);
   });

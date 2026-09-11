@@ -181,10 +181,15 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
     sitio: { ...sitio, capturas: colector },
   };
 
+  // Una pregunta al cliente detiene el bucle en ese paso: seguir trabajando sin
+  // la respuesta es justo adivinar lo que el cliente no dijo.
+  let hayPregunta = false;
+
   const anotar = (l: ToolInvocationLog): void => {
     const salida = l.output as Record<string, unknown> | undefined;
     const backupId = typeof salida?.backup_id === "string" ? salida.backup_id : undefined;
     if (backupId) backups.push(backupId);
+    if (l.slug === "preguntar_al_cliente" && salida?.requiere_aprobacion === true) hayPregunta = true;
     if (salida?.requiere_aprobacion === true && typeof salida.solicitud_id === "string") {
       pendientes.push({
         id: salida.solicitud_id,
@@ -235,10 +240,11 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
     // ignorar la aprobación; el modelo la volvía a pedir con la misma huella,
     // ya aprobada, y la tarea quedaba "en espera" sin botones que pulsar.
     mensajes.push({ role: "tool", content: [...input.aprobaciones] });
-  } else if (input.mensajesPrevios?.length) {
+  } else if (input.mensajesPrevios?.length && mensajes.at(-1)?.role !== "user") {
     // Se reanuda una aprobación de la propia herramienta (portada, precios):
     // ahí no hay respuesta que inyectar. Sin este aviso el modelo lee su propio
-    // "no lo reintentes" del intento anterior y cierra sin hacer nada.
+    // "no lo reintentes" del intento anterior y cierra sin hacer nada. Si lo
+    // último ya es un mensaje del cliente —la respuesta a una pregunta—, sobra.
     mensajes.push({
       role: "user",
       content:
@@ -280,8 +286,9 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
         messages: mensajes,
         tools,
         // El tope de acciones del catálogo. No es una sugerencia: es lo que
-        // impide que una tarea mal entendida se coma el saldo del cliente.
-        stopWhen: stepCountIs(agent.maxAcciones),
+        // impide que una tarea mal entendida se coma el saldo del cliente. Y
+        // tras una pregunta al cliente se para: la respuesta decide lo demás.
+        stopWhen: [stepCountIs(agent.maxAcciones), () => hayPregunta],
         experimental_context: contexto,
         abortSignal: señal,
         timeout: agent.timeoutMs,

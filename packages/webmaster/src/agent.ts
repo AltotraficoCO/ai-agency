@@ -8,10 +8,11 @@
  * fuera una página; el tope de acciones, porque se quedaba dando vueltas; el
  * cierre con "RESUMEN:", porque el cliente necesita leer qué pasó sin abrir
  * una traza. Lo nuevo respecto al original son el modo de simulación, la
- * aprobación humana, los backups, `pedir_aprobacion` —una tarea que termina
- * con una pregunta en texto deja al cliente sin forma de contestar— y la
- * edición de plantillas de Elementor existentes, porque el modelo publicaba
- * posts de "evidencia" cuando no podía crear un footer nuevo.
+ * aprobación humana, los backups, las dos formas de preguntarle algo al
+ * cliente —una tarea que termina con una pregunta en texto deja al cliente sin
+ * forma de contestar, y Aprobar/Rechazar no sirve para elegir— y la edición de
+ * plantillas de Elementor existentes, porque el modelo publicaba posts de
+ * "evidencia" cuando no podía crear un footer nuevo.
  */
 import { z } from "zod";
 import { getAgentType, registerAgentType } from "@strappy/core";
@@ -52,6 +53,9 @@ export const TIPO_TAREA_POR_ENCARGO = "tarea_por_encargo";
 export const MAX_ACCIONES = 25;
 export const TIMEOUT_MS = 9 * 60 * 1000;
 
+/** Las herramientas con las que el agente habla con el cliente. */
+const HERRAMIENTAS_DE_DIALOGO = ["pedir_aprobacion", "preguntar_al_cliente"] as const;
+
 /**
  * Registra el tipo de agente si nadie lo hizo ya. Es idempotente a propósito:
  * varios paquetes pueden declarar agentes de este tipo y el orden de carga de
@@ -81,7 +85,7 @@ export function asegurarTipoTareaPorEncargo(): void {
       "sitio_salud",
       "verificar_http",
       "ver_referencia",
-      "pedir_aprobacion",
+      ...HERRAMIENTAS_DE_DIALOGO,
     ],
     channels: [],
     maxToolSteps: MAX_ACCIONES,
@@ -115,8 +119,11 @@ Si te responde "aprobacion_rechazada", una persona dijo que no. Respétalo y exp
 
 DECISIONES DEL CLIENTE (obligatorio):
 - Si lo que pidió el cliente se puede hacer con tus herramientas, HAZLO. No pidas permiso para hacer exactamente lo que te pidieron.
-- Si de verdad necesitas que el cliente decida algo antes de seguir —elegir entre dos caminos, aceptar una alternativa porque lo pedido no se puede hacer tal cual, o confirmar un cambio que no pidió— llama a pedir_aprobacion con la propuesta concreta. El cliente verá tu propuesta con botones Aprobar y Rechazar, y tú retomarás con su decisión.
-- NUNCA termines tu respuesta con una pregunta en el texto ("¿te parece bien?", "¿procedo?"). El cliente no tiene cómo contestarla: lo único que ve son botones.`;
+- Si el encargo es ambiguo y necesitas que el cliente ELIJA o PRECISE algo (qué plugin, qué página, qué texto exacto), llama a preguntar_al_cliente con la pregunta y, si las hay, las opciones. El cliente elegirá con un clic o escribirá su respuesta, y retomarás con ella. Después de preguntar, detente.
+- Si tienes UNA propuesta concreta y solo necesitas un sí o un no —aceptar una alternativa porque lo pedido no se puede hacer tal cual, o confirmar un cambio que no pidió—, llama a pedir_aprobacion. El cliente verá Aprobar y Rechazar, y retomarás con su decisión.
+- Nunca uses pedir_aprobacion para preguntar "¿cuál?": con Aprobar y Rechazar no se puede elegir.
+- NUNCA termines tu respuesta con una pregunta en el texto ("¿te parece bien?", "¿procedo?", "¿cuál prefieres?"). El cliente no tiene cómo contestarla.
+- Antes de proponer quitar o desactivar algo, piensa qué deja de funcionar: nunca ofrezcas quitar el constructor con el que está hecho el sitio (Elementor, PRO Elements) como si fuera una opción más.`;
 
 const BLOQUE_BACKUP = `
 BACKUPS Y REVERSIÓN:
@@ -134,7 +141,7 @@ REGLAS DE SEGURIDAD (innegociables):
 - Máximo ${MAX_ACCIONES} acciones de herramienta por tarea. Si te acercas al límite, cierra con lo que tengas verificado.`;
 
 const BLOQUE_CIERRE = `
-FORMATO DE CIERRE (obligatorio): tu último mensaje debe terminar con una línea que empiece con "RESUMEN:" dirigida al cliente, en español, concreta y sin tecnicismos innecesarios: qué cambiaste, dónde se ve (URL), cómo lo verificaste, qué backup_id quedó y si hay algún pendiente o algo esperando aprobación. El RESUMEN informa; nunca pregunta.`;
+FORMATO DE CIERRE (obligatorio): tu último mensaje debe terminar con una línea que empiece con "RESUMEN:" dirigida al cliente, en español, concreta y sin tecnicismos innecesarios: qué cambiaste, dónde se ve (URL), cómo lo verificaste, qué backup_id quedó y si hay algún pendiente o algo esperando aprobación o respuesta. El RESUMEN informa; nunca pregunta.`;
 
 // ---------------------------------------------------------------------------
 // Webmaster de WordPress
@@ -152,7 +159,7 @@ export const webmaster: SkillAgentDef = {
     "sitio_salud",
     "verificar_http",
     "ver_referencia",
-    "pedir_aprobacion",
+    ...HERRAMIENTAS_DE_DIALOGO,
   ],
   scopes: SCOPES_WORDPRESS,
   maxAcciones: MAX_ACCIONES,
@@ -191,7 +198,7 @@ export const webmasterConector: SkillAgentDef = {
   description:
     "Mantiene desarrollos propios conectados por el contrato estándar: páginas compuestas por secciones tipadas, dentro de las capacidades que el sitio declara.",
   agentTypeSlug: TIPO_TAREA_POR_ENCARGO,
-  allowedToolPatterns: ["conector_*", "navegador_*", "ver_referencia", "pedir_aprobacion"],
+  allowedToolPatterns: ["conector_*", "navegador_*", "ver_referencia", ...HERRAMIENTAS_DE_DIALOGO],
   scopes: SCOPES_CONECTOR,
   maxAcciones: MAX_ACCIONES,
   timeoutMs: TIMEOUT_MS,

@@ -90,6 +90,7 @@ const ENTRADAS_WP: Record<string, unknown> = {
     incluir_footer: true,
   },
   pedir_aprobacion: { propuesta: "Añadir al footer un enlace a https://www.google.com." },
+  preguntar_al_cliente: { pregunta: "¿Qué plugin quieres desinstalar?", opciones: ["Akismet", "Otro"] },
   wp_listar_plantillas_elementor: {},
   wp_leer_plantilla_elementor: { id: 78 },
   wp_editar_plantilla_elementor: {

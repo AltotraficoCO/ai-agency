@@ -12,8 +12,8 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
-import { Badge, Button, Textarea } from "@strappy/ui";
-import type { EncargoVista } from "@/lib/encargos/encargos";
+import { Badge, Button, Input, Textarea } from "@strappy/ui";
+import type { AprobacionVista, EncargoVista } from "@/lib/encargos/encargos";
 import type { Resultado } from "@/lib/negocio/acciones";
 
 const EN_CURSO = new Set<EncargoVista["estado"]>(["queued", "running"]);
@@ -21,10 +21,16 @@ const EN_CURSO = new Set<EncargoVista["estado"]>(["queued", "running"]);
 const ETIQUETAS: Record<EncargoVista["estado"], { texto: string; aviso: boolean }> = {
   queued: { texto: "En cola", aviso: false },
   running: { texto: "Trabajando", aviso: false },
-  esperando_aprobacion: { texto: "Necesita tu aprobación", aviso: true },
+  esperando_aprobacion: { texto: "Necesita tu respuesta", aviso: true },
   done: { texto: "Hecho", aviso: false },
   failed: { texto: "No se pudo", aviso: true },
   cancelled: { texto: "Cancelado", aviso: true },
+};
+
+type Acciones = {
+  decidir: (aprobacionId: string, aprobada: boolean) => Promise<Resultado>;
+  responder: (aprobacionId: string, respuesta: string) => Promise<Resultado>;
+  eliminar: (taskId: string) => Promise<Resultado>;
 };
 
 export function EncargosWebmaster({
@@ -33,6 +39,7 @@ export function EncargosWebmaster({
   encargos,
   encargar,
   decidir,
+  responder,
   eliminar,
   vaciar,
 }: {
@@ -40,10 +47,8 @@ export function EncargosWebmaster({
   sitio: { nombre: string; url: string } | null;
   encargos: EncargoVista[];
   encargar: (datos: FormData) => Promise<Resultado>;
-  decidir: (aprobacionId: string, aprobada: boolean) => Promise<Resultado>;
-  eliminar: (taskId: string) => Promise<Resultado>;
   vaciar: () => Promise<Resultado>;
-}) {
+} & Acciones) {
   const router = useRouter();
   const formulario = React.useRef<HTMLFormElement>(null);
   const final = React.useRef<HTMLDivElement>(null);
@@ -123,6 +128,7 @@ export function EncargosWebmaster({
             encargo={encargo}
             nombreAgente={nombreAgente}
             decidir={decidir}
+            responder={responder}
             eliminar={eliminar}
           />
         ))}
@@ -164,27 +170,13 @@ function Encargo({
   encargo,
   nombreAgente,
   decidir,
+  responder,
   eliminar,
-}: {
-  encargo: EncargoVista;
-  nombreAgente: string;
-  decidir: (aprobacionId: string, aprobada: boolean) => Promise<Resultado>;
-  eliminar: (taskId: string) => Promise<Resultado>;
-}) {
+}: { encargo: EncargoVista; nombreAgente: string } & Acciones) {
   const router = useRouter();
-  const [decidiendo, setDecidiendo] = React.useState<string | null>(null);
   const [borrando, setBorrando] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const etiqueta = ETIQUETAS[encargo.estado];
-
-  async function responder(aprobacionId: string, aprobada: boolean) {
-    setDecidiendo(aprobacionId);
-    setError(null);
-    const resultado = await decidir(aprobacionId, aprobada);
-    setDecidiendo(null);
-    if (resultado.ok) router.refresh();
-    else setError(resultado.error);
-  }
 
   async function borrar() {
     if (!window.confirm("¿Eliminar este encargo del historial? Lo que ya cambió en tu sitio se queda como está.")) {
@@ -232,38 +224,143 @@ function Encargo({
             Estoy haciendo el cambio en tu sitio. Suele tardar entre uno y cinco minutos.
           </p>
         )}
-        {encargo.resumen && <p className="whitespace-pre-wrap text-sm text-fg">{encargo.resumen}</p>}
+        {encargo.resumen && encargo.aprobaciones.length === 0 && (
+          <p className="whitespace-pre-wrap text-sm text-fg">{encargo.resumen}</p>
+        )}
         {encargo.estado === "failed" && encargo.error && (
           <p className="text-sm text-danger-fg">{encargo.error}</p>
         )}
 
-        {encargo.aprobaciones.map((aprobacion) => (
-          <div key={aprobacion.id} className="flex flex-col gap-2 rounded-md bg-inset px-3 py-2">
-            <p className="text-sm text-fg">{aprobacion.resumen}</p>
-            <p className="text-2xs text-fg-muted">Te pido aprobación porque {aprobacion.motivo}.</p>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                loading={decidiendo === aprobacion.id}
-                disabled={decidiendo !== null}
-                onClick={() => responder(aprobacion.id, true)}
-              >
-                Aprobar
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={decidiendo !== null}
-                onClick={() => responder(aprobacion.id, false)}
-              >
-                Rechazar
-              </Button>
-            </div>
-          </div>
-        ))}
+        {encargo.aprobaciones.map((aprobacion) =>
+          aprobacion.tipo === "pregunta" ? (
+            <Pregunta
+              key={aprobacion.id}
+              aprobacion={aprobacion}
+              responder={responder}
+              onError={setError}
+            />
+          ) : (
+            <Aprobacion key={aprobacion.id} aprobacion={aprobacion} decidir={decidir} onError={setError} />
+          ),
+        )}
 
         {error && <p className="text-sm text-danger-fg">{error}</p>}
       </div>
     </li>
+  );
+}
+
+function Aprobacion({
+  aprobacion,
+  decidir,
+  onError,
+}: {
+  aprobacion: AprobacionVista;
+  decidir: Acciones["decidir"];
+  onError: (e: string | null) => void;
+}) {
+  const router = useRouter();
+  const [decidiendo, setDecidiendo] = React.useState<boolean | null>(null);
+
+  async function responderCon(aprobada: boolean) {
+    setDecidiendo(aprobada);
+    onError(null);
+    const resultado = await decidir(aprobacion.id, aprobada);
+    setDecidiendo(null);
+    if (resultado.ok) router.refresh();
+    else onError(resultado.error);
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md bg-inset px-3 py-2">
+      <p className="text-sm text-fg">{aprobacion.resumen}</p>
+      <p className="text-2xs text-fg-muted">Te pido aprobación porque {aprobacion.motivo}.</p>
+      <div className="flex gap-2">
+        <Button size="sm" loading={decidiendo === true} disabled={decidiendo !== null} onClick={() => responderCon(true)}>
+          Aprobar
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          loading={decidiendo === false}
+          disabled={decidiendo !== null}
+          onClick={() => responderCon(false)}
+        >
+          Rechazar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function Pregunta({
+  aprobacion,
+  responder,
+  onError,
+}: {
+  aprobacion: AprobacionVista;
+  responder: Acciones["responder"];
+  onError: (e: string | null) => void;
+}) {
+  const router = useRouter();
+  const [enviando, setEnviando] = React.useState<string | null>(null);
+  const [texto, setTexto] = React.useState("");
+
+  async function enviar(respuesta: string) {
+    const limpia = respuesta.trim();
+    if (!limpia) return;
+    setEnviando(limpia);
+    onError(null);
+    const resultado = await responder(aprobacion.id, limpia);
+    setEnviando(null);
+    if (resultado.ok) router.refresh();
+    else onError(resultado.error);
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md bg-inset px-3 py-2">
+      <p className="text-sm text-fg">{aprobacion.resumen}</p>
+      {aprobacion.opciones.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {aprobacion.opciones.map((opcion) => (
+            <Button
+              key={opcion}
+              size="sm"
+              variant="secondary"
+              loading={enviando === opcion}
+              disabled={enviando !== null}
+              onClick={() => enviar(opcion)}
+            >
+              {opcion}
+            </Button>
+          ))}
+        </div>
+      )}
+      {aprobacion.permiteTexto && (
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void enviar(texto);
+          }}
+        >
+          <Input
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            placeholder={aprobacion.opciones.length > 0 ? "…o escribe otra respuesta" : "Escribe tu respuesta"}
+            disabled={enviando !== null}
+            maxLength={1000}
+          />
+          <Button
+            type="submit"
+            size="sm"
+            loading={enviando !== null && enviando === texto.trim()}
+            disabled={enviando !== null || !texto.trim()}
+          >
+            Enviar
+          </Button>
+        </form>
+      )}
+    </div>
   );
 }

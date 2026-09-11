@@ -10,6 +10,7 @@ import {
   accionDecidirAprobacion,
   accionEliminarEncargo,
   accionEncargar,
+  accionResponderPregunta,
   accionVaciarEncargos,
 } from "@/lib/encargos/acciones";
 import { encargosDelAgente, esWebmaster } from "@/lib/encargos/encargos";
@@ -49,6 +50,7 @@ export default async function PaginaProbar({ params }: { params: Promise<{ id: s
           encargos={encargos}
           encargar={accionEncargar.bind(null, id)}
           decidir={accionDecidirAprobacion.bind(null, id)}
+          responder={accionResponderPregunta.bind(null, id)}
           eliminar={accionEliminarEncargo.bind(null, id)}
           vaciar={accionVaciarEncargos.bind(null, id)}
         />
