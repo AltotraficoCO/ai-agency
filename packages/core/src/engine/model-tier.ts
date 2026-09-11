@@ -55,7 +55,7 @@ export const DEFAULT_MODEL_TABLE: ModelTable = {
       // sostener. Que modelo economico construye mejor en espanol se decide
       // con evaluaciones sobre conversaciones reales, no por intuicion.
       builder: ["zai/glm-4.7-flash", "deepseek/deepseek-v4-flash"],
-      business_agent: ["openai/gpt-5.6-luna-pro"],
+      business_agent: ["anthropic/claude-sonnet-5", "deepseek/deepseek-v4-flash"],
     },
     max: {
       conversation: ["anthropic/claude-sonnet-5", "anthropic/claude-opus-5"],
@@ -64,7 +64,7 @@ export const DEFAULT_MODEL_TABLE: ModelTable = {
       classification: ["anthropic/claude-sonnet-5"],
       title: ["anthropic/claude-sonnet-5"],
       builder: ["anthropic/claude-opus-5", "anthropic/claude-sonnet-5"],
-      business_agent: ["openai/gpt-5.6-luna-pro"],
+      business_agent: ["anthropic/claude-sonnet-5", "deepseek/deepseek-v4-flash"],
     },
   },
   defaults: {
