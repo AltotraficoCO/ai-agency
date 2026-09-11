@@ -8,15 +8,15 @@ import "server-only";
  * una transacción de Postgres abierta durante ese rato mientras se espera a un
  * servidor ajeno es la manera clásica de agotar el pool en producción.
  *
- * Sin clave de modelo no hay embeddings. Cuando pasa, el Cerebro se crea igual
- * y la fuente queda registrada, pero el paso de indexado se declara omitido y
- * se dice por qué. Callarlo dejaría un Cerebro que existe, no responde nada y
- * nadie sabe por qué.
+ * Embeddings solo si hay proveedor de verdad (`crearEmbeddingsSiHayProveedor`).
+ * Antes se pedían siempre que hubiera clave de CHAT, y la cartera es
+ * OpenRouter, que no tiene embeddings: cada documento fallaba y el Cerebro
+ * quedaba vacío. Sin proveedor se indexa en modo solo texto, que busca por
+ * palabras y funciona desde el primer minuto.
  */
-import { crearEmbeddings, indexarDocumento, type DocumentoCrudo } from "@strappy/rag";
+import { crearEmbeddingsSiHayProveedor, indexarDocumento, type DocumentoCrudo } from "@strappy/rag";
 import { crearConocimientoDb, crearModelTiersPort } from "@strappy/db/adapters";
 import { conEspacio } from "../db/pool";
-import { hayModeloReal } from "../motor/modelo";
 import { analizarSitio } from "./sitio";
 import type { PasoConstruccion, SalidaProgreso } from "./tipos";
 
@@ -92,32 +92,15 @@ export async function crearCerebroConFuentes(
     if (!cerebroId) throw new Error("No se pudo crear el Cerebro.");
     pasos.push({ etiqueta: `Creé el Cerebro «${entrada.nombre}»`, estado: "hecho" });
 
-    if (!hayModeloReal()) {
-      pasos.push({
-        etiqueta: "No indexé el contenido",
-        estado: "omitido",
-        detalle: "Falta la clave de la cartera de modelos: sin ella no hay embeddings.",
-      });
-      return {
-        cerebroId,
-        progreso: {
-          tipo: "progreso" as const,
-          titulo: "Preparando el conocimiento",
-          pasos,
-          resumen: `Cerebro «${entrada.nombre}» creado con ${documentos.length} documento(s), pendiente de indexar.`,
-        },
-      };
-    }
-
     const db = crearConocimientoDb(scope);
-    const embeddings = crearEmbeddings({ modelTiers: crearModelTiersPort(scope) });
+    const embeddings = crearEmbeddingsSiHayProveedor({ modelTiers: crearModelTiersPort(scope) });
     let trozos = 0;
     let fallidos = 0;
 
     for (const documento of documentos) {
       try {
         const resultado = await indexarDocumento(
-          { db, embeddings },
+          { db, ...(embeddings ? { embeddings } : {}) },
           { workspaceId: scope.workspaceId, cerebroId, documento },
         );
         trozos += resultado.trozosTotales;
@@ -132,10 +115,12 @@ export async function crearCerebroConFuentes(
       ...(fallidos > 0 ? { detalle: `${fallidos} documento(s) fallaron.` } : {}),
     });
 
+    // `chunk_count` lo mantiene el trigger de `brain_chunks`: pisarlo aquí con
+    // la suma de este turno borraba lo que ya tenía el Cerebro.
     await scope.query(
-      `update public.brains set chunk_count = $3, status = 'ready', updated_at = now()
+      `update public.brains set status = 'ready', updated_at = now()
         where workspace_id = $1 and id = $2`,
-      [scope.workspaceId, cerebroId, trozos],
+      [scope.workspaceId, cerebroId],
     );
 
     return {

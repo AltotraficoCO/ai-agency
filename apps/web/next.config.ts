@@ -13,8 +13,11 @@ const nextConfig: NextConfig = {
     "@strappy/webmaster",
   ],
 
-  // `pg` carga sus dialectos con require dinámico; empaquetarlo lo rompe.
-  serverExternalPackages: ["pg"],
+  // `pg` carga sus dialectos con require dinámico; empaquetarlo lo rompe. Los
+  // lectores de documentos de Conocimiento, igual: `unpdf` usa `import.meta`
+  // de una forma que webpack no admite al empaquetar, y `mammoth` y
+  // `read-excel-file` cargan sus dependencias en tiempo de ejecución.
+  serverExternalPackages: ["pg", "unpdf", "mammoth", "read-excel-file"],
 
   /**
    * Por qué webpack y no Turbopack.
