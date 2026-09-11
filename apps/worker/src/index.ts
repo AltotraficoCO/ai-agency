@@ -4,13 +4,13 @@
  * Un proceso persistente que atiende consumidores. Hoy solo el de tareas por
  * encargo; los de WhatsApp entran como una línea más en la lista.
  *
- * El driver de Postgres se carga por especificador dinámico: el paquete no lo
- * declara como dependencia para que quien despliegue elija `pg` o el pool que
- * ya tenga, y el error dice qué instalar en vez de reventar al importar.
+ * El driver de Postgres se carga por especificador dinámico para que el error
+ * diga qué instalar en vez de reventar al importar.
  */
-import { leerConfig, TARIFAS_POR_DEFECTO } from "./config.js";
+import { leerConfig } from "./config.js";
 import { ColaPostgres } from "./queue/postgres.js";
 import { AprobacionesPostgres, BackupsPostgres, SitiosPostgres } from "./adaptadores/postgres.js";
+import { MotorPorPlan } from "./adaptadores/motor.js";
 import { ConsumidorDeTareas } from "./consumers/tareas.js";
 import { Runner } from "./runner.js";
 import type { SqlPool } from "./ports.js";
@@ -51,6 +51,9 @@ async function main(): Promise<void> {
   const pool = await abrirPool(config.databaseUrl);
   const log = (m: string) => console.log(`${new Date().toISOString()} ${m}`);
 
+  // El modelo NO se fija al arrancar: cada tarea usa el de su plan (ver
+  // adaptadores/motor.ts).
+  const motor = new MotorPorPlan(pool);
   const referencias = referenciasDe(config.referenciasHost);
   const consumidor = new ConsumidorDeTareas({
     puertos: {
@@ -60,11 +63,7 @@ async function main(): Promise<void> {
       aprobaciones: new AprobacionesPostgres(pool),
     },
     workerId: config.workerId,
-    // Una cadena "proveedor/modelo" la resuelve el AI SDK contra la pasarela;
-    // si mañana se quiere un proveedor directo, se sustituye aquí y ya.
-    model: config.modelId,
-    modelId: config.modelId,
-    rates: TARIFAS_POR_DEFECTO,
+    motorPara: (tarea) => motor.para(tarea),
     navegadorPara: (sitio) =>
       crearNavegadorPlaywright({
         baseUrl: sitio.url.startsWith("http") ? sitio.url : `https://${sitio.url}`,
@@ -89,7 +88,7 @@ async function main(): Promise<void> {
     });
   }
 
-  log(`worker ${config.workerId} · modelo ${config.modelId} · poll ${config.pollMs} ms`);
+  log(`worker ${config.workerId} · modelo según el plan de cada espacio · poll ${config.pollMs} ms`);
   await runner.arrancar();
 }
 

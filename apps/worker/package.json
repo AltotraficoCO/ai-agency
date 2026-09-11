@@ -13,9 +13,11 @@
   "dependencies": {
     "@strappy/analysis": "workspace:*",
     "@strappy/core": "workspace:*",
+    "@strappy/db": "workspace:*",
     "@strappy/tools": "workspace:*",
     "@strappy/webmaster": "workspace:*",
     "ai": "6.0.271",
+    "pg": "^8.23.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

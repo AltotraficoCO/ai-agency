@@ -1,18 +1,15 @@
 -- =============================================================================
--- PROPUESTA · Cola de tareas por encargo, backups y aprobaciones
+-- 0015 · Encargos del Webmaster: cola de tareas, backups y aprobaciones
 -- -----------------------------------------------------------------------------
--- Este archivo NO está en packages/db/migrations a propósito: ese directorio es
--- de otra corriente. Aquí queda la forma exacta que el worker necesita para que
--- se adopte tal cual (o se adapte y se ajusten los adaptadores de
--- src/adaptadores/postgres.ts, que es el único sitio que la conoce).
+-- Hasta ahora esto vivía en apps/worker/sql como propuesta y nunca se aplicaba,
+-- así que el Webmaster no tenía dónde recibir un encargo: en el chat solo podía
+-- escalar a una persona. La forma es EXACTAMENTE la que ya esperan
+-- apps/worker/src/queue/postgres.ts y apps/worker/src/adaptadores/postgres.ts.
 --
--- El sitio NO necesita tabla nueva: se guarda en public.connections, que ya
--- existe y ya es "credencial de un servicio externo con sobre cifrado".
+-- El sitio NO necesita tabla nueva: vive en public.connections
 --   provider = 'wordpress' | 'conector'
 --   credentials_encrypted = sobre AES-256-GCM del JSON de credenciales
---   metadata = {"url": "...", "tipo": "wp"|"custom",
---               "agent_name": "Max", "primer_contacto": true}
--- `primer_contacto` es lo que activa el modo de simulación la primera vez.
+--   metadata = {"url": "...", "tipo": "wp"|"custom", "primer_contacto": false}
 -- =============================================================================
 
 set search_path = public, extensions, pg_temp;
@@ -58,18 +55,19 @@ create table if not exists public.agent_tasks (
 );
 
 comment on table public.agent_tasks is
-  'Encargo del cliente a un agente de tipo tarea_por_encargo. La reclama el worker con FOR UPDATE SKIP LOCKED.';
+  'Encargo del cliente a un agente por encargo (el Webmaster). La reclama el worker con FOR UPDATE SKIP LOCKED.';
 comment on column public.agent_tasks.lease_until is
   'Hasta cuando este worker tiene la tarea. Expirado, otro worker puede recogerla: es lo que hace que la muerte de un proceso no cuelgue un encargo.';
 comment on column public.agent_tasks.mensajes is
   'Conversacion serializada de un intento suspendido por aprobacion. Permite reanudar sin repetir la exploracion, que es la parte cara.';
 
--- El indice que hace barata la consulta de la cola.
 create index if not exists agent_tasks_cola_idx
   on public.agent_tasks (prioridad desc, created_at)
   where estado in ('queued','running');
 create index if not exists agent_tasks_ws_estado_idx
   on public.agent_tasks (workspace_id, estado, created_at desc);
+create index if not exists agent_tasks_ws_agente_idx
+  on public.agent_tasks (workspace_id, agent_id, created_at desc);
 
 -- -----------------------------------------------------------------------------
 -- Backups: sin esto, revertir no es un boton

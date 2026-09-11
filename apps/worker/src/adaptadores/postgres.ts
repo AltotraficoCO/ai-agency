@@ -6,7 +6,7 @@
  * `credentials_encrypted` y el resto en `metadata`. No hacía falta una tabla
  * nueva para eso, y una tabla menos es una migración menos que coordinar.
  *
- * Backups y aprobaciones sí son tablas nuevas: `sql/0011_tareas_webmaster.sql`.
+ * Backups y aprobaciones sí son tablas nuevas: `packages/db/migrations/0015_tareas_webmaster.sql`.
  */
 import { decryptJson } from "@strappy/webmaster";
 import type {
@@ -180,7 +180,9 @@ export class SitiosPostgres implements SitePort {
       url: f.metadata?.url ?? ("url" in credenciales ? credenciales.url : credenciales.baseUrl),
       credenciales,
       agentName: f.metadata?.agent_name ?? "Max",
-      primerContacto: f.metadata?.primer_contacto !== false,
+      // Solo simula si se pide expresamente: el Webmaster ejecuta desde el
+      // primer encargo, con backup antes de cada cambio y aprobación en lo delicado.
+      primerContacto: f.metadata?.primer_contacto === true,
     };
   }
 

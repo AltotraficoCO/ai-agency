@@ -11,9 +11,7 @@
  * siempre. Con arrendamiento, otro worker la recoge cuando expira, y
  * `intentos` impide que un fallo determinista se reintente sin fin.
  *
- * El SQL de esta tabla está en `sql/0011_tareas_webmaster.sql`. No se ha
- * puesto en `packages/db/migrations` porque ese directorio es de otra
- * corriente: cuando lo adopten, esta clase funciona sin tocar nada.
+ * La tabla está en `packages/db/migrations/0015_tareas_webmaster.sql`.
  */
 import type {
   CierreTarea,

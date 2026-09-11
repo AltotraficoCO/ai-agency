@@ -117,7 +117,9 @@ export async function probarYGuardarSitio(input: {
         input.workspaceId,
         host,
         encryptJson(credenciales, clave),
-        JSON.stringify({ url, tipo: "wp", nombre, usuario }),
+        // `primer_contacto: false`: el Webmaster ejecuta desde el primer encargo
+        // (con copia de seguridad y aprobación en lo delicado), no solo simula.
+        JSON.stringify({ url, tipo: "wp", nombre, usuario, primer_contacto: false }),
         input.usuarioId,
       ],
     );

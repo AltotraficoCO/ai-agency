@@ -2,16 +2,13 @@
  * Puertos del worker.
  *
  * El worker no conoce ni el driver de base de datos ni el esquema: pide a
- * puertos. Eso es lo que permite probar el bucle entero en memoria y lo que
- * hace que la corriente que escribe las migraciones y esta puedan avanzar en
- * paralelo sin pisarse.
+ * puertos. Eso es lo que permite probar el bucle entero en memoria.
  *
- * PENDIENTE CON LA CORRIENTE DE BASE DE DATOS: hoy no existen las tablas de
- * cola de tareas, backups ni aprobaciones. La forma que este worker necesita
- * está escrita en `sql/0011_tareas_webmaster.sql` como propuesta —no está en
- * `packages/db/migrations`, que es de otra corriente.
+ * Las tablas de cola de tareas, backups y aprobaciones están en
+ * `packages/db/migrations/0015_tareas_webmaster.sql`.
  */
-import type { ToolApprovalResponse } from "ai";
+import type { LanguageModel, ToolApprovalResponse } from "ai";
+import type { RateTable } from "@strappy/core";
 import type { ApprovalPort, BackupPort, ConectorCreds, WpCreds } from "@strappy/webmaster";
 
 // ---------------------------------------------------------------------------
@@ -20,9 +17,7 @@ import type { ApprovalPort, BackupPort, ConectorCreds, WpCreds } from "@strappy/
 
 /**
  * Lo mínimo que el worker necesita de un driver. Encajan `pg`, `postgres.js` y
- * el pool de Supabase. Se declara aquí, y no se importa de `@strappy/db`, para
- * que este paquete no dependa de la superficie de otra corriente mientras las
- * dos están en obra.
+ * el pool de Supabase.
  */
 export interface SqlExecutor {
   query<T = Record<string, unknown>>(
@@ -95,6 +90,33 @@ export interface TaskQueuePort {
     reintentable: boolean;
   }): Promise<void>;
 }
+
+// ---------------------------------------------------------------------------
+// Modelo y créditos de cada tarea
+// ---------------------------------------------------------------------------
+
+/**
+ * Con qué modelo se ejecuta una tarea y a quién se le cobra.
+ *
+ * Se decide POR TAREA, no al arrancar: el modelo depende del plan del espacio
+ * y del modo del agente, y un mismo worker atiende a clientes con planes
+ * distintos.
+ */
+export type MotorTarea = {
+  readonly model: LanguageModel;
+  /** Identificador canónico de `model_tiers`: es con el que se tarifica. */
+  readonly modelId: string;
+  readonly modo?: "lite" | "max";
+  readonly rates: RateTable;
+  /** Créditos disponibles del espacio. Sin saldo no se empieza a gastar. */
+  saldo?(): Promise<number>;
+  /** Descuenta lo que costó un intento. `clave` hace que reintentar el cobro no cobre dos veces. */
+  cobrar?(input: {
+    creditos: number;
+    clave: string;
+    detalle: Readonly<Record<string, string | number | boolean>>;
+  }): Promise<void>;
+};
 
 // ---------------------------------------------------------------------------
 // Sitios y credenciales

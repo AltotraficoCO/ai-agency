@@ -37,26 +37,29 @@ Todo por entorno; el proceso se niega a arrancar si falta algo.
 | Variable | Obligatoria | Para qué |
 | --- | --- | --- |
 | `DATABASE_URL` | sí | cola y adaptadores |
-| `APP_ENCRYPTION_KEY` | sí | descifra las credenciales de los sitios (mínimo 16 caracteres; `openssl rand -base64 32`) |
-| `WORKER_MODEL` | no | identificador del modelo (por defecto `anthropic/claude-sonnet-4-5`) |
+| `APP_ENCRYPTION_KEY` | sí | descifra las credenciales de los sitios; la misma que usa la web |
+| `OPENROUTER_API_KEY` | sí | clave de la cartera de modelos (o `AI_GATEWAY_API_KEY` con `MODEL_WALLET=vercel-gateway`) |
 | `WORKER_ID` | no | identifica al worker en el arrendamiento |
 | `WORKER_POLL_MS` | no | cada cuánto consulta la cola cuando está vacía |
 | `WORKER_CHROME_PATH` | no | Chrome para la verificación visual |
 | `WORKER_REFERENCIAS_HOST` | no | host del almacén de referencias del cliente |
 | `WORKER_TABLA_TAREAS` | no | nombre de la tabla de la cola |
 
-Además hacen falta `pg` (driver de Postgres) y `playwright-core` con un Chrome.
-Ninguno se declara como dependencia: el error dice qué instalar.
+**El modelo no se configura.** Cada tarea usa el de su espacio: el modo del
+agente (`lite` o `max`), rebajado a `lite` si el plan no incluye Max, y la fila
+`builder` de `model_tiers`. Las tarifas salen de `credit_rates` y lo gastado se
+descuenta del mismo libro de créditos que el resto de Strappy. Ver
+`src/adaptadores/motor.ts`.
+
+`playwright-core` con un Chrome es opcional: sin él la tarea se hace igual y se
+avisa de que la verificación visual no estuvo disponible.
 
 ## Esquema
 
-`sql/0011_tareas_webmaster.sql` tiene la forma exacta que este worker necesita:
-`agent_tasks`, `site_backups` y `task_approvals`. **No está en
-`packages/db/migrations` a propósito** — ese directorio es de otra corriente.
-Cuando lo adopten, el worker funciona sin tocar nada; si prefieren otra forma,
-lo único que hay que ajustar son `src/queue/postgres.ts` y
-`src/adaptadores/postgres.ts`, que son los dos únicos ficheros que conocen el
-esquema.
+Las tablas `agent_tasks`, `site_backups` y `task_approvals` están en
+`packages/db/migrations/0015_tareas_webmaster.sql`. Los únicos ficheros de este
+worker que conocen el esquema son `src/queue/postgres.ts`,
+`src/adaptadores/postgres.ts` y `src/adaptadores/motor.ts`.
 
 El sitio no necesita tabla nueva: se guarda en `public.connections`, con el
 sobre cifrado en `credentials_encrypted` y `{"url", "tipo", "agent_name",

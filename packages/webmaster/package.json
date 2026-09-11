@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./crypto": "./src/crypto.ts",
+    "./aprobacion": "./src/aprobacion.ts",
     "./wordpress": "./src/wordpress/client.ts",
     "./testing": "./src/testing/index.ts"
   },

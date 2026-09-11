@@ -4,6 +4,11 @@
  * Se valida al arrancar y con mensajes que dicen qué falta. Un worker que
  * arranca a medias y falla en la primera tarea de un cliente es peor que uno
  * que se niega a arrancar.
+ *
+ * El modelo NO se configura aquí: sale del plan de cada espacio y de
+ * `model_tiers` (ver adaptadores/motor.ts). La clave de la cartera
+ * (`OPENROUTER_API_KEY`, o `AI_GATEWAY_API_KEY` con `MODEL_WALLET=vercel-gateway`)
+ * la lee directamente `@strappy/core`.
  */
 import { z } from "zod";
 import { masterKeyFromEnv } from "@strappy/webmaster";
@@ -14,7 +19,6 @@ const esquema = z.object({
   APP_ENCRYPTION_KEY: z.string().min(16),
   WORKER_ID: z.string().min(1).optional(),
   WORKER_POLL_MS: z.coerce.number().int().min(250).max(60_000).default(3000),
-  WORKER_MODEL: z.string().min(1).default("anthropic/claude-sonnet-4-5"),
   /** Ruta a un Chrome. Sin navegador la verificación es más pobre y se avisa. */
   WORKER_CHROME_PATH: z.string().min(1).optional(),
   /** Host del almacén de referencias del cliente. Vacío = no se admiten. */
@@ -27,7 +31,6 @@ export type ConfigWorker = {
   readonly claveMaestra: Buffer;
   readonly workerId: string;
   readonly pollMs: number;
-  readonly modelId: string;
   readonly chromePath?: string;
   readonly referenciasHost?: string;
   readonly tablaTareas: string;
@@ -47,7 +50,6 @@ export function leerConfig(env: NodeJS.ProcessEnv = process.env): ConfigWorker {
     claveMaestra: masterKeyFromEnv(env),
     workerId: c.WORKER_ID ?? `worker-${process.pid}-${Math.random().toString(36).slice(2, 8)}`,
     pollMs: c.WORKER_POLL_MS,
-    modelId: c.WORKER_MODEL,
     ...(c.WORKER_CHROME_PATH ? { chromePath: c.WORKER_CHROME_PATH } : {}),
     ...(c.WORKER_REFERENCIAS_HOST ? { referenciasHost: c.WORKER_REFERENCIAS_HOST } : {}),
     tablaTareas: c.WORKER_TABLA_TAREAS,
@@ -55,14 +57,13 @@ export function leerConfig(env: NodeJS.ProcessEnv = process.env): ConfigWorker {
 }
 
 /**
- * Tarifas de venta por defecto, en dólares por millón de tokens. Es un
- * arranque razonable, no la fuente de verdad: en producción la tabla vive en
- * `credit_rates` y la mantiene la corriente de facturación.
+ * Tarifas de ejemplo para la prueba local (`scripts/probar-sitio.ts`), que corre
+ * sin base de datos. En producción las tarifas se leen de `credit_rates`.
  */
 export const TARIFAS_POR_DEFECTO: RateTable = {
   models: {
-    "anthropic/claude-sonnet-4-5": { input: 9, output: 45, cacheRead: 0.9, cacheWrite: 11.25 },
-    "anthropic/claude-haiku-4-5": { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+    "anthropic/claude-sonnet-5": { input: 6, output: 30, cacheRead: 0.6, cacheWrite: 7.5 },
+    "zai/glm-4.7-flash": { input: 0.21, output: 1.2, cacheRead: 0.021 },
   },
-  fallback: { input: 12, output: 60 },
+  fallback: { input: 6, output: 30, cacheRead: 0.6 },
 };
