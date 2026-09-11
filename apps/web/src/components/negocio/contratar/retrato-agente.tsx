@@ -41,7 +41,7 @@ export function RetratoAgente({
           )}
         />
       ) : (
-        <span className="relative grid size-1/2 place-items-center rounded-full bg-[linear-gradient(135deg,#7357e8_0%,#ff6b57_100%)] text-white shadow-lg">
+        <span className="relative grid size-1/2 place-items-center rounded-full bg-[linear-gradient(135deg,#39ff14_0%,#0080ff_100%)] text-black shadow-lg">
           <IconoSinPersonaje size={Math.round(tamano / 4)} strokeWidth={1.75} aria-hidden />
         </span>
       )}

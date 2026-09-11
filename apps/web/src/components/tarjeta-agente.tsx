@@ -40,7 +40,7 @@ const PAPELES: Record<string, Papel> = {
 const PROPIO: Papel = {
   nombre: "Agente de WhatsApp",
   imagen: AVATAR_POR_DEFECTO,
-  halo: "radial-gradient(circle, rgba(115,87,232,0.22) 0%, rgba(115,87,232,0) 70%)",
+  halo: "radial-gradient(circle, rgba(57,255,20,0.22) 0%, rgba(57,255,20,0) 70%)",
 };
 
 /** Hover común: se eleva un poco y el borde se tiñe de marca. Sin mover el layout. */
@@ -160,7 +160,7 @@ function Retrato({ papel, apagado = false }: { papel: Papel; apagado?: boolean }
             "relative grid size-20 place-items-center rounded-full",
             apagado
               ? "bg-hover text-fg-muted"
-              : "bg-[linear-gradient(135deg,#7357e8_0%,#ff6b57_100%)] text-white shadow-lg ring-1 ring-white/10",
+              : "bg-[linear-gradient(135deg,#39ff14_0%,#0080ff_100%)] text-black shadow-lg ring-1 ring-white/10",
           )}
         >
           <Bot size={34} strokeWidth={1.75} aria-hidden />

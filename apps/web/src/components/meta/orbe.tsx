@@ -3,13 +3,11 @@
 /**
  * Strap.
  *
- * El personaje de plastilina —escudo morado, corona, gafas, capa y tablet— es
- * lo primero que se ve al entrar y lo único que se mueve mientras no pasa nada.
- * Respira cada cuatro segundos, el ritmo de una respiración tranquila y no el de
- * una carga, para decir «estoy aquí, sin prisa» en vez de «estoy ocupado».
- *
- * Se enseña de cuerpo entero, sin recortarlo en círculo: detrás solo hay un
- * halo morado y dorado, los colores de su capa y su corona.
+ * El personaje de plastilina —escudo morado, corona, gafas, capa y tablet— va
+ * en un círculo, como una foto de perfil: se encuadra de pecho para arriba para
+ * que la cara se reconozca también a 32 px en el chat. Es lo único que se mueve
+ * mientras no pasa nada: respira cada cuatro segundos, el ritmo de una
+ * respiración tranquila y no el de una carga.
  *
  * Los keyframes viajan con el componente y no en la hoja global: es la única
  * pieza que los usa.
@@ -20,22 +18,26 @@ import { cn, type StrapPose } from "@strappy/ui";
 
 const CSS = `
 @keyframes strap-orbe-respira {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50%      { transform: translateY(-2%) scale(1.03); }
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.035); }
 }
 @keyframes strap-orbe-aura {
-  0%, 100% { opacity: .45; transform: scale(.92); }
-  50%      { opacity: .75; transform: scale(1.05); }
+  0%, 100% { opacity: .35; transform: scale(.95); }
+  50%      { opacity: .65; transform: scale(1.06); }
 }
-.strap-orbe-respira { animation: strap-orbe-respira 4s ease-in-out infinite; transform-origin: 50% 90%; }
+.strap-orbe-respira { animation: strap-orbe-respira 4s ease-in-out infinite; }
 .strap-orbe-aura    { animation: strap-orbe-aura 4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .strap-orbe-respira, .strap-orbe-aura { animation: none; }
 }
 `;
 
+/** Halo verde de la marca con un toque del morado de su capa. */
 const HALO =
-  "radial-gradient(circle at 50% 55%, rgba(124,58,237,0.55) 0%, rgba(234,179,8,0.22) 45%, rgba(124,58,237,0) 70%)";
+  "radial-gradient(circle, rgba(57,255,20,0.35) 0%, rgba(124,58,237,0.18) 45%, rgba(57,255,20,0) 70%)";
+
+/** Fondo del círculo: el morado profundo de su capa, para que el personaje resalte. */
+const FONDO = "radial-gradient(circle at 50% 30%, #3B2A80 0%, #21184A 70%, #150F30 100%)";
 
 export interface OrbeProps {
   size?: number;
@@ -47,6 +49,7 @@ export interface OrbeProps {
 }
 
 export function Orbe({ size = 56, quieto = false, className }: OrbeProps) {
+  const grande = size >= 64;
   return (
     <span
       className={cn("relative inline-flex shrink-0 items-center justify-center", className)}
@@ -55,20 +58,29 @@ export function Orbe({ size = 56, quieto = false, className }: OrbeProps) {
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <span
         aria-hidden
-        className={cn("absolute -inset-[15%] rounded-full blur-md", !quieto && "strap-orbe-aura")}
+        className={cn("absolute -inset-[18%] rounded-full blur-lg", !quieto && "strap-orbe-aura")}
         style={{ background: HALO }}
       />
-      <Image
-        src="/agentes/strap.webp"
-        alt="Strap"
-        width={Math.max(64, size * 2)}
-        height={Math.max(64, size * 2)}
-        priority={size >= 48}
+      <span
         className={cn(
-          "relative size-full object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.35)]",
+          "relative size-full overflow-hidden rounded-full shadow-e2",
+          grande ? "border-[3px]" : "border-2",
+          "border-[color-mix(in_oklab,var(--brand),transparent_45%)]",
           !quieto && "strap-orbe-respira",
         )}
-      />
+        style={{ background: FONDO }}
+      >
+        {/* Encuadre de foto de perfil: la imagen es más grande que el círculo
+            y sube, así la cara y la corona quedan en el centro. */}
+        <Image
+          src="/agentes/strap.webp"
+          alt="Strap"
+          width={Math.max(96, size * 3)}
+          height={Math.max(96, size * 3)}
+          priority={grande}
+          className="absolute left-1/2 top-[2%] h-auto w-[155%] max-w-none -translate-x-1/2"
+        />
+      </span>
     </span>
   );
 }

@@ -41,7 +41,7 @@ const PERSONAJES: Readonly<Record<string, Personaje>> = {
 };
 
 const SIN_PERSONAJE: Personaje = {
-  halo: "radial-gradient(circle, rgba(115,87,232,0.22) 0%, rgba(115,87,232,0) 70%)",
+  halo: "radial-gradient(circle, rgba(57,255,20,0.22) 0%, rgba(57,255,20,0) 70%)",
 };
 
 export function personajeDe(slug: string): Personaje {

@@ -36,14 +36,14 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#1C1730" },
-    { media: "(prefers-color-scheme: light)", color: "#FBF6EE" },
+    { media: "(prefers-color-scheme: dark)", color: "#0D0D0D" },
+    { media: "(prefers-color-scheme: light)", color: "#FAFAFA" },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    // Sin clase `.dark`: el tema claro de plastilina es la base y next-themes añade el de noche.
+    // Sin clase `.light`: el tema oscuro de plastilina es la base y next-themes añade el de día.
     <html
       lang="es"
       suppressHydrationWarning
