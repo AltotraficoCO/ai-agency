@@ -17,8 +17,22 @@ import { claveDeNavegador } from "./lib/supabase/config";
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-/** Rutas que se ven sin haber entrado. Todo lo demás exige sesión. */
-const PUBLICAS = ["/entrar", "/registro", "/recuperar", "/actualizar-clave", "/auth"];
+/**
+ * Rutas que se ven sin haber entrado. Todo lo demás exige sesión.
+ *
+ * Los webhooks están aquí porque quien llama es Meta o Stripe, que nunca traen
+ * cookie: sin la excepción, la verificación de Meta recibía un 307 a /entrar y
+ * el endpoint no se podía dar de alta. Cada ruta comprueba su propia firma.
+ */
+const PUBLICAS = [
+  "/entrar",
+  "/registro",
+  "/recuperar",
+  "/actualizar-clave",
+  "/auth",
+  "/api/webhooks",
+  "/api/stripe/webhook",
+];
 
 export async function proxy(peticion: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
