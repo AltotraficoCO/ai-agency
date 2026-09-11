@@ -776,7 +776,15 @@ export const wpCrearUsuario = defineTool({
   whenToUse: "solo si el cliente pidió dar acceso a alguien concreto",
   inputSchema: z.object({
     username: z.string().min(3).max(60).regex(/^[a-z0-9._-]+$/i),
-    email: z.email(),
+    // A mano y no con `z.email()`: su JSON Schema lleva una expresion regular
+    // con comprobaciones hacia delante `(?!`, que OpenAI rechaza. Una sola
+    // herramienta invalida tumba TODA la peticion con «Provider returned
+    // error», sin decir cual es. Lo vigila `test/esquemas.test.ts`.
+    email: z
+      .string()
+      .min(5)
+      .max(254)
+      .regex(/^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$/, "Escribe un correo valido, por ejemplo ana@negocio.com"),
     role: z.enum(["subscriber", "contributor", "author", "editor", "administrator"]),
   }),
   sensitive: true,

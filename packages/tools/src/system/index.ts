@@ -197,7 +197,16 @@ export const agendar = defineTool({
     duracion_minutos: z.number().int().min(15).max(240).default(30),
     titulo: z.string().max(120).optional(),
     nombre: z.string().max(120).optional(),
-    correo: z.email().optional(),
+    // A mano y no con `z.email()`: su JSON Schema lleva una expresion regular
+    // con comprobaciones hacia delante `(?!`, que OpenAI rechaza, y las
+    // herramientas viajan todas juntas: una invalida tumba el turno entero con
+    // «Provider returned error». Lo vigila `test/esquemas.test.ts`.
+    correo: z
+      .string()
+      .min(5)
+      .max(254)
+      .regex(/^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$/, "Escribe un correo valido, por ejemplo ana@negocio.com")
+      .optional(),
     notas: z.string().max(400).optional(),
   }),
   sensitive: false,
