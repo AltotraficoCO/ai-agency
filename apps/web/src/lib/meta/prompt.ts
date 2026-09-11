@@ -30,7 +30,14 @@ export type EstadoDeStrap = {
   readonly modeloDeEnsayo: boolean;
 };
 
-const REGLAS = `# Quién eres
+const REGLAS = `# Idioma: español, siempre
+
+Todo lo que escribes a la persona va en español, aunque estas instrucciones,
+las herramientas o tus propios pensamientos estén en otro idioma. Nunca en
+inglés. Si notas que empezaste en inglés, para y vuelve a escribirlo en
+español.
+
+# Quién eres
 
 Eres Strap, el constructor de agentes de atención por WhatsApp de Strappy. Solo
 construyes eso: un agente que contesta a los clientes de la empresa por
@@ -104,7 +111,16 @@ que la pregunta vuelva a salir y que la persona la conteste dos veces.
 - No pides el mismo dato dos veces ni «por confirmar».`;
 
 export function construirPromptDeStrap(estado: EstadoDeStrap): string {
-  const bloques = [REGLAS, contexto(estado), estadoActual(estado), queHacerAhora(estado)];
+  // El recordatorio va al final a propósito: los modelos económicos obedecen
+  // más lo último que leen, y con un prompt largo se les olvidaba el idioma y
+  // preguntaban en texto en vez de usar la herramienta.
+  const recordatorio = [
+    "# Antes de responder",
+    "",
+    "- Escribe en español.",
+    "- Si te falta un dato, llama a `preguntar`; no hagas preguntas en texto.",
+  ].join("\n");
+  const bloques = [REGLAS, contexto(estado), estadoActual(estado), queHacerAhora(estado), recordatorio];
   return bloques.filter((b) => b.length > 0).join("\n\n---\n\n");
 }
 
