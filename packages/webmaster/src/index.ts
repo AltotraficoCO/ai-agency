@@ -9,4 +9,6 @@ export * from "./tools/index.js";
 export * as wordpress from "./wordpress/client.js";
 export * as conector from "./conector/client.js";
 export * from "./wordpress/elementor.js";
+export * from "./wordpress/diseno.js";
+export * from "./wordpress/titulos.js";
 export { crearNavegadorPlaywright } from "./browser/playwright.js";

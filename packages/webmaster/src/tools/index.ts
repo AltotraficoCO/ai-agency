@@ -1,7 +1,7 @@
 /**
- * El registro del Webmaster: 43 herramientas definidas UNA sola vez.
+ * El registro del Webmaster: 45 herramientas definidas UNA sola vez.
  *
- * 23 de WordPress (incluidas `sitio_salud` y `verificar_http`), 3 de plantillas
+ * 24 de WordPress (incluidas `sitio_salud`, `sitio_leer_diseno` y `verificar_http`), 3 de plantillas
  * de Elementor, 10 del conector estándar, 6 de navegador y referencias, y
  * `pedir_aprobacion`, que es como el agente le pregunta algo al cliente. Los
  * adaptadores a AI SDK y a MCP viven en `@strappy/tools` y salen de estas mismas

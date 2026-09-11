@@ -38,6 +38,7 @@ const ENTRADAS_WP: Record<string, unknown> = {
   wp_leer_ajustes: {},
   wp_listar_comentarios: { estado: "hold" },
   wp_listar_usuarios: {},
+  sitio_leer_diseno: { path: "/" },
   wp_editar_contenido: { tipo: "page", id: 7, nuevo_titulo: "Historia renovada" },
   wp_crear_contenido: {
     tipo: "post",

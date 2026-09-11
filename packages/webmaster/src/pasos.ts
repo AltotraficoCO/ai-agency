@@ -30,6 +30,7 @@ export type PasoTrabajo = {
 /** Qué está haciendo, en gerundio y para alguien que no sabe qué es un slug. */
 const ETIQUETAS: Readonly<Record<string, string>> = {
   sitio_salud: "Revisando el estado del sitio",
+  sitio_leer_diseno: "Estudiando el diseño del sitio",
   conector_salud: "Revisando el estado del sitio",
   verificar_http: "Comprobando que la página responde",
 

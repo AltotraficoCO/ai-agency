@@ -20,6 +20,7 @@ export type PaginaDoble = {
   slug: string;
   status: string;
   meta: Record<string, unknown>;
+  comment_status?: string;
 };
 
 /**
@@ -48,6 +49,11 @@ export type EstadoWordPress = {
   plugins: { plugin: string; name: string; status: string; version: string }[];
   comentarios: { id: number; author_name: string; content: { rendered: string }; status: string; post: number }[];
   usuarios: { id: number; name: string; email: string; roles: string[] }[];
+  /**
+   * Respuestas públicas fijas por ruta (HTML de la portada con sus clases,
+   * CSS de Elementor…). Ganan al render genérico del sitio.
+   */
+  archivos: Record<string, { tipo: string; cuerpo: string }>;
 };
 
 export type DobleWordPress = {
@@ -177,6 +183,7 @@ export function estadoInicial(): EstadoWordPress {
       },
     ],
     usuarios: [{ id: 1, name: "admin", email: "admin@ejemplo.test", roles: ["administrator"] }],
+    archivos: {},
   };
 }
 
@@ -243,6 +250,8 @@ export function crearDobleWordPress(
     }
 
     // --- Fuera de la REST API: el sitio tal cual lo ve un visitante ---
+    const fijo = estado.archivos[ruta];
+    if (fijo) return new Response(fijo.cuerpo, { status: 200, headers: { "content-type": fijo.tipo } });
     if (!ruta.startsWith("/wp-json")) return html(estado, ruta);
 
     // --- Descubrimiento (público) ---
@@ -435,6 +444,7 @@ export function crearDobleWordPress(
         if (b.title !== undefined) c.titulo = String(b.title);
         if (b.content !== undefined) c.contenido = String(b.content);
         if (b.status !== undefined) c.status = String(b.status);
+        if (b.comment_status !== undefined) c.comment_status = String(b.comment_status);
         if (b.meta !== undefined && estado.conectorInstalado) {
           Object.assign(c.meta, b.meta as Record<string, unknown>);
         }
@@ -462,6 +472,7 @@ function vista(c: PaginaDoble, base: string, edit: boolean) {
     status: c.status,
     slug: c.slug,
     meta: c.meta,
+    comment_status: c.comment_status ?? "open",
   };
 }
 

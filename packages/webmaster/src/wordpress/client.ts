@@ -778,6 +778,95 @@ export async function escribirPlantillaElementor(
 }
 
 // ---------------------------------------------------------------------------
+// Presentación y diseño
+// ---------------------------------------------------------------------------
+
+/**
+ * Oculta el título del tema y decide los comentarios de un contenido diseñado.
+ *
+ * Hello Elementor pinta el título de la entrada ENCIMA del diseño salvo que
+ * la página tenga `hide_title`; el resultado es un H1 repetido. Y una entrada
+ * de marketing no quiere el formulario «Leave a Reply» sin estilo debajo.
+ * Nada de esto puede tumbar la escritura, que ya se hizo: es best-effort y se
+ * comprueba leyendo de vuelta.
+ */
+export async function ajustarPresentacion(
+  c: WpCreds,
+  tipo: TipoContenido,
+  id: number,
+  ajustes: { ocultarTitulo: boolean; comentarios: "open" | "closed" },
+  o: WpClientOptions = {},
+): Promise<{ tituloOculto: boolean; comentarios: string | null }> {
+  const ruta = `/wp/v2/${tipo}s/${id}`;
+  try {
+    const completo = await wp(c, o, ruta, {
+      method: "POST",
+      body: JSON.stringify({
+        comment_status: ajustes.comentarios,
+        ...(ajustes.ocultarTitulo ? { meta: { _elementor_page_settings: { hide_title: "yes" } } } : {}),
+      }),
+    });
+    if (!completo.ok) {
+      // Un meta que el sitio no acepta no debe impedir cerrar los comentarios.
+      await wp(c, o, ruta, { method: "POST", body: JSON.stringify({ comment_status: ajustes.comentarios }) });
+    }
+    const check = await wp(c, o, `${ruta}?context=edit&_fields=meta,comment_status`);
+    if (!check.ok) return { tituloOculto: false, comentarios: null };
+    const p = (await check.json()) as { meta?: Record<string, unknown>; comment_status?: string };
+    const ajustesPagina = p.meta?._elementor_page_settings as Record<string, unknown> | undefined;
+    return {
+      tituloOculto: ajustesPagina?.hide_title === "yes",
+      comentarios: typeof p.comment_status === "string" ? p.comment_status : null,
+    };
+  } catch {
+    return { tituloOculto: false, comentarios: null };
+  }
+}
+
+/** El `_elementor_data` de una página o entrada, o null si no hay o no se expone. */
+export async function leerElementorData(
+  c: WpCreds,
+  id: number,
+  o: WpClientOptions = {},
+): Promise<unknown[] | null> {
+  for (const tipo of ["pages", "posts"] as const) {
+    const res = await wp(c, o, `/wp/v2/${tipo}/${id}?context=edit&_fields=meta`);
+    if (!res.ok) continue;
+    const data = ((await res.json()) as WpPostRaw).meta?._elementor_data;
+    if (typeof data !== "string" || data.length < 3) return null;
+    try {
+      const nodos = JSON.parse(data) as unknown;
+      return Array.isArray(nodos) ? nodos : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * GET público (como un visitante) de una ruta o de una URL del MISMO sitio.
+ * Otro host se rechaza: esto no puede ser un lector de la red del servidor.
+ */
+export async function leerPublico(
+  base: string,
+  rutaOUrl: string,
+  o: WpClientOptions = {},
+): Promise<{ status: number; texto: string }> {
+  const raiz = new URL(base.startsWith("http") ? base : `https://${base}`);
+  const destino = new URL(rutaOUrl, `${raiz.origin}/`);
+  if (destino.host !== raiz.host) throw new Error(`${destino.host} no es el sitio del cliente.`);
+  const f = o.fetch ?? globalThis.fetch;
+  const res = await f(destino.href, {
+    signal: señal(15_000, o.abortSignal),
+    headers: { "cache-control": "no-cache", pragma: "no-cache" },
+  });
+  const texto = await res.text();
+  if (!res.ok) throw new Error(`${destino.pathname} respondió ${res.status}`);
+  return { status: res.status, texto: texto.slice(0, 2_000_000) };
+}
+
+// ---------------------------------------------------------------------------
 // Verificación
 // ---------------------------------------------------------------------------
 

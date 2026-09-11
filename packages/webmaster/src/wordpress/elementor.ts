@@ -7,9 +7,16 @@
  * `toggle` desactivados por el Element Manager, y cuando eso pasa NO da error:
  * los omite en silencio y el cliente recibe una página con secciones vacías.
  *
+ * Lo que cambió: el aspecto ya no está escrito aquí. Colores, tipografías,
+ * radios, botones y ancho salen del `Estilo` que se lee del sitio
+ * (`diseno.ts`), porque una entrada nueva negra y naranja sobre un sitio azul
+ * marino y dorado no es «acorde al diseño». Y no se pintan emojis como iconos:
+ * las tarjetas se numeran con el acento, que es lo que haría el sitio.
+ *
  * Los identificadores de elemento son aleatorios porque Elementor los exige
  * únicos dentro del documento; no significan nada más.
  */
+import { ESTILO_POR_DEFECTO, type Estilo } from "./diseno.js";
 
 export type Paleta = {
   readonly fondo: string;
@@ -18,6 +25,7 @@ export type Paleta = {
   readonly fondo_claro: string;
 };
 
+/** Solo como último recurso (ver `ESTILO_POR_DEFECTO`). */
 export const PALETA_POR_DEFECTO: Paleta = {
   fondo: "#17150F",
   acento: "#FF4D00",
@@ -68,210 +76,322 @@ export type SeccionSpec = {
 };
 
 type Widget = { id: string; elType: string; widgetType?: string; settings: Record<string, unknown> };
-type Columna = { id: string; elType: "column"; settings: Record<string, unknown>; elements: Widget[] };
+type Columna = {
+  id: string;
+  elType: "column";
+  settings: Record<string, unknown>;
+  elements: (Widget | Seccion)[];
+};
 type Seccion = {
   id: string;
   elType: "section";
+  isInner?: boolean;
   settings: Record<string, unknown>;
   elements: Columna[];
 };
 
 const eid = (): string => Math.random().toString(16).slice(2, 9);
 
-function primitivas(pal: Paleta) {
-  const heading = (txt: string, color: string, size: number, tag = "h2", align = "center"): Widget => ({
+/** Los emojis no son iconos del sitio: se quitan de todo lo que se pinta. */
+export function sinEmojis(texto: string): string {
+  return texto
+    .replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}]️?/gu, "")
+    .replace(/‍/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+const px = (size: number) => ({ unit: "px", size, sizes: [] });
+const caja4 = (arriba: number, lado: number, abajo = arriba) => ({
+  unit: "px",
+  top: String(arriba),
+  right: String(lado),
+  bottom: String(abajo),
+  left: String(lado),
+  isLinked: arriba === lado && abajo === arriba,
+});
+const radio = (r: number) => ({ unit: "px", top: String(r), right: String(r), bottom: String(r), left: String(r), isLinked: true });
+
+function primitivas(e: Estilo) {
+  const { colores: c, tipografia: t } = e;
+  const familia = (f: string | null) => (f ? { typography_font_family: f } : {});
+
+  const heading = (
+    txt: string,
+    color: string,
+    size: number,
+    tag = "h2",
+    align: string = e.alineacion_titulos,
+  ): Widget => ({
     id: eid(),
     elType: "widget",
     widgetType: "heading",
     settings: {
-      title: txt,
+      title: sinEmojis(txt),
       align,
       header_size: tag,
       title_color: color,
       typography_typography: "custom",
-      typography_font_size: { unit: "px", size, sizes: [] },
-      typography_font_weight: "800",
+      ...familia(t.titulos.familia),
+      typography_font_size: px(size),
+      typography_font_weight: t.titulos.grosor,
+      typography_line_height: { unit: "em", size: 1.2, sizes: [] },
     },
   });
 
-  const parrafo = (html: string, color: string, align = "center"): Widget => ({
+  const parrafo = (html: string, color: string, align = "center", size = t.cuerpo_px): Widget => ({
     id: eid(),
     elType: "widget",
     widgetType: "text-editor",
-    settings: { editor: `<p style="text-align:${align}">${html}</p>`, text_color: color },
+    settings: {
+      editor: /^\s*<(p|ul|ol|h[1-6]|div|blockquote)\b/i.test(html) ? sinEmojis(html) : `<p>${sinEmojis(html)}</p>`,
+      align,
+      text_color: color,
+      typography_typography: "custom",
+      ...familia(t.cuerpo.familia),
+      typography_font_size: px(size),
+      typography_font_weight: t.cuerpo.grosor,
+      typography_line_height: { unit: "em", size: 1.6, sizes: [] },
+    },
   });
 
-  const boton = (txt: string, url?: string, fondo = pal.acento): Widget => ({
+  const boton = (txt: string, url?: string, fondo = c.acento, colorTexto = c.sobre_acento, align = "center"): Widget => ({
     id: eid(),
     elType: "widget",
     widgetType: "button",
     settings: {
-      text: txt,
+      text: sinEmojis(txt),
       ...(url ? { link: { url, is_external: /^https?:\/\//i.test(url), nofollow: false } } : {}),
-      align: "center",
+      align,
       background_color: fondo,
-      button_text_color: "#ffffff",
+      button_text_color: colorTexto,
+      button_background_hover_color: fondo,
+      hover_color: colorTexto,
       typography_typography: "custom",
-      typography_font_weight: "700",
-      border_radius: { unit: "px", top: "0", right: "0", bottom: "0", left: "0", isLinked: true },
-      text_padding: { unit: "px", top: "18", right: "36", bottom: "18", left: "36", isLinked: false },
+      ...familia(t.titulos.familia ?? t.cuerpo.familia),
+      typography_font_weight: "600",
+      border_radius: radio(e.boton.radio),
+      text_padding: caja4(e.boton.relleno_v, e.boton.relleno_h),
     },
   });
 
-  const seccion = (bg: string, columnas: Widget[][], padding = "90"): Seccion => ({
+  /** Una columna; con `fondo` es una tarjeta con el radio del sitio. */
+  const columna = (
+    elementos: (Widget | Seccion)[],
+    tamano: number,
+    fondo?: string,
+    relleno: [number, number] = [40, 32],
+  ): Columna => ({
+    id: eid(),
+    elType: "column",
+    settings: {
+      _column_size: tamano,
+      _inline_size: null,
+      ...(fondo
+        ? {
+            background_background: "classic",
+            background_color: fondo,
+            border_radius: radio(e.radio_tarjeta),
+            padding: caja4(relleno[0], relleno[1]),
+          }
+        : {}),
+    },
+    elements: elementos,
+  });
+
+  /** Sección encajonada al ancho del sitio. */
+  const seccion = (columnas: Columna[], opciones: { fondo?: string; relleno?: number; interior?: boolean } = {}): Seccion => ({
     id: eid(),
     elType: "section",
+    ...(opciones.interior ? { isInner: true } : {}),
     settings: {
-      background_background: "classic",
-      background_color: bg,
-      padding: { unit: "px", top: padding, right: "20", bottom: padding, left: "20", isLinked: false },
+      layout: "boxed",
+      content_width: px(opciones.interior ? e.ancho : e.ancho),
       gap: "extended",
+      ...(opciones.fondo
+        ? { background_background: "classic", background_color: opciones.fondo }
+        : {}),
+      padding: caja4(opciones.interior ? 10 : (opciones.relleno ?? 60), opciones.interior ? 0 : 20),
     },
-    elements: columnas.map((widgets) => ({
-      id: eid(),
-      elType: "column" as const,
-      settings: { _column_size: Math.floor(100 / Math.max(1, columnas.length)), _inline_size: null },
-      elements: widgets,
-    })),
+    elements: columnas,
   });
 
-  return { heading, parrafo, boton, seccion };
+  /** Encabezado opcional de un bloque de tarjetas + las tarjetas en una fila interior. */
+  const bloqueDeTarjetas = (s: SeccionSpec, tarjetas: { elementos: Widget[]; fondo: string }[], fondoSeccion?: string) => {
+    const encabezado: Widget[] = [
+      ...(s.titulo ? [heading(s.titulo, c.primario, t.h2)] : []),
+      ...(s.subtitulo ? [parrafo(s.subtitulo, c.texto)] : []),
+    ];
+    const tamano = Math.floor(100 / Math.max(1, tarjetas.length));
+    const fila = seccion(
+      tarjetas.map((x) => columna(x.elementos, tamano, x.fondo)),
+      { interior: true },
+    );
+    return seccion([columna([...encabezado, fila], 100)], fondoSeccion ? { fondo: fondoSeccion } : {});
+  };
+
+  return { heading, parrafo, boton, columna, seccion, bloqueDeTarjetas };
 }
 
-/** Traduce las secciones que pide el modelo al JSON que entiende Elementor. */
-export function construirSecciones(specs: readonly SeccionSpec[], pal: Paleta): unknown[] {
-  const w = primitivas(pal);
-  const oscuro = pal.fondo;
-  const claro = pal.fondo_claro;
+/** Traduce las secciones que pide el modelo al JSON que entiende Elementor, con el estilo del sitio. */
+export function construirSecciones(specs: readonly SeccionSpec[], estilo: Estilo = ESTILO_POR_DEFECTO): unknown[] {
+  const e = estilo;
+  const { colores: c, tipografia: t } = e;
+  const w = primitivas(e);
   const out: unknown[] = [];
-  // Alterna blanco y el claro de la paleta para que no queden dos secciones
-  // seguidas del mismo color: es lo que separa una landing de un muro de texto.
-  let claras = 0;
-  const alterno = (): string => (claras++ % 2 ? "#ffffff" : claro);
+  const numero = (i: number) => String(i + 1).padStart(2, "0");
+  // Los bloques de texto alternan página y tarjeta clara, como hace el sitio.
+  let textos = 0;
 
   for (const s of specs) {
     switch (s.tipo) {
       case "hero":
         out.push(
           w.seccion(
-            oscuro,
             [
-              [
-                w.heading(s.titulo ?? "", pal.texto, 54, "h1"),
-                w.parrafo(s.subtitulo ?? "", pal.texto),
-                ...(s.boton ? [w.boton(s.boton, s.boton_url)] : []),
-              ],
+              w.columna(
+                [
+                  w.heading(s.titulo ?? "", c.sobre_oscuro, t.h1, "h1", "center"),
+                  ...(s.subtitulo ? [w.parrafo(s.subtitulo, c.sobre_oscuro, "center", t.cuerpo_px + 2)] : []),
+                  ...(s.boton ? [w.boton(s.boton, s.boton_url)] : []),
+                ],
+                100,
+                c.oscuro,
+                [100, 48],
+              ),
             ],
-            "120",
+            { relleno: 30 },
           ),
         );
         break;
 
       case "beneficios":
         out.push(
-          w.seccion(
-            alterno(),
-            (s.items ?? []).slice(0, 4).map((it) => [
-              w.parrafo(
-                `<span style="font-size:42px;line-height:1">${it.icono ?? "✔"}</span>`,
-                pal.acento,
-              ),
-              w.heading(it.titulo ?? "", oscuro, 23, "h3"),
-              w.parrafo(it.texto ?? "", "#555555"),
-            ]),
+          w.bloqueDeTarjetas(
+            s,
+            (s.items ?? []).slice(0, 4).map((it, i) => ({
+              fondo: c.tarjeta,
+              elementos: [
+                w.heading(numero(i), c.acento, 22, "div"),
+                w.heading(it.titulo ?? "", c.primario, t.h3, "h3"),
+                w.parrafo(it.texto ?? "", c.texto),
+              ],
+            })),
           ),
         );
         break;
 
       case "stats":
         out.push(
-          w.seccion(
-            oscuro,
-            (s.items ?? [])
-              .slice(0, 4)
-              .map((it) => [
-                w.heading(it.cifra ?? "", pal.acento, 52, "h3"),
-                w.parrafo(it.etiqueta ?? "", pal.texto),
-              ]),
-            "70",
+          w.bloqueDeTarjetas(
+            s,
+            (s.items ?? []).slice(0, 4).map((it) => ({
+              fondo: c.oscuro,
+              elementos: [
+                w.heading(it.cifra ?? "", c.acento, Math.round(t.h1 * 0.9), "div", "center"),
+                w.parrafo(it.etiqueta ?? "", c.sobre_oscuro),
+              ],
+            })),
           ),
         );
         break;
 
       case "testimonios":
         out.push(
-          w.seccion(
-            alterno(),
-            (s.items ?? []).slice(0, 3).map((it) => [
-              w.parrafo(`<em style="font-size:17px">“${it.texto ?? ""}”</em>`, "#444444"),
-              w.heading(it.autor ?? "", oscuro, 17, "h4"),
-              w.parrafo(`<span style="font-size:13px">${it.cargo ?? ""}</span>`, "#888888"),
-            ]),
+          w.bloqueDeTarjetas(
+            s,
+            (s.items ?? []).slice(0, 3).map((it) => ({
+              fondo: c.oscuro,
+              elementos: [
+                w.heading("“", c.acento, 64, "div", "center"),
+                w.parrafo(`<em>${it.texto ?? ""}</em>`, c.sobre_oscuro, "center", t.cuerpo_px + 1),
+                w.heading(it.autor ?? "", c.acento, 18, "h4", "center"),
+                ...(it.cargo ? [w.parrafo(it.cargo, c.sobre_oscuro, "center", 14)] : []),
+              ],
+            })),
           ),
         );
         break;
 
       case "precios":
         out.push(
-          w.seccion(
-            alterno(),
-            (s.planes ?? []).slice(0, 3).map((p) => [
-              w.heading(
-                `${p.destacado ? "★ " : ""}${p.nombre}`,
-                p.destacado ? pal.acento : oscuro,
-                22,
-                "h3",
-              ),
-              w.heading(`${p.precio}${p.periodo ? ` /${p.periodo}` : ""}`, oscuro, 40, "h4"),
-              w.parrafo(
-                p.incluye
-                  .slice(0, 8)
-                  .map((l) => `<span style="color:${pal.acento}">✔</span> ${l}`)
-                  .join("<br>"),
-                "#444444",
-              ),
-              w.boton(p.boton ?? "Empezar"),
-            ]),
+          w.bloqueDeTarjetas(
+            s,
+            (s.planes ?? []).slice(0, 3).map((p) => {
+              const oscura = Boolean(p.destacado);
+              const tinta = oscura ? c.sobre_oscuro : c.primario;
+              const cuerpo = oscura ? c.sobre_oscuro : c.texto;
+              return {
+                fondo: oscura ? c.oscuro : c.tarjeta,
+                elementos: [
+                  ...(oscura ? [w.heading("Recomendado", c.acento, 14, "div", "center")] : []),
+                  w.heading(p.nombre, tinta, t.h3, "h3", "center"),
+                  w.heading(`${p.precio}${p.periodo ? ` /${p.periodo}` : ""}`, oscura ? c.acento : c.primario, Math.round(t.h2 * 1.1), "div", "center"),
+                  w.parrafo(`<ul>${p.incluye.slice(0, 8).map((l) => `<li>${l}</li>`).join("")}</ul>`, cuerpo, "left"),
+                  w.boton(p.boton ?? "Empezar"),
+                ],
+              };
+            }),
           ),
         );
         break;
 
       case "faq":
         out.push(
-          w.seccion(alterno(), [
-            [
-              ...(s.titulo ? [w.heading(s.titulo, oscuro, 34)] : []),
-              ...(s.items ?? []).slice(0, 8).flatMap((it) => [
-                w.heading(it.pregunta ?? "", oscuro, 19, "h4", "left"),
-                w.parrafo(it.respuesta ?? "", "#555555", "left"),
-              ]),
-            ],
+          w.seccion([
+            w.columna(
+              [
+                ...(s.titulo ? [w.heading(s.titulo, c.primario, t.h2)] : []),
+                ...(s.items ?? []).slice(0, 8).flatMap((it) => [
+                  w.heading(it.pregunta ?? "", c.primario, Math.max(18, t.h3 - 2), "h4", "left"),
+                  w.parrafo(it.respuesta ?? "", c.texto, "left"),
+                ]),
+              ],
+              100,
+              c.tarjeta,
+              [48, 48],
+            ),
           ]),
         );
         break;
 
       case "cta":
         out.push(
-          w.seccion(pal.acento, [
-            [
-              w.heading(s.titulo ?? "¿Hablamos?", "#ffffff", 38),
-              ...(s.subtitulo ? [w.parrafo(s.subtitulo, "#ffffff")] : []),
-              w.boton(s.boton ?? "Contáctanos", s.boton_url, pal.fondo),
-            ],
+          w.seccion([
+            w.columna(
+              [
+                w.heading(s.titulo ?? "¿Hablamos?", c.sobre_oscuro, t.h2, "h2", "center"),
+                ...(s.subtitulo ? [w.parrafo(s.subtitulo, c.sobre_oscuro)] : []),
+                w.boton(s.boton ?? "Contáctanos", s.boton_url),
+              ],
+              100,
+              c.oscuro,
+              [64, 40],
+            ),
           ]),
         );
         break;
 
-      case "texto":
+      case "texto": {
+        const enTarjeta = textos++ % 2 === 1;
+        const html = s.html ?? "";
+        // Un artículo largo se lee a la izquierda; un párrafo corto, como el sitio.
+        const alinear = html.replace(/<[^>]*>/g, "").length > 280 ? "left" : e.alineacion_titulos;
         out.push(
-          w.seccion(alterno(), [
-            [
-              ...(s.titulo ? [w.heading(s.titulo, oscuro, 30)] : []),
-              w.parrafo(s.html ?? "", "#444444", "left"),
-            ],
+          w.seccion([
+            w.columna(
+              [
+                ...(s.titulo ? [w.heading(s.titulo, c.primario, t.h2, "h2", alinear)] : []),
+                w.parrafo(html, c.texto, alinear),
+              ],
+              100,
+              enTarjeta ? c.tarjeta : undefined,
+              [48, 48],
+            ),
           ]),
         );
         break;
+      }
     }
   }
   return out;

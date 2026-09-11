@@ -13,10 +13,53 @@
  *    del cliente. Un enlace externo en el sitio no puede convertir al agente
  *    en un navegador de propósito general dentro de la red del servidor.
  */
-import type { BrowserPort, CapturaPantalla, WpCreds, ConectorCreds } from "../ports.js";
+import type { BrowserPort, CapturaPantalla, WpCreds, ConectorCreds, MuestrasDiseno } from "../ports.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Cualquiera = any;
+
+/**
+ * Se ejecuta DENTRO de la página. Va como texto para no arrastrar los tipos
+ * del DOM al paquete. Mide solo el contenido: el header y el footer tienen su
+ * propio diseño y no dicen cómo es una sección de la página.
+ */
+export const SCRIPT_MUESTREO = `(() => {
+  const vw = window.innerWidth;
+  const FUERA = 'header, footer, nav, #wpadminbar, [data-elementor-type="header"], [data-elementor-type="footer"], .elementor-location-header, .elementor-location-footer';
+  const fuera = (el) => !!el.closest(FUERA);
+  const caja = (el) => el.getBoundingClientRect();
+  const visible = (el) => { const r = caja(el); return r.width > 4 && r.height > 4; };
+  const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : undefined; };
+  const todos = (sel, max) => Array.from(document.querySelectorAll(sel)).filter((e) => !fuera(e) && visible(e)).slice(0, max);
+  const texto = (el) => (el.textContent || '').trim().length;
+  const titulos = [], parrafos = [], botones = [], cajas = [], anchos = [];
+  for (const el of todos('h1, h2, h3, h4', 150)) {
+    const s = getComputedStyle(el);
+    titulos.push({ etiqueta: el.tagName.toLowerCase(), color: s.color, familia: s.fontFamily, grosor: s.fontWeight, tamano: num(s.fontSize), alineacion: s.textAlign, peso: Math.min(texto(el), 120) || 1 });
+  }
+  for (const el of todos('p, li', 300)) {
+    if (!texto(el) || el.closest('a, button')) continue;
+    const s = getComputedStyle(el);
+    parrafos.push({ etiqueta: 'p', color: s.color, familia: s.fontFamily, grosor: s.fontWeight, tamano: num(s.fontSize), peso: Math.min(texto(el), 400) });
+  }
+  for (const el of todos('.elementor-button, .elementor-slide-button, a.button, button, input[type=submit], .wp-block-button__link', 80)) {
+    const s = getComputedStyle(el); const r = caja(el);
+    botones.push({ fondo: s.backgroundColor, texto: s.color, radio: num(s.borderTopLeftRadius), alto: r.height, relleno_v: num(s.paddingTop), relleno_h: num(s.paddingLeft), familia: s.fontFamily, peso: 1 });
+  }
+  for (const el of todos('.e-con, .elementor-section, .elementor-column, .elementor-widget-wrap, .elementor-element, .elementor-background-overlay, section, article', 2000)) {
+    const s = getComputedStyle(el); const r = caja(el);
+    const fondo = s.backgroundColor; const radio = num(s.borderTopLeftRadius) || 0;
+    const conFondo = fondo && fondo !== 'rgba(0, 0, 0, 0)' && fondo !== 'transparent';
+    if (!conFondo && radio <= 0) continue;
+    if (r.width >= vw - 2 && r.height > 4000) continue;
+    cajas.push({ fondo: conFondo ? fondo : undefined, radio, area: Math.round(r.width * r.height / 1000) || 1 });
+  }
+  for (const el of todos('.e-con-inner, .elementor-container', 300)) {
+    const w = caja(el).width;
+    if (w > 0 && w < vw - 30) anchos.push(Math.round(w));
+  }
+  return { titulos, parrafos, botones, cajas, anchos, fondo_pagina: getComputedStyle(document.body).backgroundColor };
+})()`;
 
 export type OpcionesNavegador = {
   /** Base del sitio del cliente. Es la frontera: no se sale de aquí. */
@@ -128,6 +171,17 @@ export async function crearNavegadorPlaywright(o: OpcionesNavegador): Promise<Br
 
     async consola() {
       return { url: String(page.url()), consola: consola.slice(-40) };
+    },
+
+    async muestrearDiseno(path) {
+      await page.goto(`${o.baseUrl}${path}`, { waitUntil: "networkidle", timeout: 30_000 });
+      await contener();
+      // Bajar y volver: las secciones con animación o carga diferida no tienen
+      // estilo final hasta que entran en pantalla.
+      await page.evaluate("window.scrollTo(0, document.body.scrollHeight)").catch(() => {});
+      await page.waitForTimeout(700);
+      await page.evaluate("window.scrollTo(0, 0)").catch(() => {});
+      return (await page.evaluate(SCRIPT_MUESTREO)) as MuestrasDiseno;
     },
 
     async cerrar() {

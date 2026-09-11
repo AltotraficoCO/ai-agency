@@ -28,9 +28,10 @@ import {
   PALETA_POR_DEFECTO,
   construirBarra,
   construirSecciones,
-  type Paleta,
   type SeccionSpec,
 } from "../wordpress/elementor.js";
+import { conPaleta, leerDisenoDelSitio, resumirEstilo } from "../wordpress/diseno.js";
+import { exigirTituloValido } from "../wordpress/titulos.js";
 
 const tipoContenido = z.enum(["page", "post"]);
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Usa un color hexadecimal, p.ej. #17150F.");
@@ -75,6 +76,39 @@ export const sitioSalud = defineTool({
       wp.verificar(creds, "/", undefined, opciones).catch(() => null),
     ]);
     return { ...salud, portada, modo: ctx.dryRun ? "simulación" : "ejecución" };
+  },
+});
+
+export const sitioLeerDiseno = defineTool({
+  slug: "sitio_leer_diseno",
+  label: "Estudiar el diseño del sitio",
+  description:
+    "Mide el diseño REAL de una página del sitio (por defecto la portada): colores de titulares, acento de los botones, fondos de tarjetas, tipografías, tamaños, radio de botones y tarjetas y ancho del contenedor. wp_crear_pagina_elementor lo aplica solo; léelo para escribir contenido acorde (tono, CTA, imágenes) y para comparar al verificar.",
+  whenToUse: "antes de diseñar o crear cualquier página o entrada, para que quede acorde al sitio",
+  inputSchema: z.object({
+    path: z
+      .string()
+      .startsWith("/", "Ruta relativa del sitio, p.ej. /servicios/")
+      .max(300)
+      .default("/")
+      .describe("Página de referencia. La portada suele ser la que mejor representa el diseño."),
+  }),
+  sensitive: false,
+  creditCost: 1,
+  scopes: [SCOPES.wpRead],
+  effect: "read",
+  kind: "http",
+  async execute(ctx, input) {
+    const { sitio, opciones } = entorno(ctx, "sitio_leer_diseno");
+    if (input.path.startsWith("//")) throw new Error("La ruta no puede apuntar a otro dominio.");
+    const estilo = await leerDisenoDelSitio(sitio, opciones, input.path);
+    return {
+      ...resumirEstilo(estilo),
+      nota:
+        estilo.origen === "sitio"
+          ? "wp_crear_pagina_elementor aplicará este estilo automáticamente. No pases paleta salvo que el cliente pida expresamente otro estilo."
+          : "No pude deducir el diseño del sitio: revisa la portada con navegador_ver_pagina y, si hace falta, pasa una paleta con motivo_paleta.",
+    };
   },
 });
 
@@ -299,6 +333,7 @@ export const wpCrearContenido = defineTool({
   kind: "http",
   async execute(ctx, input): Promise<Bloqueo | Record<string, unknown>> {
     const { sitio, opciones } = entorno(ctx, "wp_crear_contenido");
+    exigirTituloValido(input.titulo);
     const bloqueo = await puertaDeAprobacion(
       ctx,
       sitio,
@@ -766,7 +801,10 @@ export const wpCambiarRolUsuario = defineTool({
 const itemSeccion = z.object({
   titulo: z.string().optional(),
   texto: z.string().optional(),
-  icono: z.string().optional().describe("Un emoji, p.ej. 🤖 ⚡ 📈"),
+  icono: z
+    .string()
+    .optional()
+    .describe("Ignorado: no se pintan emojis; las tarjetas se numeran con el color de acento del sitio."),
   cifra: z.string().optional().describe("Solo en stats, p.ej. '500+'"),
   etiqueta: z.string().optional().describe("Solo en stats"),
   autor: z.string().optional().describe("Solo en testimonios"),
@@ -805,10 +843,16 @@ export const wpCrearPaginaElementor = defineTool({
   slug: "wp_crear_pagina_elementor",
   label: "Crear página con Elementor",
   description:
-    "Crea (o reescribe, pasando su id) una página o una entrada de blog (tipo=\"post\") construida CON ELEMENTOR componiendo secciones: hero, beneficios, stats, testimonios, precios, faq, cta y texto. Para una landing decente usa 5-8 secciones variadas con copy concreto del negocio: una página de tres bloques es inaceptable. Es la herramienta obligatoria cuando piden algo 'con Elementor', 'de diseño' o 'atractivo', también para una entrada.",
+    "Crea (o reescribe, pasando su id) una página o una entrada de blog (tipo=\"post\") construida CON ELEMENTOR componiendo secciones: hero, beneficios, stats, testimonios, precios, faq, cta y texto. El diseño (colores, tipografías, radios, botones, ancho) se toma AUTOMÁTICAMENTE del sitio real, para que quede acorde a lo que ya tiene. Oculta el título duplicado del tema y cierra los comentarios salvo que se pidan. Para una landing decente usa 5-8 secciones variadas con copy concreto del negocio: una página de tres bloques es inaceptable. Es la herramienta obligatoria cuando piden algo 'con Elementor', 'de diseño' o 'atractivo', también para una entrada.",
   whenToUse: "para cualquier landing, página de ventas, rediseño o entrada de blog con aspecto profesional",
   inputSchema: z.object({
-    titulo: z.string().min(1).max(300),
+    titulo: z
+      .string()
+      .min(1)
+      .max(300)
+      .describe(
+        "Titular redactado por ti a partir del TEMA: completo, atractivo y de 90 caracteres como mucho. Nunca un trozo copiado de la petición ni instrucciones de formato.",
+      ),
     tipo: tipoContenido
       .optional()
       .describe(
@@ -834,7 +878,22 @@ export const wpCrearPaginaElementor = defineTool({
         texto: hex.describe("Hexadecimal claro"),
         fondo_claro: hex,
       })
-      .optional(),
+      .optional()
+      .describe("SOLO si el cliente pidió expresamente otro estilo o hay una referencia de imagen; exige motivo_paleta."),
+    motivo_paleta: z
+      .enum(["el_cliente_pidio_otro_estilo", "referencia_de_imagen"])
+      .optional()
+      .describe("Por qué no se usa el diseño del sitio. Sin motivo, la paleta se ignora."),
+    referencia_diseno: z
+      .string()
+      .startsWith("/", "Ruta relativa del sitio, p.ej. /servicios/")
+      .max(300)
+      .optional()
+      .describe("Página de la que copiar el diseño. Por defecto, la portada."),
+    permitir_comentarios: z
+      .boolean()
+      .default(false)
+      .describe("true solo si el cliente quiere comentarios debajo; por defecto se cierran."),
   }),
   sensitive: false,
   creditCost: 8,
@@ -844,7 +903,7 @@ export const wpCrearPaginaElementor = defineTool({
   async execute(ctx, input): Promise<Bloqueo | Record<string, unknown>> {
     const { sitio, opciones } = entorno(ctx, "wp_crear_pagina_elementor");
     const creds = requireWp(sitio, "wp_crear_pagina_elementor");
-    const pal: Paleta = input.paleta ?? PALETA_POR_DEFECTO;
+    exigirTituloValido(input.titulo);
 
     if (
       input.pagina_id !== undefined &&
@@ -889,7 +948,13 @@ export const wpCrearPaginaElementor = defineTool({
       });
     }
 
-    const data = construirSecciones(input.secciones as SeccionSpec[], pal);
+    // El diseño sale del sitio. Una paleta del modelo solo vale con motivo:
+    // «bonita» no es pedir otro estilo, y era así como salía negro y naranja.
+    const delSitio = await leerDisenoDelSitio(sitio, opciones, input.referencia_diseno ?? "/");
+    const usarPaleta = input.paleta !== undefined && input.motivo_paleta !== undefined;
+    const estilo = usarPaleta ? conPaleta(delSitio, input.paleta!) : delSitio;
+
+    const data = construirSecciones(input.secciones as SeccionSpec[], estilo);
     const r = await wp.escribirContenidoElementor(
       creds,
       { tipo, ...(id !== undefined ? { id } : {}), titulo: input.titulo, data },
@@ -900,6 +965,24 @@ export const wpCrearPaginaElementor = defineTool({
         "El WordPress no aceptó el diseño Elementor: falta el plugin conector, que es quien expone los metadatos de Elementor en la REST API. El cliente lo descarga desde el panel.",
       );
     }
+    const presentacion = await wp.ajustarPresentacion(
+      creds,
+      tipo,
+      r.id,
+      { ocultarTitulo: true, comentarios: input.permitir_comentarios ? "open" : "closed" },
+      opciones,
+    );
+
+    const notas = ["Verifica ahora con navegador_ver_pagina (pagina_completa=true) y compárala con la portada: si no se parece, corrígela."];
+    if (input.paleta && !usarPaleta) {
+      notas.push("Ignoré la paleta porque no diste motivo_paleta: se usó el diseño del sitio.");
+    }
+    if (estilo.origen === "por_defecto") {
+      notas.push("No pude leer el diseño del sitio y usé el aspecto por defecto: revisa la portada y, si no se parece, repite con una paleta y motivo_paleta.");
+    }
+    if (!presentacion.tituloOculto) {
+      notas.push("No pude ocultar el título del tema: si al verlo aparece repetido encima del diseño, dilo en el RESUMEN.");
+    }
     return {
       ok: true,
       tipo,
@@ -907,7 +990,11 @@ export const wpCrearPaginaElementor = defineTool({
       link: r.link,
       secciones: input.secciones.length,
       backup_id: backupId,
-      nota: "Verifica ahora con navegador_ver_pagina (pagina_completa=true) cómo se ve renderizada.",
+      diseno_origen: estilo.origen,
+      estilo_aplicado: resumirEstilo(estilo),
+      titulo_del_tema_oculto: presentacion.tituloOculto,
+      comentarios: presentacion.comentarios,
+      nota: notas.join(" "),
     };
   },
   simulate(_ctx, input) {
@@ -1052,6 +1139,7 @@ export const verificarHttp = defineTool({
 
 export const HERRAMIENTAS_WP: readonly ToolDef<never, unknown>[] = [
   sitioSalud,
+  sitioLeerDiseno,
   wpListarContenido,
   wpLeerContenido,
   wpListarPlugins,

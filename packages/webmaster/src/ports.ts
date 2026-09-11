@@ -96,8 +96,58 @@ export interface BrowserPort {
   >;
   leer(selector?: string): Promise<{ url: string; texto: string }>;
   consola(): Promise<{ url: string; consola: readonly string[] }>;
+  /**
+   * Abre una ruta y mide los estilos COMPUTADOS de su contenido (sin header ni
+   * footer): de dónde sale el diseño que una página nueva tiene que respetar.
+   * Opcional: sin él, el diseño se deduce del CSS de Elementor.
+   */
+  muestrearDiseno?(path: string): Promise<MuestrasDiseno>;
   cerrar(): Promise<void>;
 }
+
+// ---------------------------------------------------------------------------
+// Diseño del sitio: muestras en crudo que `wordpress/diseno.ts` convierte en estilo
+// ---------------------------------------------------------------------------
+
+/** Colores tal cual los da el navegador o el CSS: `rgb(…)`, `rgba(…)` o `#hex`. */
+export type MuestraTexto = {
+  readonly etiqueta: string;
+  readonly color?: string;
+  readonly familia?: string;
+  /** font-weight. */
+  readonly grosor?: string;
+  readonly tamano?: number;
+  readonly alineacion?: string;
+  /** Peso del voto: cuánto texto o superficie representa. */
+  readonly peso?: number;
+};
+
+export type MuestraBoton = {
+  readonly fondo?: string;
+  readonly texto?: string;
+  readonly radio?: number;
+  readonly alto?: number;
+  readonly relleno_v?: number;
+  readonly relleno_h?: number;
+  readonly familia?: string;
+  readonly peso?: number;
+};
+
+export type MuestraCaja = {
+  readonly fondo?: string;
+  readonly radio?: number;
+  readonly area?: number;
+};
+
+export type MuestrasDiseno = {
+  readonly titulos: readonly MuestraTexto[];
+  readonly parrafos: readonly MuestraTexto[];
+  readonly botones: readonly MuestraBoton[];
+  readonly cajas: readonly MuestraCaja[];
+  /** Anchos de contenedor encajonado, en px. */
+  readonly anchos: readonly number[];
+  readonly fondo_pagina?: string;
+};
 
 // ---------------------------------------------------------------------------
 // Referencias visuales adjuntadas por el cliente

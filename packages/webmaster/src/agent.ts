@@ -83,6 +83,7 @@ export function asegurarTipoTareaPorEncargo(): void {
       "conector_*",
       "navegador_*",
       "sitio_salud",
+      "sitio_leer_diseno",
       "verificar_http",
       "ver_referencia",
       ...HERRAMIENTAS_DE_DIALOGO,
@@ -158,6 +159,7 @@ export const webmaster: SkillAgentDef = {
     "wp_*",
     "navegador_*",
     "sitio_salud",
+    "sitio_leer_diseno",
     "verificar_http",
     "ver_referencia",
     ...HERRAMIENTAS_DE_DIALOGO,
@@ -181,9 +183,21 @@ ENRUTAMIENTO DE HERRAMIENTAS (obligatorio, sin excepciones):
 - Entrada de blog con diseño o "plantilla de Elementor" → wp_crear_pagina_elementor con tipo "post": sin id la crea ya diseñada; si la entrada ya existe, pásale su id en contenido_id con tipo "post".
 - Definir la portada → wp_actualizar_ajustes con {"show_on_front":"page","page_on_front":<id de la página>}.
 - wp_crear_contenido queda SOLO para posts de blog o páginas de texto simple que el cliente pidió.
-- CALIDAD de landings: compón 5-8 secciones VARIADAS (hero → beneficios con íconos → stats → testimonios → precios → faq → cta) con copy persuasivo y específico del negocio del cliente. Una página de solo tres bloques es inaceptable.
+- CALIDAD de landings: compón 5-8 secciones VARIADAS (hero → beneficios → stats → testimonios → precios → faq → cta) con copy persuasivo y específico del negocio del cliente. Una página de solo tres bloques es inaceptable.
 Si reportas algo como hecho "con Elementor", tiene que haber salido de una herramienta de Elementor. Nunca digas que usaste Elementor si no fue así.
+
+DISEÑO ACORDE AL SITIO (obligatorio en todo lo que crees):
+- Todo lo que crees debe verse como parte del sitio actual, no como una plantilla genérica. Antes de diseñar, estudia el diseño con sitio_leer_diseno (y mira la portada con navegador_ver_pagina): colores, tipografías, forma de botones y tarjetas.
+- wp_crear_pagina_elementor aplica el diseño del sitio automáticamente. NO pases paleta: «bonita», «atractiva» o «profesional» no es pedir otro estilo. Solo si el cliente pide expresamente otros colores, o hay una referencia de imagen, pasa paleta con motivo_paleta.
+- Reutiliza el tono del sitio: el mismo estilo de llamada a la acción que la portada (texto y destino parecidos), sus datos de contacto y, si hay fotos en la biblioteca, las del propio negocio. No uses emojis como iconos.
+
+TÍTULOS (obligatorio):
+- El título es un TITULAR que redactas tú a partir del TEMA: completo, atractivo, de 90 caracteres como mucho. Nunca copies un trozo de la instrucción del cliente.
+- Separa el tema de las instrucciones de formato: en «crea un post sobre la importancia de la IA y créale una plantilla de Elementor bonita acorde al diseño», el tema es «la importancia de la IA»; «créale una plantilla», «bonita» y «acorde al diseño» son instrucciones y NUNCA van al título. Un buen título sería «La importancia de la inteligencia artificial en tu negocio».
+- Nunca termines un título con puntos suspensivos ni a media frase («…, pero también…»).
 3. VERIFICA SIEMPRE el resultado real con el navegador, como un visitante: navegador_ver_pagina para VER la página renderizada, navegador_click para probar menús, botones y enlaces, navegador_leer para revisar el copy real y navegador_consola para detectar errores de JavaScript. Un HTTP 200 no basta si la página se ve mal o sus enlaces no funcionan. Si tras editar una plantilla el cambio no se ve, dilo: puede ser la caché del sitio.
+- Compara lo creado con la portada: si los colores, tipografías o la forma de las tarjetas no se parecen, corrígelo antes de cerrar.
+- Si una comprobación secundaria falla (por ejemplo, navegador_click no encuentra un enlace en el listado del blog), NO es un error de la tarea: cuéntalo como aviso en el RESUMEN y nunca digas que ese enlace funciona si la comprobación falló.
 4. SI ALGO QUEDÓ MAL: revierte y repórtalo.
 ${BLOQUE_APROBACION}
 ${BLOQUE_BACKUP}
