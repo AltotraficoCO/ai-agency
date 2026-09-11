@@ -60,7 +60,7 @@ export async function proxy(peticion: NextRequest) {
 
   if (user && (ruta === "/entrar" || ruta === "/registro")) {
     const destino = peticion.nextUrl.clone();
-    destino.pathname = "/agentes";
+    destino.pathname = "/";
     destino.search = "";
     return NextResponse.redirect(destino);
   }

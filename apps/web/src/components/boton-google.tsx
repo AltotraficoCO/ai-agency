@@ -11,7 +11,7 @@ import * as React from "react";
 import { Button } from "@strappy/ui";
 import { crearClienteNavegador } from "@/lib/supabase/navegador";
 
-export function BotonGoogle({ siguiente = "/agentes" }: { siguiente?: string }) {
+export function BotonGoogle({ siguiente = "/" }: { siguiente?: string }) {
   const [cargando, setCargando] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 

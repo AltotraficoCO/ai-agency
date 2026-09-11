@@ -92,7 +92,7 @@ export function FormularioEntrar() {
       setCargando(false);
       return;
     }
-    router.push("/agentes");
+    router.push("/");
     router.refresh();
   }
 
@@ -180,7 +180,7 @@ export function FormularioRegistro() {
       setCargando(false);
       return;
     }
-    router.push("/agentes");
+    router.push("/");
     router.refresh();
   }
 
@@ -305,7 +305,7 @@ export function FormularioActualizarClave() {
       setCargando(false);
       return;
     }
-    router.push("/agentes");
+    router.push("/");
     router.refresh();
   }
 

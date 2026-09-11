@@ -11,7 +11,7 @@ import { crearClienteServidor, hayAutenticacionConfigurada } from "@/lib/supabas
 export async function GET(peticion: Request) {
   const url = new URL(peticion.url);
   const code = url.searchParams.get("code");
-  const siguiente = url.searchParams.get("siguiente") ?? "/agentes";
+  const siguiente = url.searchParams.get("siguiente") ?? "/";
   const error = url.searchParams.get("error_description") ?? url.searchParams.get("error");
 
   if (error) {
@@ -32,6 +32,6 @@ export async function GET(peticion: Request) {
   }
 
   // Solo rutas internas: un `siguiente` absoluto sería un redirector abierto.
-  const destino = siguiente.startsWith("/") ? siguiente : "/agentes";
+  const destino = siguiente.startsWith("/") ? siguiente : "/";
   return NextResponse.redirect(new URL(destino, url.origin));
 }
