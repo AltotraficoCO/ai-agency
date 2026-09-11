@@ -80,7 +80,7 @@ const CONEXIONES_POR_AGENTE: Record<string, readonly { clave: string; nombre: st
         clave: "sitio",
         nombre: "Tu sitio web",
         descripcion: "La dirección que tiene que vigilar y mantener.",
-        ruta: "/ajustes/espacio",
+        ruta: "/ajustes/sitio",
       },
     ],
     marketing: [
@@ -207,7 +207,7 @@ const CAMPOS_POR_AGENTE: Record<string, readonly CampoPersonalizable[]> = {
 
 export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCatalogo[]> {
   return conEspacio(workspaceId, async (scope) => {
-    const [catalogo, contratos, herramientas, canales, bases] = await Promise.all([
+    const [catalogo, contratos, herramientas, canales, bases, sitios] = await Promise.all([
       scope.query<{
         slug: string;
         name: string;
@@ -245,6 +245,11 @@ export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCata
         `select count(*)::text as n from public.brains where workspace_id = $1`,
         [workspaceId],
       ),
+      scope.query<{ n: string }>(
+        `select count(*)::text as n from public.connections
+          where workspace_id = $1 and provider = 'wordpress' and status = 'active'`,
+        [workspaceId],
+      ),
     ]);
 
     const nombreHerramienta = new Map(herramientas.rows.map((h) => [h.slug, h.name]));
@@ -252,8 +257,9 @@ export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCata
     const listo: Record<string, boolean> = {
       whatsapp: Number(canales.rows[0]?.n ?? 0) > 0,
       conocimiento: Number(bases.rows[0]?.n ?? 0) > 0,
-      // El sitio se declara en el propio paso de personalización del webmaster.
-      sitio: false,
+      // Listo cuando hay un WordPress con credenciales que ya se probaron: la
+      // dirección sola, sin acceso, no le sirve de nada al Webmaster.
+      sitio: Number(sitios.rows[0]?.n ?? 0) > 0,
     };
 
     return catalogo.rows.map((f) => {

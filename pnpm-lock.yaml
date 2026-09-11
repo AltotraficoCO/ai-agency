@@ -50,6 +50,9 @@ importers:
       '@strappy/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@strappy/webmaster':
+        specifier: workspace:*
+        version: link:../../packages/webmaster
       '@strappy/whatsapp':
         specifier: workspace:*
         version: link:../../packages/whatsapp

@@ -16,6 +16,7 @@ const SECCIONES = [
   { href: "/ajustes/espacio", etiqueta: "Espacio" },
   { href: "/ajustes/equipo", etiqueta: "Equipo" },
   { href: "/ajustes/canales", etiqueta: "Canales" },
+  { href: "/ajustes/sitio", etiqueta: "Sitio web" },
   { href: "/ajustes/facturacion", etiqueta: "Facturación" },
 ] as const;
 

@@ -22,6 +22,7 @@
     "@strappy/rag": "workspace:*",
     "@strappy/tools": "workspace:*",
     "@strappy/ui": "workspace:*",
+    "@strappy/webmaster": "workspace:*",
     "@strappy/whatsapp": "workspace:*",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
