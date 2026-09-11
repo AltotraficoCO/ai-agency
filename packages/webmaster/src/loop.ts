@@ -305,27 +305,37 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
         p.type === "tool-approval-request",
     );
     for (const s of solicitudes) {
+      // `pedir_aprobacion` es la pregunta del propio agente: al cliente se le
+      // enseña su propuesta, no el nombre de una herramienta.
+      const propuesta =
+        s.toolCall.toolName === "pedir_aprobacion"
+          ? String((s.toolCall.input as { propuesta?: unknown } | undefined)?.propuesta ?? "").trim()
+          : "";
       const registro = await sitio.approvals.request({
         workspaceId: input.workspaceId,
         taskId: sitio.taskId,
         siteId: sitio.siteId,
         huella: huellaAccion(sitio.taskId, s.toolCall.toolName, s.toolCall.input),
         toolSlug: s.toolCall.toolName,
-        motivo: "es una operación de administración del sitio",
-        resumen: `${s.toolCall.toolName}: espera el visto bueno de una persona`,
+        motivo: propuesta ? "necesito tu confirmación antes de seguir" : "es una operación de administración del sitio",
+        resumen: propuesta || `${s.toolCall.toolName}: espera el visto bueno de una persona`,
         entrada: redactSecrets(s.toolCall.input),
       });
       pendientes.push({
         id: registro.id,
         herramienta: s.toolCall.toolName,
-        motivo: "operación de administración del sitio",
+        motivo: propuesta ? "confirmación del cliente" : "operación de administración del sitio",
       });
     }
 
-    const texto = limpiarSecretos(resultado.text.trim(), sitio);
-    const resumen = extraerResumen(texto, simulacion);
+    const texto = limpiarSecretos(quitarRazonamiento(resultado.text), sitio);
+    const esperando = solicitudes.length > 0 || pendientes.length > 0;
+    const resumen =
+      esperando && !texto.includes("RESUMEN:")
+        ? "Necesito tu aprobación para continuar. Revisa la propuesta y pulsa Aprobar o Rechazar."
+        : extraerResumen(texto, simulacion);
 
-    if (solicitudes.length > 0 || pendientes.length > 0) {
+    if (esperando) {
       return {
         estado: "esperando_aprobacion",
         resumen,
@@ -355,6 +365,19 @@ export function urlVisible(sitio: SitioContext): string {
   if (sitio.wp) return sitio.wp.url;
   if (sitio.conector) return sitio.conector.baseUrl.replace(/\/(api\/)?[a-z]+\/v\d+\/?$/, "");
   return "(sitio sin conectar)";
+}
+
+/**
+ * Quita el razonamiento que algunos modelos (GLM, DeepSeek) escriben dentro del
+ * texto con etiquetas <think>. Si llega sin la etiqueta de apertura —pasa
+ * cuando el proveedor recorta el principio—, se descarta todo hasta la última
+ * de cierre: lo que va antes es el borrador, no la respuesta.
+ */
+export function quitarRazonamiento(texto: string): string {
+  let limpio = texto.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  const cierre = limpio.toLowerCase().lastIndexOf("</think>");
+  if (cierre >= 0) limpio = limpio.slice(cierre + "</think>".length);
+  return limpio.replace(/<\/?think>/gi, "").trim();
 }
 
 /**

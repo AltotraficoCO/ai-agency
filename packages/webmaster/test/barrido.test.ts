@@ -85,9 +85,11 @@ const ENTRADAS_WP: Record<string, unknown> = {
     enlaces: [
       { texto: "Inicio", url: "/" },
       { texto: "Historia", url: "/nuestra-historia/" },
+      { texto: "Google", url: "https://www.google.com" },
     ],
     incluir_footer: true,
   },
+  pedir_aprobacion: { propuesta: "Añadir al footer un enlace a https://www.google.com." },
   verificar_http: { path: "/nuestra-historia", contiene: "1998" },
   navegador_ver_pagina: { path: "/", pagina_completa: false },
   navegador_click: { texto: "Inicio" },

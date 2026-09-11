@@ -780,7 +780,10 @@ const seccionSpec = z.object({
   titulo: z.string().optional(),
   subtitulo: z.string().optional(),
   boton: z.string().optional(),
-  boton_url: z.string().optional().describe("Ruta relativa, p.ej. /contacto/"),
+  boton_url: z
+    .string()
+    .optional()
+    .describe("Ruta del sitio (/contacto/) o dirección externa completa (https://…)"),
   html: z.string().optional().describe("Solo para tipo texto"),
   items: z.array(itemSeccion).optional(),
   planes: z
@@ -906,7 +909,17 @@ export const wpCrearHeaderGlobal = defineTool({
       .array(
         z.object({
           texto: z.string().min(1).max(40),
-          url: z.string().startsWith("/", "Rutas relativas de páginas que ya existen."),
+          // Un footer con el Instagram del negocio o un "Llámanos" es lo normal:
+          // la restricción a rutas relativas es de las herramientas de
+          // navegador (que no deben visitar otros hosts), no de un enlace.
+          url: z
+            .string()
+            .max(500)
+            .refine(
+              (v) => v.startsWith("/") || /^(https?:\/\/[^\s"'<>]+|mailto:[^\s"'<>]+|tel:[+\d\s()-]+)$/i.test(v),
+              "Usa una ruta del sitio (/contacto/) o una dirección completa (https://…, mailto:…, tel:…).",
+            )
+            .describe("Ruta de una página del sitio (/contacto/) o dirección externa completa con https://"),
         }),
       )
       .min(2)

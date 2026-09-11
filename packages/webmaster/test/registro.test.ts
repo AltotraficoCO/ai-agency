@@ -27,11 +27,11 @@ import {
 } from "../src/index.js";
 
 describe("registro de herramientas", () => {
-  it("están las 39 herramientas y ninguna repetida", () => {
-    expect(HERRAMIENTAS_WEBMASTER).toHaveLength(39);
+  it("están las 40 herramientas y ninguna repetida", () => {
+    expect(HERRAMIENTAS_WEBMASTER).toHaveLength(40);
     const slugs = HERRAMIENTAS_WEBMASTER.map((t) => t.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
-    expect(webmasterToolRegistry.list()).toHaveLength(39);
+    expect(webmasterToolRegistry.list()).toHaveLength(40);
   });
 
   it("porta las familias del proyecto anterior", () => {
@@ -65,7 +65,11 @@ describe("registro de herramientas", () => {
     }
     // Y ninguna de lectura lo es: pedir un clic para leer entrena a la gente
     // a pulsar sin mirar, que es la forma de que la aprobación deje de servir.
-    for (const t of HERRAMIENTAS_WEBMASTER.filter((x) => x.effect === "read")) {
+    // La excepción es `pedir_aprobacion`: no lee el sitio, le pregunta algo al
+    // cliente, y ahí el clic ES la respuesta.
+    for (const t of HERRAMIENTAS_WEBMASTER.filter(
+      (x) => x.effect === "read" && x.slug !== "pedir_aprobacion",
+    )) {
       expect(t.sensitive, t.slug).toBe(false);
     }
   });
@@ -168,7 +172,7 @@ describe("cifrado de credenciales", () => {
 describe("los dos adaptadores salen de la misma definición", () => {
   it("el descriptor MCP se deriva del mismo Zod que valida en ejecución", () => {
     const descriptores = webmasterToolRegistry.list().map(toMcpDescriptor);
-    expect(descriptores).toHaveLength(39);
+    expect(descriptores).toHaveLength(40);
 
     const editar = descriptores.find((d) => d.name === "wp_editar_contenido");
     expect(editar?.annotations.readOnlyHint).toBe(false);
@@ -184,7 +188,7 @@ describe("los dos adaptadores salen de la misma definición", () => {
 
   it("el conjunto para el AI SDK tiene needsApproval donde la ficha lo pide", () => {
     const set = toAiToolSet(HERRAMIENTAS_WEBMASTER);
-    expect(Object.keys(set)).toHaveLength(39);
+    expect(Object.keys(set)).toHaveLength(40);
     expect(set.wp_instalar_plugin?.needsApproval).toBe(true);
     expect(set.wp_listar_contenido?.needsApproval).toBe(false);
   });

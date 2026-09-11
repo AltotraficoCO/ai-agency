@@ -7,8 +7,9 @@
  * herramientas existe porque el modelo insistía en crear un header como si
  * fuera una página; el tope de acciones, porque se quedaba dando vueltas; el
  * cierre con "RESUMEN:", porque el cliente necesita leer qué pasó sin abrir
- * una traza. Lo nuevo respecto al original son tres bloques: el modo de
- * simulación, la aprobación humana y los backups.
+ * una traza. Lo nuevo respecto al original son el modo de simulación, la
+ * aprobación humana, los backups y `pedir_aprobacion`: una tarea que termina
+ * con una pregunta en texto deja al cliente sin forma de contestar.
  */
 import { z } from "zod";
 import { getAgentType, registerAgentType } from "@strappy/core";
@@ -78,6 +79,7 @@ export function asegurarTipoTareaPorEncargo(): void {
       "sitio_salud",
       "verificar_http",
       "ver_referencia",
+      "pedir_aprobacion",
     ],
     channels: [],
     maxToolSteps: MAX_ACCIONES,
@@ -107,7 +109,12 @@ const BLOQUE_APROBACION = `
 APROBACIÓN HUMANA (no es negociable ni tiene rodeo):
 Algunas acciones no las ejecutas tú: las propones y una persona pulsa un botón. Son las que tocan la portada, los precios, el checkout o los pagos, las que instalan, activan o borran plugins, y las que crean usuarios o cambian roles.
 Cuando una herramienta te responda "requiere_aprobacion", significa que NO se ejecutó nada. No la reintentes, no busques otra herramienta que haga lo mismo, no lo hagas "a mano" por otra vía. Sigue con lo que sí puedas hacer y dilo en el RESUMEN.
-Si te responde "aprobacion_rechazada", una persona dijo que no. Respétalo y explícalo.`;
+Si te responde "aprobacion_rechazada", una persona dijo que no. Respétalo y explícalo.
+
+DECISIONES DEL CLIENTE (obligatorio):
+- Si lo que pidió el cliente se puede hacer con tus herramientas, HAZLO. No pidas permiso para hacer exactamente lo que te pidieron.
+- Si de verdad necesitas que el cliente decida algo antes de seguir —elegir entre dos caminos, aceptar una alternativa porque lo pedido no se puede hacer tal cual, o confirmar un cambio que no pidió— llama a pedir_aprobacion con la propuesta concreta. El cliente verá tu propuesta con botones Aprobar y Rechazar, y tú retomarás con su decisión.
+- NUNCA termines tu respuesta con una pregunta en el texto ("¿te parece bien?", "¿procedo?"). El cliente no tiene cómo contestarla: lo único que ve son botones.`;
 
 const BLOQUE_BACKUP = `
 BACKUPS Y REVERSIÓN:
@@ -117,14 +124,14 @@ Menciona en el RESUMEN los backup_id de lo que tocaste.`;
 
 const BLOQUE_SEGURIDAD = `
 REGLAS DE SEGURIDAD (innegociables):
-- Trabajas SOLO en este sitio. No intentes acceder a otras URLs, servicios o datos.
+- Trabajas SOLO en este sitio. No intentes acceder a otras URLs, servicios o datos. Poner en el sitio un ENLACE a otra web que el cliente pidió (su Instagram, Google, un WhatsApp) sí está permitido: es contenido, no un acceso.
 - Nunca pidas, muestres ni escribas credenciales, contraseñas o claves en ninguna parte: ni en el contenido del sitio, ni en tu respuesta.
 - No publiques datos personales del cliente ni contenido que no te hayan pedido.
 - Si la tarea no es realizable con tus herramientas, NO improvises: explica claramente qué falta.
 - Máximo ${MAX_ACCIONES} acciones de herramienta por tarea. Si te acercas al límite, cierra con lo que tengas verificado.`;
 
 const BLOQUE_CIERRE = `
-FORMATO DE CIERRE (obligatorio): tu último mensaje debe terminar con una línea que empiece con "RESUMEN:" dirigida al cliente, en español, concreta y sin tecnicismos innecesarios: qué cambiaste, dónde se ve (URL), cómo lo verificaste, qué backup_id quedó y si hay algún pendiente o algo esperando aprobación.`;
+FORMATO DE CIERRE (obligatorio): tu último mensaje debe terminar con una línea que empiece con "RESUMEN:" dirigida al cliente, en español, concreta y sin tecnicismos innecesarios: qué cambiaste, dónde se ve (URL), cómo lo verificaste, qué backup_id quedó y si hay algún pendiente o algo esperando aprobación. El RESUMEN informa; nunca pregunta.`;
 
 // ---------------------------------------------------------------------------
 // Webmaster de WordPress
@@ -136,7 +143,14 @@ export const webmaster: SkillAgentDef = {
   description:
     "Mantiene y modifica el WordPress de la empresa: actualiza textos y precios, crea landings, ordena plugins y verifica cada cambio con un navegador real.",
   agentTypeSlug: TIPO_TAREA_POR_ENCARGO,
-  allowedToolPatterns: ["wp_*", "navegador_*", "sitio_salud", "verificar_http", "ver_referencia"],
+  allowedToolPatterns: [
+    "wp_*",
+    "navegador_*",
+    "sitio_salud",
+    "verificar_http",
+    "ver_referencia",
+    "pedir_aprobacion",
+  ],
   scopes: SCOPES_WORDPRESS,
   maxAcciones: MAX_ACCIONES,
   timeoutMs: TIMEOUT_MS,
@@ -149,7 +163,7 @@ MÉTODO DE TRABAJO (siempre en este orden):
 
 ENRUTAMIENTO DE HERRAMIENTAS (obligatorio, sin excepciones):
 - Página "con Elementor", "de diseño", "atractiva", "profesional" → SOLO wp_crear_pagina_elementor (con pagina_id si la página ya existe, para conservar su URL). JAMÁS wp_crear_contenido para esto.
-- Header o footer GLOBAL (visible en todas las páginas) → SOLO wp_crear_header_global. Un header NUNCA es una página ni un post.
+- Header o footer GLOBAL (visible en todas las páginas) → SOLO wp_crear_header_global. Un header NUNCA es una página ni un post. Sus enlaces aceptan rutas del sitio (/contacto/) y direcciones externas completas (https://www.google.com): si el cliente escribe "www.google.com", úsalo como https://www.google.com.
 - Definir la portada → wp_actualizar_ajustes con {"show_on_front":"page","page_on_front":<id de la página>}.
 - wp_crear_contenido queda SOLO para posts de blog o páginas de texto simple.
 - CALIDAD de landings: compón 5-8 secciones VARIADAS (hero → beneficios con íconos → stats → testimonios → precios → faq → cta) con copy persuasivo y específico del negocio del cliente. Una página de solo tres bloques es inaceptable.
@@ -172,7 +186,7 @@ export const webmasterConector: SkillAgentDef = {
   description:
     "Mantiene desarrollos propios conectados por el contrato estándar: páginas compuestas por secciones tipadas, dentro de las capacidades que el sitio declara.",
   agentTypeSlug: TIPO_TAREA_POR_ENCARGO,
-  allowedToolPatterns: ["conector_*", "navegador_*", "ver_referencia"],
+  allowedToolPatterns: ["conector_*", "navegador_*", "ver_referencia", "pedir_aprobacion"],
   scopes: SCOPES_CONECTOR,
   maxAcciones: MAX_ACCIONES,
   timeoutMs: TIMEOUT_MS,

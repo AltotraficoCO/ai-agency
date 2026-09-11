@@ -107,7 +107,7 @@ function primitivas(pal: Paleta) {
     widgetType: "button",
     settings: {
       text: txt,
-      ...(url ? { link: { url, is_external: false, nofollow: false } } : {}),
+      ...(url ? { link: { url, is_external: /^https?:\/\//i.test(url), nofollow: false } } : {}),
       align: "center",
       background_color: fondo,
       button_text_color: "#ffffff",
@@ -287,11 +287,15 @@ export function construirBarra(entrada: {
   variante: "header" | "footer";
 }): unknown[] {
   const { marca, enlaces, paleta: hp, variante } = entrada;
+  // Los enlaces van a HTML del sitio del cliente: se escapan aunque el esquema
+  // ya los valide, y los externos se abren aparte para no sacar al visitante.
+  const escapar = (v: string) =>
+    v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const linksHtml = enlaces
-    .map(
-      (l) =>
-        `<a href="${l.url}" style="color:${hp.texto};text-decoration:none;font-weight:600;margin:0 14px">${l.texto}</a>`,
-    )
+    .map((l) => {
+      const externo = /^https?:\/\//i.test(l.url);
+      return `<a href="${escapar(l.url)}"${externo ? ' target="_blank" rel="noopener"' : ""} style="color:${hp.texto};text-decoration:none;font-weight:600;margin:0 14px">${escapar(l.texto)}</a>`;
+    })
     .join("");
 
   const wMarca = (size: number, align: string): Widget => ({
