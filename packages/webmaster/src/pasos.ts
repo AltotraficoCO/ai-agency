@@ -55,6 +55,7 @@ const ETIQUETAS: Readonly<Record<string, string>> = {
   wp_cambiar_rol_usuario: "Cambiando el rol de un usuario",
   wp_crear_termino: "Creando una categoría o etiqueta",
   wp_subir_media: "Subiendo un archivo",
+  wp_listar_medios: "Revisando la biblioteca de imágenes",
   wp_crear_header_global: "Creando el encabezado y el pie de página",
   wp_listar_plantillas_elementor: "Buscando el encabezado y el pie de página",
   wp_leer_plantilla_elementor: "Leyendo el encabezado o el pie de página",

@@ -21,6 +21,19 @@ export type PaginaDoble = {
   status: string;
   meta: Record<string, unknown>;
   comment_status?: string;
+  /** `excerpt`: lo que pinta la tarjeta del listado del blog. */
+  extracto?: string;
+  /** `featured_media`: 0 o ausente cuando no tiene imagen destacada. */
+  imagenDestacada?: number;
+};
+
+export type MedioDoble = {
+  id: number;
+  titulo: string;
+  url: string;
+  tipo: string;
+  mime: string;
+  alt: string;
 };
 
 /**
@@ -49,6 +62,8 @@ export type EstadoWordPress = {
   plugins: { plugin: string; name: string; status: string; version: string }[];
   comentarios: { id: number; author_name: string; content: { rendered: string }; status: string; post: number }[];
   usuarios: { id: number; name: string; email: string; roles: string[] }[];
+  /** La biblioteca de medios, de donde sale la imagen destacada de una entrada. */
+  medios: MedioDoble[];
   /**
    * Respuestas públicas fijas por ruta (HTML de la portada con sus clases,
    * CSS de Elementor…). Ganan al render genérico del sitio.
@@ -183,6 +198,32 @@ export function estadoInicial(): EstadoWordPress {
       },
     ],
     usuarios: [{ id: 1, name: "admin", email: "admin@ejemplo.test", roles: ["administrator"] }],
+    medios: [
+      {
+        id: 301,
+        titulo: "Obrador al amanecer",
+        url: `${BASE_DOBLE}/wp-content/uploads/obrador.jpg`,
+        tipo: "image",
+        mime: "image/jpeg",
+        alt: "El obrador de la panadería al amanecer",
+      },
+      {
+        id: 302,
+        titulo: "Masa madre",
+        url: `${BASE_DOBLE}/wp-content/uploads/masa-madre.jpg`,
+        tipo: "image",
+        mime: "image/jpeg",
+        alt: "Un bote de masa madre",
+      },
+      {
+        id: 303,
+        titulo: "Catálogo en PDF",
+        url: `${BASE_DOBLE}/wp-content/uploads/catalogo.pdf`,
+        tipo: "file",
+        mime: "application/pdf",
+        alt: "",
+      },
+    ],
     archivos: {},
   };
 }
@@ -407,7 +448,32 @@ export function crearDobleWordPress(
 
     // --- Medios ---
     if (ruta === "/wp-json/wp/v2/media") {
-      return json({ id: ++siguienteId, source_url: `${base}/wp-content/uploads/archivo.png` }, 201);
+      if (metodo === "POST") {
+        const nuevo: MedioDoble = {
+          id: ++siguienteId,
+          titulo: "archivo",
+          url: `${base}/wp-content/uploads/archivo.png`,
+          tipo: "image",
+          mime: "image/png",
+          alt: "",
+        };
+        estado.medios.push(nuevo);
+        return json({ id: nuevo.id, source_url: nuevo.url }, 201);
+      }
+      const buscar = (url.searchParams.get("search") ?? "").toLowerCase();
+      const lista = buscar
+        ? estado.medios.filter((m) => `${m.titulo} ${m.alt}`.toLowerCase().includes(buscar))
+        : estado.medios;
+      return json(
+        lista.map((m) => ({
+          id: m.id,
+          title: { rendered: m.titulo },
+          source_url: m.url,
+          media_type: m.tipo,
+          mime_type: m.mime,
+          alt_text: m.alt,
+        })),
+      );
     }
 
     // --- Contenido ---
@@ -426,6 +492,8 @@ export function crearDobleWordPress(
           // Sin el plugin conector, WordPress ignora en silencio los metas no
           // registrados. Ese silencio es justo el fallo que hay que reproducir.
           meta: estado.conectorInstalado ? ((b.meta as Record<string, unknown>) ?? {}) : {},
+          ...(b.excerpt !== undefined ? { extracto: String(b.excerpt) } : {}),
+          ...(b.featured_media !== undefined ? { imagenDestacada: Number(b.featured_media) } : {}),
         };
         estado.contenido.push(nueva);
         return json(vista(nueva, base, true), 201);
@@ -445,6 +513,8 @@ export function crearDobleWordPress(
         if (b.content !== undefined) c.contenido = String(b.content);
         if (b.status !== undefined) c.status = String(b.status);
         if (b.comment_status !== undefined) c.comment_status = String(b.comment_status);
+        if (b.excerpt !== undefined) c.extracto = String(b.excerpt);
+        if (b.featured_media !== undefined) c.imagenDestacada = Number(b.featured_media);
         if (b.meta !== undefined && estado.conectorInstalado) {
           Object.assign(c.meta, b.meta as Record<string, unknown>);
         }
@@ -468,6 +538,11 @@ function vista(c: PaginaDoble, base: string, edit: boolean) {
     id: c.id,
     title: edit ? { raw: c.titulo, rendered: c.titulo } : { rendered: c.titulo },
     content: edit ? { raw: c.contenido, rendered: c.contenido } : { rendered: c.contenido },
+    // WordPress devuelve el extracto envuelto en <p> al renderizarlo.
+    excerpt: edit
+      ? { raw: c.extracto ?? "", rendered: c.extracto ? `<p>${c.extracto}</p>` : "" }
+      : { rendered: c.extracto ? `<p>${c.extracto}</p>` : "" },
+    featured_media: c.imagenDestacada ?? 0,
     link: `${base}/${c.slug}/`,
     status: c.status,
     slug: c.slug,

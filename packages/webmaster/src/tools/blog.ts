@@ -70,6 +70,27 @@ export const wpEnlazarEntradaEnBlog = defineTool({
       );
     }
 
+    // Un listado (el de WordPress o un widget de Elementor) pinta cada tarjeta
+    // con la imagen destacada, el título y el extracto. Sin ellos la entrada
+    // aparece en el listado como un hueco vacío, que es justo lo que pasó con
+    // la entrada 200 del sitio de producción.
+    const falta = [
+      ...(entrada.imagenDestacada > 0 ? [] : ["imagen destacada"]),
+      ...(entrada.extracto.trim() ? [] : ["extracto"]),
+    ];
+    const avisoVacia =
+      falta.length > 0
+        ? `${falta.join(" y ")}: en el listado su tarjeta saldrá vacía. Añádelos con wp_crear_pagina_elementor sobre su contenido_id (imagen_destacada_id y extracto) o con wp_editar_contenido, y vuelve a mirar el blog.`
+        : null;
+    const listado = (modo: string, nota: string, extra: Record<string, unknown>) => ({
+      ...extra,
+      enlazada: true,
+      modo,
+      saldra_vacia: falta.length > 0,
+      falta,
+      nota: avisoVacia ? `${nota} PERO a la entrada le falta ${avisoVacia}` : nota,
+    });
+
     const ajustes = await wp.leerAjustes(creds, opciones).catch(() => ({}) as Record<string, unknown>);
     const numero = (v: unknown) => (typeof v === "number" && v > 0 ? v : undefined);
     const paginaDeEntradas = numero(ajustes.page_for_posts);
@@ -90,13 +111,11 @@ export const wpEnlazarEntradaEnBlog = defineTool({
       };
     }
     if (blogId === paginaDeEntradas && input.pagina_blog_id === undefined) {
-      return {
-        ...base,
-        enlazada: true,
-        modo: "listado_automatico",
-        pagina_blog_id: blogId,
-        nota: "Es la página de entradas de WordPress: las lista sola. Compruébalo con navegador_ver_pagina.",
-      };
+      return listado(
+        "listado_automatico",
+        "Es la página de entradas de WordPress: las lista sola. Compruébalo con navegador_ver_pagina.",
+        { ...base, pagina_blog_id: blogId },
+      );
     }
 
     const pagina = await wp.leerContenido(creds, "page", blogId, opciones);
@@ -111,12 +130,11 @@ export const wpEnlazarEntradaEnBlog = defineTool({
       };
     }
     if (tieneListadoDinamico(data)) {
-      return {
-        ...conPagina,
-        enlazada: true,
-        modo: "listado_dinamico",
-        nota: "El blog lista las entradas con un widget de Elementor: la nueva aparece sola. Compruébalo con navegador_ver_pagina.",
-      };
+      return listado(
+        "listado_dinamico",
+        "El blog lista las entradas con un widget de Elementor: la nueva aparece sola. Compruébalo con navegador_ver_pagina.",
+        conPagina,
+      );
     }
     if (enlazaA(data, entrada.link, entrada.id)) {
       return { ...conPagina, enlazada: true, modo: "ya_estaba", nota: "La página del blog ya enlazaba esta entrada." };

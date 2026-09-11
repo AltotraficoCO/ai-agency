@@ -36,11 +36,36 @@ import { reservarCreacion } from "../creaciones.js";
 import {
   contarPalabras,
   conTituloDeEntradaEnHero,
+  extractoDeSecciones,
+  extractoDeTexto,
+  EXTRACTO_MAXIMO,
   motivoArticuloIncompleto,
   motivoReescrituraDestructiva,
   palabrasDeElementor,
   palabrasDeSecciones,
 } from "../wordpress/articulo.js";
+
+/**
+ * Extracto e imagen destacada: sin ellos una entrada se publica bien pero su
+ * tarjeta sale VACÍA en el listado del blog, que es de lo único que vive ese
+ * listado (imagen destacada + título + extracto).
+ */
+const extractoInput = z
+  .string()
+  .max(EXTRACTO_MAXIMO)
+  .optional()
+  .describe(
+    "1-2 frases que resumen la entrada para la tarjeta del blog. Si no lo pasas, se genera del propio artículo.",
+  );
+
+const imagenDestacadaInput = z
+  .number()
+  .int()
+  .positive()
+  .optional()
+  .describe(
+    "Id de la imagen destacada en la biblioteca de medios (wp_listar_medios, o el id que devuelve wp_subir_media). Sin ella la entrada sale sin foto en el listado del blog.",
+  );
 
 const cantidadPedida = z
   .number()
@@ -257,13 +282,15 @@ const entradaEditar = z.object({
   id: z.number().int().positive(),
   nuevo_titulo: z.string().min(1).max(300).optional(),
   nuevo_contenido_html: z.string().max(400_000).optional(),
+  nuevo_extracto: extractoInput,
+  nueva_imagen_destacada_id: imagenDestacadaInput,
 });
 
 export const wpEditarContenido = defineTool({
   slug: "wp_editar_contenido",
   label: "Editar una página o post",
   description:
-    "Edita el título y/o el contenido HTML de una página o post. Guarda backup del estado anterior y devuelve backup_id.",
+    "Edita el título, el contenido HTML, el extracto y/o la imagen destacada de una página o post. Es la vía rápida para que una entrada ya publicada deje de salir vacía en el listado del blog. Guarda backup del estado anterior y devuelve backup_id.",
   whenToUse: "para cambios de texto sobre contenido que ya existe, después de leerlo",
   inputSchema: entradaEditar,
   sensitive: false,
@@ -274,8 +301,15 @@ export const wpEditarContenido = defineTool({
   async execute(ctx, input): Promise<Bloqueo | Record<string, unknown>> {
     const { sitio, opciones } = entorno(ctx, "wp_editar_contenido");
     const creds = requireWp(sitio, "wp_editar_contenido");
-    if (input.nuevo_titulo === undefined && input.nuevo_contenido_html === undefined) {
-      throw new Error("Pasa al menos nuevo_titulo o nuevo_contenido_html.");
+    if (
+      input.nuevo_titulo === undefined &&
+      input.nuevo_contenido_html === undefined &&
+      input.nuevo_extracto === undefined &&
+      input.nueva_imagen_destacada_id === undefined
+    ) {
+      throw new Error(
+        "Pasa al menos nuevo_titulo, nuevo_contenido_html, nuevo_extracto o nueva_imagen_destacada_id.",
+      );
     }
 
     const antes = await wp.leerContenido(creds, input.tipo, input.id, opciones);
@@ -316,6 +350,10 @@ export const wpEditarContenido = defineTool({
         ...(input.nuevo_contenido_html !== undefined
           ? { contenido: input.nuevo_contenido_html }
           : {}),
+        ...(input.nuevo_extracto !== undefined ? { extracto: input.nuevo_extracto } : {}),
+        ...(input.nueva_imagen_destacada_id !== undefined
+          ? { imagenDestacadaId: input.nueva_imagen_destacada_id }
+          : {}),
       },
       opciones,
     );
@@ -344,6 +382,8 @@ export const wpCrearContenido = defineTool({
     titulo: z.string().min(1).max(300),
     contenido_html: z.string().max(400_000),
     status: z.enum(["publish", "draft"]).default("publish"),
+    extracto: extractoInput,
+    imagen_destacada_id: imagenDestacadaInput,
     cantidad_pedida: cantidadPedida,
   }),
   sensitive: false,
@@ -377,14 +417,36 @@ export const wpCrearContenido = defineTool({
         return bloqueo;
       }
 
+      // Una entrada sin extracto sale vacía en el listado del blog, así que se
+      // saca del propio contenido cuando el modelo no lo manda.
+      const extracto =
+        input.extracto ?? (input.tipo === "post" ? extractoDeTexto(input.contenido_html) : "");
       const r = await wp.crearContenido(
         requireWp(sitio, "wp_crear_contenido"),
         input.tipo,
-        { titulo: input.titulo, contenido: input.contenido_html, status: input.status },
+        {
+          titulo: input.titulo,
+          contenido: input.contenido_html,
+          status: input.status,
+          ...(extracto ? { extracto } : {}),
+          ...(input.imagen_destacada_id !== undefined
+            ? { imagenDestacadaId: input.imagen_destacada_id }
+            : {}),
+        },
         opciones,
       );
       reserva.confirmar(r.id);
-      return { ...r, creado: true };
+      return {
+        ...r,
+        creado: true,
+        extracto: extracto || null,
+        imagen_destacada: input.imagen_destacada_id ?? 0,
+        ...(input.tipo === "post" && input.imagen_destacada_id === undefined
+          ? {
+              nota: "Sin imagen destacada, en el listado del blog esta entrada saldrá sin foto: elige una con wp_listar_medios y ponla con wp_editar_contenido (nueva_imagen_destacada_id).",
+            }
+          : {}),
+      };
     } catch (error) {
       reserva.liberar();
       throw error;
@@ -737,7 +799,7 @@ export const wpSubirMedia = defineTool({
   slug: "wp_subir_media",
   label: "Subir un archivo a medios",
   description:
-    "Sube una imagen o archivo a la biblioteca de medios descargándolo desde una URL pública https.",
+    "Sube una imagen o archivo a la biblioteca de medios descargándolo desde una URL pública https. Devuelve su id, que sirve como imagen_destacada_id de una entrada.",
   whenToUse: "cuando el cliente aportó una imagen y hay que meterla en el sitio",
   inputSchema: z.object({
     url_archivo: z.url().startsWith("https://", "Solo se aceptan URLs https."),
@@ -761,6 +823,42 @@ export const wpSubirMedia = defineTool({
   },
   simulate(_ctx, input) {
     return { simulado: true, nombre: input.nombre_archivo };
+  },
+});
+
+export const wpListarMedios = defineTool({
+  slug: "wp_listar_medios",
+  label: "Revisar la biblioteca de imágenes",
+  description:
+    "Lista la biblioteca de medios del sitio (id, título, URL, tipo y texto alternativo), opcionalmente filtrada por texto. El id sirve como imagen_destacada_id al crear una entrada.",
+  whenToUse: "antes de crear una entrada de blog, para darle una imagen destacada del propio negocio",
+  inputSchema: z.object({
+    buscar: z
+      .string()
+      .max(80)
+      .optional()
+      .describe("Filtra por nombre o texto alternativo, p. ej. «equipo» o «oficina»."),
+  }),
+  sensitive: false,
+  creditCost: 1,
+  scopes: [SCOPES.wpRead],
+  effect: "read",
+  kind: "http",
+  async execute(ctx, input) {
+    const { sitio, opciones } = entorno(ctx, "wp_listar_medios");
+    const medios = await wp.listarMedios(
+      requireWp(sitio, "wp_listar_medios"),
+      { buscar: input.buscar },
+      opciones,
+    );
+    return {
+      medios,
+      imagenes: medios.filter((m) => m.tipo === "image").length,
+      nota:
+        medios.length === 0
+          ? "La biblioteca no tiene medios que encajen: crea la entrada igualmente y dile al cliente en el RESUMEN que suba una foto para el blog."
+          : "Elige la que mejor represente el tema y pásala como imagen_destacada_id.",
+    };
   },
 });
 
@@ -894,7 +992,7 @@ export const wpCrearPaginaElementor = defineTool({
   slug: "wp_crear_pagina_elementor",
   label: "Crear página con Elementor",
   description:
-    "Crea (o reescribe, pasando su id) una página o una entrada de blog (tipo=\"post\") construida CON ELEMENTOR componiendo secciones: hero, beneficios, stats, testimonios, precios, faq, cta y texto. El diseño (colores, tipografías, radios, botones, ancho) se toma AUTOMÁTICAMENTE del sitio real, para que quede acorde a lo que ya tiene. Oculta el título duplicado del tema y cierra los comentarios salvo que se pidan. Para una landing decente usa 5-8 secciones variadas con copy concreto del negocio: una página de tres bloques es inaceptable. UNA ENTRADA (tipo=\"post\") ES UN ARTÍCULO COMPLETO: hero con el mismo titular de la entrada (sin botón o con el CTA real del sitio) → texto de introducción → 3-5 secciones texto con subtítulos y desarrollo → opcional beneficios o faq → cta con la llamada a la acción real del sitio; mínimo 400 palabras, o se rechaza. Crea UN contenido nuevo por tarea salvo que pases cantidad_pedida. Para mejorar uno existente, pasa su id y el contenido COMPLETO: una reescritura con mucho menos texto se rechaza. Es la herramienta obligatoria cuando piden algo 'con Elementor', 'de diseño' o 'atractivo', también para una entrada.",
+    "Crea (o reescribe, pasando su id) una página o una entrada de blog (tipo=\"post\") construida CON ELEMENTOR componiendo secciones: hero, beneficios, stats, testimonios, precios, faq, cta y texto. El diseño (colores, tipografías, radios, botones, ancho) se toma AUTOMÁTICAMENTE del sitio real, para que quede acorde a lo que ya tiene. Oculta el título duplicado del tema y cierra los comentarios salvo que se pidan. Para una landing decente usa 5-8 secciones variadas con copy concreto del negocio: una página de tres bloques es inaceptable. UNA ENTRADA (tipo=\"post\") ES UN ARTÍCULO COMPLETO: hero con el mismo titular de la entrada (sin botón o con el CTA real del sitio) → texto de introducción → 3-5 secciones texto con subtítulos y desarrollo → opcional beneficios o faq → cta con la llamada a la acción real del sitio; mínimo 400 palabras, o se rechaza. Dale también imagen_destacada_id (elígela con wp_listar_medios): el listado del blog pinta cada tarjeta con la imagen destacada, el título y el extracto, y sin ellos la entrada sale ahí vacía; el extracto se genera solo del artículo si no lo pasas. Crea UN contenido nuevo por tarea salvo que pases cantidad_pedida. Para mejorar uno existente, pasa su id y el contenido COMPLETO: una reescritura con mucho menos texto se rechaza. Es la herramienta obligatoria cuando piden algo 'con Elementor', 'de diseño' o 'atractivo', también para una entrada.",
   whenToUse: "para cualquier landing, página de ventas, rediseño o entrada de blog con aspecto profesional",
   inputSchema: z.object({
     titulo: z
@@ -922,6 +1020,8 @@ export const wpCrearPaginaElementor = defineTool({
       .optional()
       .describe("Lo mismo que pagina_id, con un nombre que vale también para entradas."),
     secciones: z.array(seccionSpec).min(1).max(10),
+    extracto: extractoInput,
+    imagen_destacada_id: imagenDestacadaInput,
     paleta: z
       .object({
         fondo: hex.describe("Hexadecimal oscuro"),
@@ -1041,10 +1141,25 @@ export const wpCrearPaginaElementor = defineTool({
       const usarPaleta = input.paleta !== undefined && input.motivo_paleta !== undefined;
       const estilo = usarPaleta ? conPaleta(delSitio, input.paleta!) : delSitio;
 
+      // Sin extracto ni imagen destacada la entrada se publica bien, pero su
+      // tarjeta sale vacía en el listado del blog: el extracto se saca del
+      // propio artículo cuando el modelo no lo manda.
+      const extracto =
+        input.extracto ?? (tipo === "post" ? extractoDeSecciones(secciones) : "");
+
       const data = construirSecciones(secciones, estilo);
       const r = await wp.escribirContenidoElementor(
         creds,
-        { tipo, ...(id !== undefined ? { id } : {}), titulo: input.titulo, data },
+        {
+          tipo,
+          ...(id !== undefined ? { id } : {}),
+          titulo: input.titulo,
+          data,
+          ...(extracto ? { extracto } : {}),
+          ...(input.imagen_destacada_id !== undefined
+            ? { imagenDestacadaId: input.imagen_destacada_id }
+            : {}),
+        },
         opciones,
       );
       if (!r.elementorOk) {
@@ -1056,7 +1171,14 @@ export const wpCrearPaginaElementor = defineTool({
         creds,
         tipo,
         r.id,
-        { ocultarTitulo: true, comentarios: input.permitir_comentarios ? "open" : "closed" },
+        {
+          ocultarTitulo: true,
+          comentarios: input.permitir_comentarios ? "open" : "closed",
+          ...(extracto ? { extracto } : {}),
+          ...(input.imagen_destacada_id !== undefined
+            ? { imagenDestacadaId: input.imagen_destacada_id }
+            : {}),
+        },
         opciones,
       );
 
@@ -1071,8 +1193,18 @@ export const wpCrearPaginaElementor = defineTool({
         notas.push("No pude ocultar el título del tema: si al verlo aparece repetido encima del diseño, dilo en el RESUMEN.");
       }
       if (heroRetitulado) notas.push("Puse en el hero el mismo titular que la entrada.");
+      if (tipo === "post") {
+        if (presentacion.imagenDestacada <= 0) {
+          notas.push(
+            "La entrada NO tiene imagen destacada: en el listado del blog su tarjeta saldrá sin foto y, con algunas plantillas, vacía. Elige una con wp_listar_medios y repite esta llamada con contenido_id e imagen_destacada_id, o ponla con wp_editar_contenido.",
+          );
+        }
+        if (extracto && !presentacion.extracto) {
+          notas.push("No pude guardar el extracto: sin él la tarjeta del blog sale sin texto. Inténtalo con wp_editar_contenido (nuevo_extracto).");
+        }
+      }
       if (tipo === "post" && id === undefined) {
-        notas.push("Cuando la hayas verificado, enlázala en el blog del sitio con wp_enlazar_entrada_en_blog (su id y un extracto de 1-2 frases). No crees más entradas salvo que el cliente pidiera varias.");
+        notas.push("Cuando la hayas verificado, enlázala en el blog del sitio con wp_enlazar_entrada_en_blog (su id y un extracto de 1-2 frases) y mira el listado del blog en el navegador. No crees más entradas salvo que el cliente pidiera varias.");
       }
       return {
         ok: true,
@@ -1086,6 +1218,8 @@ export const wpCrearPaginaElementor = defineTool({
         estilo_aplicado: resumirEstilo(estilo),
         titulo_del_tema_oculto: presentacion.tituloOculto,
         comentarios: presentacion.comentarios,
+        extracto: presentacion.extracto || extracto || null,
+        imagen_destacada: presentacion.imagenDestacada,
         nota: notas.join(" "),
       };
     };
@@ -1262,6 +1396,7 @@ export const HERRAMIENTAS_WP: readonly ToolDef<never, unknown>[] = [
   wpModerarComentario,
   wpCrearTermino,
   wpSubirMedia,
+  wpListarMedios,
   wpCrearUsuario,
   wpCambiarRolUsuario,
   wpCrearPaginaElementor,

@@ -58,6 +58,7 @@ const ENTRADAS_WP: Record<string, unknown> = {
     url_archivo: `${BASE_DOBLE}/imagen.png`,
     nombre_archivo: "imagen.png",
   },
+  wp_listar_medios: { buscar: "masa" },
   wp_crear_usuario: { username: "ana", email: "ana@ejemplo.test", role: "editor" },
   wp_cambiar_rol_usuario: { usuario_id: 1, role: "editor" },
   wp_enlazar_entrada_en_blog: {

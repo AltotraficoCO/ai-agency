@@ -84,11 +84,23 @@ type WpPostRaw = {
   id: number;
   title?: Renderizado;
   content?: Renderizado;
+  excerpt?: Renderizado;
+  featured_media?: number;
   link?: string;
   status?: string;
   slug?: string;
   meta?: Record<string, unknown>;
 };
+
+/** El texto de un campo renderizado, sin etiquetas: `excerpt` viene con `<p>`. */
+function textoPlano(r: Renderizado | undefined): string {
+  const crudo = r?.raw ?? r?.rendered ?? "";
+  return crudo
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&(nbsp|#160);/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export type WpContent = {
   readonly id: number;
@@ -106,6 +118,19 @@ export type WpContentDetalle = {
   readonly link: string;
   readonly slug: string;
   readonly status: string;
+  /** `excerpt` sin etiquetas. Es de lo que vive la tarjeta del listado del blog. */
+  readonly extracto: string;
+  /** `featured_media`: 0 cuando no tiene imagen destacada. */
+  readonly imagenDestacada: number;
+};
+
+export type WpMedio = {
+  readonly id: number;
+  readonly titulo: string;
+  readonly url: string;
+  readonly tipo: string;
+  readonly mime: string;
+  readonly alt: string;
 };
 
 export type WpPlugin = {
@@ -271,7 +296,45 @@ export async function leerContenido(
     link: p.link ?? "",
     slug: p.slug ?? "",
     status: p.status ?? "",
+    extracto: textoPlano(p.excerpt),
+    imagenDestacada: typeof p.featured_media === "number" ? p.featured_media : 0,
   };
+}
+
+/**
+ * La biblioteca de medios. Se lee para elegir una imagen destacada del propio
+ * negocio: sin ella, la tarjeta de la entrada sale vacía en el listado del blog.
+ */
+export async function listarMedios(
+  c: WpCreds,
+  filtro: { buscar?: string | undefined } = {},
+  o: WpClientOptions = {},
+): Promise<WpMedio[]> {
+  const busqueda = filtro.buscar?.trim();
+  const res = await wp(
+    c,
+    o,
+    `/wp/v2/media?per_page=30&_fields=id,title,source_url,media_type,mime_type,alt_text${
+      busqueda ? `&search=${encodeURIComponent(busqueda)}` : ""
+    }`,
+  );
+  if (!res.ok) return [];
+  const lista = (await res.json()) as {
+    id: number;
+    title?: Renderizado;
+    source_url?: string;
+    media_type?: string;
+    mime_type?: string;
+    alt_text?: string;
+  }[];
+  return lista.map((m) => ({
+    id: m.id,
+    titulo: textoPlano(m.title),
+    url: m.source_url ?? "",
+    tipo: m.media_type ?? "",
+    mime: m.mime_type ?? "",
+    alt: m.alt_text ?? "",
+  }));
 }
 
 export async function listarPlugins(c: WpCreds, o: WpClientOptions = {}): Promise<WpPlugin[]> {
@@ -331,13 +394,22 @@ export async function actualizarContenido(
   c: WpCreds,
   tipo: "page" | "post",
   id: number,
-  cambios: { titulo?: string; contenido?: string; status?: string },
+  cambios: {
+    titulo?: string;
+    contenido?: string;
+    status?: string;
+    extracto?: string;
+    imagenDestacadaId?: number;
+  },
   o: WpClientOptions = {},
 ): Promise<{ id: number; titulo: string; link: string }> {
-  const body: Record<string, string> = {};
+  const body: Record<string, string | number> = {};
   if (cambios.titulo !== undefined) body.title = cambios.titulo;
   if (cambios.contenido !== undefined) body.content = cambios.contenido;
   if (cambios.status !== undefined) body.status = cambios.status;
+  // Solo van las claves que se piden: mandar `excerpt: ""` borraría el que había.
+  if (cambios.extracto !== undefined) body.excerpt = cambios.extracto;
+  if (cambios.imagenDestacadaId !== undefined) body.featured_media = cambios.imagenDestacadaId;
   const res = await wp(c, o, `/wp/v2/${tipo}s/${id}`, { method: "POST", body: JSON.stringify(body) });
   const p = (await exigirOk(res, "Fallo al actualizar")) as WpPostRaw;
   return { id: p.id, titulo: p.title?.rendered ?? p.title?.raw ?? "", link: p.link ?? "" };
@@ -346,7 +418,13 @@ export async function actualizarContenido(
 export async function crearContenido(
   c: WpCreds,
   tipo: "page" | "post",
-  datos: { titulo: string; contenido: string; status?: "publish" | "draft" },
+  datos: {
+    titulo: string;
+    contenido: string;
+    status?: "publish" | "draft";
+    extracto?: string;
+    imagenDestacadaId?: number;
+  },
   o: WpClientOptions = {},
 ): Promise<{ id: number; link: string; status: string }> {
   const res = await wp(c, o, `/wp/v2/${tipo}s`, {
@@ -355,6 +433,8 @@ export async function crearContenido(
       title: datos.titulo,
       content: datos.contenido,
       status: datos.status ?? "publish",
+      ...(datos.extracto !== undefined ? { excerpt: datos.extracto } : {}),
+      ...(datos.imagenDestacadaId !== undefined ? { featured_media: datos.imagenDestacadaId } : {}),
     }),
   });
   const p = (await exigirOk(res, `Fallo al crear ${tipo}`)) as WpPostRaw;
@@ -594,11 +674,25 @@ async function metaElementorGuardado(
 
 export async function escribirContenidoElementor(
   c: WpCreds,
-  entrada: { tipo: TipoContenido; id?: number; titulo: string; data: readonly unknown[] },
+  entrada: {
+    tipo: TipoContenido;
+    id?: number;
+    titulo: string;
+    data: readonly unknown[];
+    /** `excerpt`. La tarjeta del listado del blog lo necesita para no salir vacía. */
+    extracto?: string;
+    /** `featured_media`. Ídem: sin foto, la tarjeta queda en blanco. */
+    imagenDestacadaId?: number;
+  },
   o: WpClientOptions = {},
 ): Promise<{ id: number; link: string; elementorOk: boolean }> {
   const { tipo, id } = entrada;
   const nombre = NOMBRE_TIPO[tipo];
+  // Solo viajan si se piden: un `excerpt: ""` borraría el que ya tuviera.
+  const presentacion = {
+    ...(entrada.extracto !== undefined ? { excerpt: entrada.extracto } : {}),
+    ...(entrada.imagenDestacadaId !== undefined ? { featured_media: entrada.imagenDestacadaId } : {}),
+  };
 
   const porRest = async (destino: number | undefined, status: "publish" | "draft") => {
     const res = await wp(c, o, destino ? `/wp/v2/${tipo}s/${destino}` : `/wp/v2/${tipo}s`, {
@@ -607,6 +701,7 @@ export async function escribirContenidoElementor(
         title: entrada.titulo,
         status,
         content: "",
+        ...presentacion,
         meta: { _elementor_data: JSON.stringify(entrada.data), ...metaElementor(tipo) },
       }),
     });
@@ -623,6 +718,9 @@ export async function escribirContenidoElementor(
       data: entrada.data,
       status: "publish",
       tipo,
+      // El conector puede no entenderlas: `ajustarPresentacion` las reafirma
+      // después por REST y comprueba leyendo de vuelta.
+      ...presentacion,
       ...(destino ? { pagina_id: destino, post_id: destino } : {}),
     });
 
@@ -782,11 +880,17 @@ export async function escribirPlantillaElementor(
 // ---------------------------------------------------------------------------
 
 /**
- * Oculta el título del tema y decide los comentarios de un contenido diseñado.
+ * Oculta el título del tema, decide los comentarios y asegura extracto e imagen
+ * destacada de un contenido diseñado.
  *
  * Hello Elementor pinta el título de la entrada ENCIMA del diseño salvo que
  * la página tenga `hide_title`; el resultado es un H1 repetido. Y una entrada
  * de marketing no quiere el formulario «Leave a Reply» sin estilo debajo.
+ *
+ * El extracto y la imagen destacada se reafirman aquí porque la escritura pudo
+ * ir por el plugin conector, que quizá no las entienda: sin ellas la entrada se
+ * publica bien pero su tarjeta sale VACÍA en el listado del blog.
+ *
  * Nada de esto puede tumbar la escritura, que ya se hizo: es best-effort y se
  * comprueba leyendo de vuelta.
  */
@@ -794,32 +898,58 @@ export async function ajustarPresentacion(
   c: WpCreds,
   tipo: TipoContenido,
   id: number,
-  ajustes: { ocultarTitulo: boolean; comentarios: "open" | "closed" },
+  ajustes: {
+    ocultarTitulo: boolean;
+    comentarios: "open" | "closed";
+    extracto?: string;
+    imagenDestacadaId?: number;
+  },
   o: WpClientOptions = {},
-): Promise<{ tituloOculto: boolean; comentarios: string | null }> {
+): Promise<{
+  tituloOculto: boolean;
+  comentarios: string | null;
+  extracto: string;
+  imagenDestacada: number;
+}> {
   const ruta = `/wp/v2/${tipo}s/${id}`;
+  const vacio = { tituloOculto: false, comentarios: null, extracto: "", imagenDestacada: 0 };
+  const presentacion = {
+    ...(ajustes.extracto !== undefined ? { excerpt: ajustes.extracto } : {}),
+    ...(ajustes.imagenDestacadaId !== undefined ? { featured_media: ajustes.imagenDestacadaId } : {}),
+  };
   try {
     const completo = await wp(c, o, ruta, {
       method: "POST",
       body: JSON.stringify({
         comment_status: ajustes.comentarios,
+        ...presentacion,
         ...(ajustes.ocultarTitulo ? { meta: { _elementor_page_settings: { hide_title: "yes" } } } : {}),
       }),
     });
     if (!completo.ok) {
-      // Un meta que el sitio no acepta no debe impedir cerrar los comentarios.
-      await wp(c, o, ruta, { method: "POST", body: JSON.stringify({ comment_status: ajustes.comentarios }) });
+      // Un meta que el sitio no acepta no debe impedir lo demás.
+      await wp(c, o, ruta, {
+        method: "POST",
+        body: JSON.stringify({ comment_status: ajustes.comentarios, ...presentacion }),
+      });
     }
-    const check = await wp(c, o, `${ruta}?context=edit&_fields=meta,comment_status`);
-    if (!check.ok) return { tituloOculto: false, comentarios: null };
-    const p = (await check.json()) as { meta?: Record<string, unknown>; comment_status?: string };
+    const check = await wp(c, o, `${ruta}?context=edit&_fields=meta,comment_status,excerpt,featured_media`);
+    if (!check.ok) return vacio;
+    const p = (await check.json()) as {
+      meta?: Record<string, unknown>;
+      comment_status?: string;
+      excerpt?: Renderizado;
+      featured_media?: number;
+    };
     const ajustesPagina = p.meta?._elementor_page_settings as Record<string, unknown> | undefined;
     return {
       tituloOculto: ajustesPagina?.hide_title === "yes",
       comentarios: typeof p.comment_status === "string" ? p.comment_status : null,
+      extracto: textoPlano(p.excerpt),
+      imagenDestacada: typeof p.featured_media === "number" ? p.featured_media : 0,
     };
   } catch {
-    return { tituloOculto: false, comentarios: null };
+    return vacio;
   }
 }
 

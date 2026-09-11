@@ -125,6 +125,56 @@ export function motivoReescrituraDestructiva(id: number, antes: number, despues:
   );
 }
 
+// ---------------------------------------------------------------------------
+// Extracto
+// ---------------------------------------------------------------------------
+
+/** Tope del extracto. Una tarjeta de blog no enseña más que esto. */
+export const EXTRACTO_MAXIMO = 300;
+
+/**
+ * Un extracto legible a partir de un texto: sin etiquetas, cortado por frase y
+ * sin dejar una palabra a medias. Vacío si no hay nada que resumir.
+ */
+export function extractoDeTexto(texto: string | undefined | null, maximo = EXTRACTO_MAXIMO): string {
+  const limpio = textoVisible(texto ?? "").replace(/\s+/g, " ").trim();
+  if (!limpio) return "";
+  if (limpio.length <= maximo) return limpio;
+
+  let salida = "";
+  for (const frase of limpio.split(/(?<=[.!?…])\s+/)) {
+    const siguiente = salida ? `${salida} ${frase}` : frase;
+    if (siguiente.length > maximo) break;
+    salida = siguiente;
+  }
+  if (salida) return salida;
+
+  // Ni la primera frase cabe: se corta por palabra, nunca a mitad de una.
+  const corte = limpio.slice(0, maximo - 1);
+  const espacio = corte.lastIndexOf(" ");
+  return `${(espacio > maximo / 2 ? corte.slice(0, espacio) : corte).replace(/[\s,;:.–-]+$/, "")}…`;
+}
+
+/**
+ * El extracto de una entrada a partir de sus secciones: el cuerpo del artículo
+ * primero (que es lo que resume de qué va) y, si no lo hay, el subtítulo o el
+ * título del hero. Sin extracto, la tarjeta del listado del blog sale vacía.
+ */
+export function extractoDeSecciones(
+  specs: readonly SeccionSpec[],
+  maximo = EXTRACTO_MAXIMO,
+): string {
+  const textos = specs.filter((s) => s.tipo === "texto" && contarPalabras(s.html) > 0);
+  const cuerpo = textos.find((s) => contarPalabras(s.html) >= 20) ?? textos[0];
+  const hero = specs.find((s) => s.tipo === "hero");
+  const candidatos = [cuerpo?.html, hero?.subtitulo, hero?.titulo, specs[0]?.subtitulo, specs[0]?.titulo];
+  for (const candidato of candidatos) {
+    const extracto = extractoDeTexto(candidato, maximo);
+    if (extracto) return extracto;
+  }
+  return "";
+}
+
 /**
  * En una entrada, el hero lleva el mismo titular que la entrada: dos titulares
  * distintos arriba del todo parecen dos artículos.

@@ -28,7 +28,12 @@ import {
   tarjetasDeImagen,
   tieneListadoDinamico,
 } from "../src/wordpress/blog.js";
-import { motivoArticuloIncompleto, palabrasDeSecciones } from "../src/wordpress/articulo.js";
+import {
+  extractoDeSecciones,
+  extractoDeTexto,
+  motivoArticuloIncompleto,
+  palabrasDeSecciones,
+} from "../src/wordpress/articulo.js";
 import { construirSecciones } from "../src/wordpress/elementor.js";
 import { ESTILO_POR_DEFECTO } from "../src/wordpress/diseno.js";
 import type { NodoElementor } from "../src/wordpress/plantillas.js";
@@ -406,14 +411,140 @@ describe("tarjetas de relleno del blog", () => {
   });
 });
 
+describe("una entrada que no sale vacía en el listado", () => {
+  const CUERPO =
+    "La inteligencia artificial revisa documentos en minutos y el abogado decide. Cada resultado lo revisa una persona.";
+
+  it("genera el extracto del artículo y lo guarda como excerpt", async () => {
+    const { wp, llamar } = montar();
+    const r = await llamar("wp_crear_pagina_elementor", {
+      titulo: "La inteligencia artificial en tu despacho",
+      tipo: "post",
+      secciones: ARTICULO,
+    });
+    const post = wp.estado.contenido.find((c) => c.id === r.id)!;
+    expect(post.extracto).toBeTruthy();
+    expect(post.extracto).toBe(r.extracto);
+    expect(post.extracto).toContain("La inteligencia artificial revisa documentos");
+    expect(post.extracto!.length).toBeLessThanOrEqual(300);
+    // Cortado por frase: nunca a mitad de palabra ni con puntos suspensivos sueltos.
+    expect(post.extracto).toMatch(/[.!?]$/);
+  });
+
+  it("respeta el extracto que se le pasa", async () => {
+    const { wp, llamar } = montar();
+    const extracto = "Qué puede hacer la IA por tu caso y dónde decide siempre una persona.";
+    const r = await llamar("wp_crear_pagina_elementor", {
+      titulo: "La IA en tu despacho",
+      tipo: "post",
+      secciones: ARTICULO,
+      extracto,
+    });
+    expect(wp.estado.contenido.find((c) => c.id === r.id)?.extracto).toBe(extracto);
+  });
+
+  it("manda featured_media cuando se pasa imagen_destacada_id, y avisa cuando no", async () => {
+    const conFoto = montar();
+    const r = await conFoto.llamar("wp_crear_pagina_elementor", {
+      titulo: "La IA en tu despacho",
+      tipo: "post",
+      secciones: ARTICULO,
+      imagen_destacada_id: 301,
+    });
+    expect(r.imagen_destacada).toBe(301);
+    expect(conFoto.wp.estado.contenido.find((c) => c.id === r.id)?.imagenDestacada).toBe(301);
+    expect(String(r.nota)).not.toContain("NO tiene imagen destacada");
+
+    const sinFoto = montar();
+    const s = await sinFoto.llamar("wp_crear_pagina_elementor", {
+      titulo: "La IA en tu despacho",
+      tipo: "post",
+      secciones: ARTICULO,
+    });
+    expect(s.imagen_destacada).toBe(0);
+    expect(String(s.nota)).toContain("NO tiene imagen destacada");
+    expect(String(s.nota)).toContain("wp_listar_medios");
+  });
+
+  it("wp_listar_medios enseña la biblioteca y sabe filtrar", async () => {
+    const { llamar } = montar();
+    const todos = await llamar("wp_listar_medios", {});
+    expect(todos.medios).toHaveLength(3);
+    expect(todos.imagenes).toBe(2);
+    expect((todos.medios as { id: number }[])[0]).toMatchObject({
+      id: 301,
+      titulo: "Obrador al amanecer",
+      tipo: "image",
+    });
+
+    const filtrados = await llamar("wp_listar_medios", { buscar: "masa" });
+    expect((filtrados.medios as { id: number }[]).map((m) => m.id)).toEqual([302]);
+    expect(etiquetaDePaso("wp_listar_medios", {})).toBe("Revisando la biblioteca de imágenes");
+  });
+
+  it("reescribir la entrada no le borra la imagen destacada ni la deja sin extracto", async () => {
+    const { wp, llamar } = montar();
+    const r = await llamar("wp_crear_pagina_elementor", {
+      titulo: "La IA en tu despacho",
+      tipo: "post",
+      secciones: ARTICULO,
+      imagen_destacada_id: 301,
+    });
+    await llamar("wp_crear_pagina_elementor", {
+      titulo: "La IA en tu despacho",
+      tipo: "post",
+      contenido_id: r.id,
+      secciones: ARTICULO,
+    });
+    const post = wp.estado.contenido.find((c) => c.id === r.id)!;
+    expect(post.imagenDestacada).toBe(301);
+    expect(post.extracto).toBeTruthy();
+  });
+
+  it("wp_editar_contenido puede ponerle extracto e imagen a una entrada que ya existe", async () => {
+    const { wp, llamar } = montar();
+    await llamar("wp_editar_contenido", {
+      tipo: "post",
+      id: 21,
+      nuevo_extracto: CUERPO,
+      nueva_imagen_destacada_id: 302,
+    });
+    const post = wp.estado.contenido.find((c) => c.id === 21)!;
+    expect(post.extracto).toBe(CUERPO);
+    expect(post.imagenDestacada).toBe(302);
+    await expect(llamar("wp_editar_contenido", { tipo: "post", id: 21 })).rejects.toThrow(
+      /nuevo_extracto o nueva_imagen_destacada_id/,
+    );
+  });
+
+  it("el extracto se corta por frase y sin dejar palabras a medias", () => {
+    expect(extractoDeTexto("<p>Primera frase corta. Segunda frase que también cabe.</p>", 300)).toBe(
+      "Primera frase corta. Segunda frase que también cabe.",
+    );
+    expect(extractoDeTexto("Primera frase corta. Segunda frase mucho más larga que no cabe.", 25)).toBe(
+      "Primera frase corta.",
+    );
+    const cortado = extractoDeTexto("Una frase única y bastante larga que no cabe entera de ninguna manera", 30);
+    expect(cortado).toMatch(/…$/);
+    expect(cortado.length).toBeLessThanOrEqual(30);
+    expect(cortado).not.toMatch(/\s…$/);
+    expect(extractoDeSecciones(ARTICULO as never)).toContain("La inteligencia artificial revisa documentos");
+    expect(extractoDeSecciones([{ tipo: "hero", titulo: "Solo un título" }] as never)).toBe("Solo un título");
+  });
+});
+
 describe("wp_enlazar_entrada_en_blog", () => {
   const EXTRACTO = "Qué puede hacer la IA por tu caso y dónde tiene que decidir siempre una persona.";
 
-  async function crearEntrada(llamar: ReturnType<typeof montar>["llamar"]) {
+  async function crearEntrada(
+    llamar: ReturnType<typeof montar>["llamar"],
+    extra: Record<string, unknown> = {},
+  ) {
     return llamar("wp_crear_pagina_elementor", {
       titulo: "La inteligencia artificial y su uso responsable",
       tipo: "post",
       secciones: ARTICULO,
+      ...extra,
     });
   }
 
@@ -446,15 +577,36 @@ describe("wp_enlazar_entrada_en_blog", () => {
     expect(datosDe(wp, 92)).toEqual(BLOG_DE_IMAGENES);
   });
 
+  const BLOG_DINAMICO: NodoElementor[] = [
+    { id: "a", elType: "container", settings: {}, elements: [{ id: "b", elType: "widget", widgetType: "posts", settings: {} }] },
+  ];
+
   it("si el blog lista las entradas solo, no escribe nada", async () => {
-    const { wp, llamar } = conBlog([
-      { id: "a", elType: "container", settings: {}, elements: [{ id: "b", elType: "widget", widgetType: "posts", settings: {} }] },
-    ]);
-    const creada = await crearEntrada(llamar);
+    const { wp, llamar } = conBlog(BLOG_DINAMICO);
+    const creada = await crearEntrada(llamar, { imagen_destacada_id: 301 });
     const antes = escrituras(wp).length;
     const r = await llamar("wp_enlazar_entrada_en_blog", { entrada_id: creada.id, extracto: EXTRACTO });
-    expect(r).toMatchObject({ enlazada: true, modo: "listado_dinamico" });
+    expect(r).toMatchObject({ enlazada: true, modo: "listado_dinamico", saldra_vacia: false, falta: [] });
+    expect(String(r.nota)).not.toContain("saldrá vacía");
     expect(escrituras(wp)).toHaveLength(antes);
+  });
+
+  it("avisa de que la tarjeta saldrá vacía cuando a la entrada le falta la imagen destacada", async () => {
+    const { llamar } = conBlog(BLOG_DINAMICO);
+    const creada = await crearEntrada(llamar);
+    const r = await llamar("wp_enlazar_entrada_en_blog", { entrada_id: creada.id, extracto: EXTRACTO });
+
+    expect(r).toMatchObject({ enlazada: true, modo: "listado_dinamico", saldra_vacia: true, falta: ["imagen destacada"] });
+    expect(String(r.nota)).toContain("saldrá vacía");
+    expect(String(r.nota)).toContain("imagen_destacada_id");
+  });
+
+  it("una entrada sin extracto ni imagen las reclama las dos", async () => {
+    const { wp, llamar } = conBlog(BLOG_DINAMICO);
+    // La 21 del doble es una entrada antigua: ni extracto ni imagen destacada.
+    const r = await llamar("wp_enlazar_entrada_en_blog", { entrada_id: 21, extracto: EXTRACTO });
+    expect(r).toMatchObject({ saldra_vacia: true, falta: ["imagen destacada", "extracto"] });
+    expect(escrituras(wp)).toHaveLength(0);
   });
 
   it("sin página de blog lo dice y no toca nada", async () => {
