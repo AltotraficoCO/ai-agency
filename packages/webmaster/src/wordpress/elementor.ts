@@ -17,6 +17,18 @@
  * únicos dentro del documento; no significan nada más.
  */
 import { ESTILO_POR_DEFECTO, type Estilo } from "./diseno.js";
+import { esEnlaceValido } from "./plantillas.js";
+
+/** Un botón sin destino real es un botón roto: no se pinta. */
+const conDestino = (url: string | undefined): url is string => typeof url === "string" && esEnlaceValido(url);
+
+/** El HTML del modelo va al sitio del cliente: fuera scripts, manejadores y `javascript:`. */
+function sanear(html: string): string {
+  return html
+    .replace(/<(script|style|iframe|object|embed)\b[\s\S]*?(<\/\1\s*>|$)/gi, "")
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/(href|src)\s*=\s*(["'])\s*javascript:[^"']*\2/gi, '$1="#"');
+}
 
 export type Paleta = {
   readonly fondo: string;
@@ -112,7 +124,8 @@ const caja4 = (arriba: number, lado: number, abajo = arriba) => ({
 });
 const radio = (r: number) => ({ unit: "px", top: String(r), right: String(r), bottom: String(r), left: String(r), isLinked: true });
 
-function primitivas(e: Estilo) {
+/** Los widgets básicos ya vestidos con el estilo del sitio. */
+export function primitivasDeEstilo(e: Estilo) {
   const { colores: c, tipografia: t } = e;
   const familia = (f: string | null) => (f ? { typography_font_family: f } : {});
 
@@ -144,7 +157,9 @@ function primitivas(e: Estilo) {
     elType: "widget",
     widgetType: "text-editor",
     settings: {
-      editor: /^\s*<(p|ul|ol|h[1-6]|div|blockquote)\b/i.test(html) ? sinEmojis(html) : `<p>${sinEmojis(html)}</p>`,
+      editor: /^\s*<(p|ul|ol|h[1-6]|div|blockquote)\b/i.test(html)
+        ? sinEmojis(sanear(html))
+        : `<p>${sinEmojis(sanear(html))}</p>`,
       align,
       text_color: color,
       typography_typography: "custom",
@@ -237,7 +252,7 @@ function primitivas(e: Estilo) {
 export function construirSecciones(specs: readonly SeccionSpec[], estilo: Estilo = ESTILO_POR_DEFECTO): unknown[] {
   const e = estilo;
   const { colores: c, tipografia: t } = e;
-  const w = primitivas(e);
+  const w = primitivasDeEstilo(e);
   const out: unknown[] = [];
   const numero = (i: number) => String(i + 1).padStart(2, "0");
   // Los bloques de texto alternan página y tarjeta clara, como hace el sitio.
@@ -253,7 +268,7 @@ export function construirSecciones(specs: readonly SeccionSpec[], estilo: Estilo
                 [
                   w.heading(s.titulo ?? "", c.sobre_oscuro, t.h1, "h1", "center"),
                   ...(s.subtitulo ? [w.parrafo(s.subtitulo, c.sobre_oscuro, "center", t.cuerpo_px + 2)] : []),
-                  ...(s.boton ? [w.boton(s.boton, s.boton_url)] : []),
+                  ...(s.boton && conDestino(s.boton_url) ? [w.boton(s.boton, s.boton_url)] : []),
                 ],
                 100,
                 c.oscuro,
@@ -328,7 +343,7 @@ export function construirSecciones(specs: readonly SeccionSpec[], estilo: Estilo
                   w.heading(p.nombre, tinta, t.h3, "h3", "center"),
                   w.heading(`${p.precio}${p.periodo ? ` /${p.periodo}` : ""}`, oscura ? c.acento : c.primario, Math.round(t.h2 * 1.1), "div", "center"),
                   w.parrafo(`<ul>${p.incluye.slice(0, 8).map((l) => `<li>${l}</li>`).join("")}</ul>`, cuerpo, "left"),
-                  w.boton(p.boton ?? "Empezar"),
+                  ...(conDestino(s.boton_url) ? [w.boton(p.boton ?? "Empezar", s.boton_url)] : []),
                 ],
               };
             }),
@@ -362,7 +377,7 @@ export function construirSecciones(specs: readonly SeccionSpec[], estilo: Estilo
               [
                 w.heading(s.titulo ?? "¿Hablamos?", c.sobre_oscuro, t.h2, "h2", "center"),
                 ...(s.subtitulo ? [w.parrafo(s.subtitulo, c.sobre_oscuro)] : []),
-                w.boton(s.boton ?? "Contáctanos", s.boton_url),
+                ...(conDestino(s.boton_url) ? [w.boton(s.boton ?? "Contáctanos", s.boton_url)] : []),
               ],
               100,
               c.oscuro,

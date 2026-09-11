@@ -41,6 +41,7 @@ const ETIQUETAS: Readonly<Record<string, string>> = {
   wp_borrar_contenido: "Enviando a la papelera",
   wp_restaurar_contenido: "Restaurando contenido",
   wp_crear_pagina_elementor: "Diseñando con Elementor",
+  wp_enlazar_entrada_en_blog: "Enlazando la entrada en el blog",
   wp_listar_plugins: "Revisando los plugins",
   wp_instalar_plugin: "Instalando un plugin",
   wp_cambiar_plugin: "Activando o desactivando un plugin",

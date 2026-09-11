@@ -828,8 +828,10 @@ export async function leerElementorData(
   c: WpCreds,
   id: number,
   o: WpClientOptions = {},
+  /** Si ya se sabe, se lee solo por su ruta: sin probar primero como página. */
+  tipoConocido?: TipoContenido,
 ): Promise<unknown[] | null> {
-  for (const tipo of ["pages", "posts"] as const) {
+  for (const tipo of tipoConocido ? ([`${tipoConocido}s`] as const) : (["pages", "posts"] as const)) {
     const res = await wp(c, o, `/wp/v2/${tipo}/${id}?context=edit&_fields=meta`);
     if (!res.ok) continue;
     const data = ((await res.json()) as WpPostRaw).meta?._elementor_data;
@@ -842,6 +844,52 @@ export async function leerElementorData(
     }
   }
   return null;
+}
+
+/**
+ * Reescribe el `_elementor_data` de una página o entrada que ya existe.
+ *
+ * WordPress responde 200 aunque ignore un meta que no tiene registrado, así que
+ * se relee: dar por hecho un cambio que no quedó es peor que fallar.
+ */
+export async function escribirElementorDeContenido(
+  c: WpCreds,
+  tipo: TipoContenido,
+  id: number,
+  data: readonly unknown[],
+  o: WpClientOptions = {},
+): Promise<{ cache: "limpiada" | "no disponible" }> {
+  const texto = JSON.stringify(data);
+  const res = await wp(c, o, `/wp/v2/${tipo}s/${id}`, {
+    method: "POST",
+    body: JSON.stringify({ meta: { _elementor_data: texto } }),
+  });
+  await exigirOk(res, `No pude guardar el diseño de ${NOMBRE_TIPO[tipo]} ${id}`);
+
+  const check = await wp(c, o, `/wp/v2/${tipo}s/${id}?context=edit&_fields=meta`);
+  const guardado = check.ok ? ((await check.json()) as WpPostRaw).meta?._elementor_data : undefined;
+  let igual = false;
+  if (typeof guardado === "string") {
+    try {
+      igual = JSON.stringify(JSON.parse(guardado)) === texto;
+    } catch {
+      igual = false;
+    }
+  }
+  if (!igual) {
+    throw new Error(
+      `WordPress respondió bien pero el diseño de ${NOMBRE_TIPO[tipo]} ${id} no quedó guardado: este sitio no deja escribir el diseño de Elementor por la API (hace falta el plugin conector). No cambió nada.`,
+    );
+  }
+
+  let cache: "limpiada" | "no disponible" = "no disponible";
+  try {
+    const limpiar = await wp(c, o, "/elementor/v1/cache", { method: "DELETE" });
+    if (limpiar.ok) cache = "limpiada";
+  } catch {
+    /* sin limpieza de caché el cambio queda guardado igual */
+  }
+  return { cache };
 }
 
 /**

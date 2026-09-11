@@ -76,7 +76,11 @@ const SECCIONES = [
       { titulo: "Precisión", texto: "Menos errores humanos", icono: "🔍" },
     ],
   },
-  { tipo: "texto", titulo: "El uso responsable", html: "<p>Supervisión humana siempre.</p>" },
+  {
+    tipo: "texto",
+    titulo: "El uso responsable",
+    html: `<p>${"Supervisión humana siempre, con datos protegidos y decisiones explicadas al cliente. ".repeat(34)}</p>`,
+  },
   { tipo: "cta", titulo: "¿Hablamos?", boton: "Escríbenos", boton_url: "/contacto/" },
 ];
 

@@ -60,8 +60,14 @@ const ENTRADAS_WP: Record<string, unknown> = {
   },
   wp_crear_usuario: { username: "ana", email: "ana@ejemplo.test", role: "editor" },
   wp_cambiar_rol_usuario: { usuario_id: 1, role: "editor" },
+  wp_enlazar_entrada_en_blog: {
+    entrada_id: 21,
+    extracto: "Una receta de masa madre paso a paso para hornear pan de verdad en casa.",
+  },
   wp_crear_pagina_elementor: {
     titulo: "Landing de temporada",
+    // El barrido de mutaciones crea antes un post: son dos contenidos pedidos.
+    cantidad_pedida: 2,
     secciones: [
       { tipo: "hero", titulo: "Pan de verdad", subtitulo: "Desde 1998", boton: "Pedir" },
       {

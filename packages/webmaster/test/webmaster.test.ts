@@ -548,7 +548,12 @@ describe("freno de repeticiones", () => {
   it("cambiar de enfoque tras el aviso no frena: la tarea termina bien", async () => {
     const m = montar();
     const vistos: PasoTrabajo[] = [];
-    const comoPagina = { titulo: "La IA", tipo: "page", pagina_id: 21, secciones: SECCION };
+    const articulo = [
+      { tipo: "hero", titulo: "La IA" },
+      { tipo: "texto", titulo: "Por qué importa", html: `<p>${"La IA revisa documentos en minutos y el abogado decide. ".repeat(45)}</p>` },
+      { tipo: "cta", titulo: "¿Hablamos?", boton: "Escríbenos", boton_url: "/contacto/" },
+    ];
+    const comoPagina = { titulo: "La IA", tipo: "page", pagina_id: 21, secciones: articulo };
     const { modelo } = modeloGuionizado([
       { llama: "wp_crear_pagina_elementor", con: comoPagina },
       { llama: "wp_crear_pagina_elementor", con: comoPagina },
@@ -564,7 +569,7 @@ describe("freno de repeticiones", () => {
     expect(segundo?.error).toBeDefined();
     expect(tercero?.error).toBeUndefined();
     const entrada = m.wp.estado.contenido.find((c) => c.id === 21);
-    expect(JSON.parse(String(entrada?.meta._elementor_data))).toHaveLength(1);
+    expect(JSON.parse(String(entrada?.meta._elementor_data))).toHaveLength(articulo.length);
     expect(vistos.filter((p) => p.estado === "hecho").at(-1)?.etiqueta).toBe(
       "Diseñando una entrada con Elementor",
     );

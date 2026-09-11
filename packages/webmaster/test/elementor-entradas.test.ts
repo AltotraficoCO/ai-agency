@@ -23,9 +23,11 @@ import {
   type EstadoWordPress,
 } from "../src/testing/index.js";
 
+/** Una entrada ya es un artículo completo: con menos, la herramienta la rechaza. */
+const CUERPO = `<h2>Por qué importa</h2><p>${"La inteligencia artificial automatiza lo repetitivo y deja tiempo para el criterio humano. ".repeat(32)}</p>`;
 const SECCIONES = [
-  { tipo: "hero", titulo: "La IA ya está aquí", subtitulo: "Qué cambia para tu despacho", boton: "Leer" },
-  { tipo: "texto", titulo: "Por qué importa", html: "<p>Automatiza lo repetitivo.</p>" },
+  { tipo: "hero", titulo: "La IA ya está aquí", subtitulo: "Qué cambia para tu despacho" },
+  { tipo: "texto", titulo: "Por qué importa", html: CUERPO },
   { tipo: "cta", titulo: "¿Hablamos?", boton: "Escríbenos", boton_url: "/contacto/" },
 ];
 

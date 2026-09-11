@@ -32,6 +32,25 @@ import {
 } from "../wordpress/elementor.js";
 import { conPaleta, leerDisenoDelSitio, resumirEstilo } from "../wordpress/diseno.js";
 import { exigirTituloValido } from "../wordpress/titulos.js";
+import { reservarCreacion } from "../creaciones.js";
+import {
+  contarPalabras,
+  conTituloDeEntradaEnHero,
+  motivoArticuloIncompleto,
+  motivoReescrituraDestructiva,
+  palabrasDeElementor,
+  palabrasDeSecciones,
+} from "../wordpress/articulo.js";
+
+const cantidadPedida = z
+  .number()
+  .int()
+  .min(1)
+  .max(10)
+  .optional()
+  .describe(
+    "Cuántos contenidos NUEVOS pidió el cliente en esta tarea, SOLO si dio un número o dijo «varias». «Un blog», «un post» o «un artículo» es 1: no lo pases.",
+  );
 
 const tipoContenido = z.enum(["page", "post"]);
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Usa un color hexadecimal, p.ej. #17150F.");
@@ -325,6 +344,7 @@ export const wpCrearContenido = defineTool({
     titulo: z.string().min(1).max(300),
     contenido_html: z.string().max(400_000),
     status: z.enum(["publish", "draft"]).default("publish"),
+    cantidad_pedida: cantidadPedida,
   }),
   sensitive: false,
   creditCost: 3,
@@ -334,26 +354,41 @@ export const wpCrearContenido = defineTool({
   async execute(ctx, input): Promise<Bloqueo | Record<string, unknown>> {
     const { sitio, opciones } = entorno(ctx, "wp_crear_contenido");
     exigirTituloValido(input.titulo);
-    const bloqueo = await puertaDeAprobacion(
-      ctx,
-      sitio,
-      "wp_crear_contenido",
-      input,
-      evaluarSensibilidad({
-        toolSlug: "wp_crear_contenido",
-        titulo: input.titulo,
-        contenido: input.contenido_html,
-      }),
-    );
-    if (bloqueo) return bloqueo;
+    // La plaza se toma antes de cualquier await: ver creaciones.ts.
+    const reserva = reservarCreacion(sitio, {
+      tipo: input.tipo,
+      titulo: input.titulo,
+      cantidadPedida: input.cantidad_pedida,
+    });
+    try {
+      const bloqueo = await puertaDeAprobacion(
+        ctx,
+        sitio,
+        "wp_crear_contenido",
+        input,
+        evaluarSensibilidad({
+          toolSlug: "wp_crear_contenido",
+          titulo: input.titulo,
+          contenido: input.contenido_html,
+        }),
+      );
+      if (bloqueo) {
+        reserva.liberar();
+        return bloqueo;
+      }
 
-    const r = await wp.crearContenido(
-      requireWp(sitio, "wp_crear_contenido"),
-      input.tipo,
-      { titulo: input.titulo, contenido: input.contenido_html, status: input.status },
-      opciones,
-    );
-    return { ...r, creado: true };
+      const r = await wp.crearContenido(
+        requireWp(sitio, "wp_crear_contenido"),
+        input.tipo,
+        { titulo: input.titulo, contenido: input.contenido_html, status: input.status },
+        opciones,
+      );
+      reserva.confirmar(r.id);
+      return { ...r, creado: true };
+    } catch (error) {
+      reserva.liberar();
+      throw error;
+    }
   },
   simulate(_ctx, input) {
     return {
@@ -454,11 +489,17 @@ export const wpRestaurarContenido = defineTool({
       titulo?: string;
       contenido?: string;
       status?: string;
+      elementor_data?: unknown;
     };
     if (snap.id !== undefined && snap.id !== input.id) {
       throw new Error(
         `El backup "${input.backup_id}" es de ${snap.tipo}:${snap.id} y pediste restaurar ${input.tipo}:${input.id}.`,
       );
+    }
+    // El diseño de Elementor vive en un meta, no en el contenido: sin esto,
+    // «restaurar» una página de Elementor no devolvía su diseño.
+    if (Array.isArray(snap.elementor_data)) {
+      await wp.escribirElementorDeContenido(creds, input.tipo, input.id, snap.elementor_data, opciones);
     }
     const r = await wp.actualizarContenido(
       creds,
@@ -821,7 +862,9 @@ const seccionSpec = z.object({
   boton_url: z
     .string()
     .optional()
-    .describe("Ruta del sitio (/contacto/) o dirección externa completa (https://…)"),
+    .describe(
+      "Ruta del sitio (/contacto/) o dirección externa completa (https://…). Sin boton_url válido el botón NO se pinta: nunca inventes «Leer más» sin destino.",
+    ),
   html: z.string().optional().describe("Solo para tipo texto"),
   items: z.array(itemSeccion).optional(),
   planes: z
@@ -843,7 +886,7 @@ export const wpCrearPaginaElementor = defineTool({
   slug: "wp_crear_pagina_elementor",
   label: "Crear página con Elementor",
   description:
-    "Crea (o reescribe, pasando su id) una página o una entrada de blog (tipo=\"post\") construida CON ELEMENTOR componiendo secciones: hero, beneficios, stats, testimonios, precios, faq, cta y texto. El diseño (colores, tipografías, radios, botones, ancho) se toma AUTOMÁTICAMENTE del sitio real, para que quede acorde a lo que ya tiene. Oculta el título duplicado del tema y cierra los comentarios salvo que se pidan. Para una landing decente usa 5-8 secciones variadas con copy concreto del negocio: una página de tres bloques es inaceptable. Es la herramienta obligatoria cuando piden algo 'con Elementor', 'de diseño' o 'atractivo', también para una entrada.",
+    "Crea (o reescribe, pasando su id) una página o una entrada de blog (tipo=\"post\") construida CON ELEMENTOR componiendo secciones: hero, beneficios, stats, testimonios, precios, faq, cta y texto. El diseño (colores, tipografías, radios, botones, ancho) se toma AUTOMÁTICAMENTE del sitio real, para que quede acorde a lo que ya tiene. Oculta el título duplicado del tema y cierra los comentarios salvo que se pidan. Para una landing decente usa 5-8 secciones variadas con copy concreto del negocio: una página de tres bloques es inaceptable. UNA ENTRADA (tipo=\"post\") ES UN ARTÍCULO COMPLETO: hero con el mismo titular de la entrada (sin botón o con el CTA real del sitio) → texto de introducción → 3-5 secciones texto con subtítulos y desarrollo → opcional beneficios o faq → cta con la llamada a la acción real del sitio; mínimo 400 palabras, o se rechaza. Crea UN contenido nuevo por tarea salvo que pases cantidad_pedida. Para mejorar uno existente, pasa su id y el contenido COMPLETO: una reescritura con mucho menos texto se rechaza. Es la herramienta obligatoria cuando piden algo 'con Elementor', 'de diseño' o 'atractivo', también para una entrada.",
   whenToUse: "para cualquier landing, página de ventas, rediseño o entrada de blog con aspecto profesional",
   inputSchema: z.object({
     titulo: z
@@ -894,6 +937,11 @@ export const wpCrearPaginaElementor = defineTool({
       .boolean()
       .default(false)
       .describe("true solo si el cliente quiere comentarios debajo; por defecto se cierran."),
+    cantidad_pedida: cantidadPedida,
+    reemplazar_todo: z
+      .boolean()
+      .default(false)
+      .describe("true SOLO si el cliente pidió reemplazar por completo un contenido existente, aunque quede con menos texto."),
   }),
   sensitive: false,
   creditCost: 8,
@@ -915,87 +963,136 @@ export const wpCrearPaginaElementor = defineTool({
       );
     }
     const id = input.contenido_id ?? input.pagina_id;
-    // Con un id, el tipo no se adivina: se lee. Así una entrada recién creada
-    // no acaba pidiéndose por /pages/ hasta agotar el tope de acciones.
-    const tipo =
-      id === undefined ? (input.tipo ?? "page") : (input.tipo ?? (await wp.detectarTipoContenido(creds, id, opciones)));
-    const antes = id !== undefined ? await wp.leerContenido(creds, tipo, id, opciones) : undefined;
+    // Un contenido nuevo ocupa su plaza ANTES de cualquier await: dos llamadas
+    // en paralelo no pueden crear dos entradas cuando se pidió una.
+    const reserva =
+      id === undefined
+        ? reservarCreacion(sitio, {
+            tipo: input.tipo ?? "page",
+            titulo: input.titulo,
+            cantidadPedida: input.cantidad_pedida,
+          })
+        : null;
 
-    const portadaId = id !== undefined && tipo === "page" ? await portadaDe(creds, opciones) : undefined;
-    const bloqueo = await puertaDeAprobacion(
-      ctx,
-      sitio,
-      "wp_crear_pagina_elementor",
-      input,
-      evaluarSensibilidad({
-        toolSlug: "wp_crear_pagina_elementor",
-        titulo: input.titulo,
-        ...(id !== undefined ? { contenidoId: id } : {}),
-        ...(portadaId !== undefined ? { portadaId } : {}),
-        tiposSeccion: input.secciones.map((s) => s.tipo),
-      }),
-    );
-    if (bloqueo) return bloqueo;
+    const trabajo = async (): Promise<Bloqueo | Record<string, unknown>> => {
+      // Con un id, el tipo no se adivina: se lee. Así una entrada recién creada
+      // no acaba pidiéndose por /pages/ hasta agotar el tope de acciones.
+      const tipo =
+        id === undefined ? (input.tipo ?? "page") : (input.tipo ?? (await wp.detectarTipoContenido(creds, id, opciones)));
+      const antes = id !== undefined ? await wp.leerContenido(creds, tipo, id, opciones) : undefined;
 
-    let backupId: string | null = null;
-    if (id !== undefined && antes) {
-      backupId = await hacerBackup(ctx, sitio, `${tipo}:${id}`, {
-        tipo,
-        id,
-        titulo: antes.titulo,
-        contenido: antes.contenido,
-        status: antes.status,
-      });
-    }
+      const pedidas = input.secciones as SeccionSpec[];
+      // Una entrada de un hero y un botón que no lleva a nada no es un artículo.
+      if (tipo === "post") {
+        const incompleto = motivoArticuloIncompleto(pedidas);
+        if (incompleto) throw new Error(incompleto);
+      }
 
-    // El diseño sale del sitio. Una paleta del modelo solo vale con motivo:
-    // «bonita» no es pedir otro estilo, y era así como salía negro y naranja.
-    const delSitio = await leerDisenoDelSitio(sitio, opciones, input.referencia_diseno ?? "/");
-    const usarPaleta = input.paleta !== undefined && input.motivo_paleta !== undefined;
-    const estilo = usarPaleta ? conPaleta(delSitio, input.paleta!) : delSitio;
+      // Lo que ya había: para el backup y para no destruirlo al reescribir.
+      const disenoAnterior =
+        id !== undefined ? await wp.leerElementorData(creds, id, opciones, tipo).catch(() => null) : null;
+      if (id !== undefined && antes && !input.reemplazar_todo) {
+        const palabrasAntes = disenoAnterior ? palabrasDeElementor(disenoAnterior) : contarPalabras(antes.contenido);
+        const destructiva = motivoReescrituraDestructiva(id, palabrasAntes, palabrasDeSecciones(pedidas));
+        if (destructiva) throw new Error(destructiva);
+      }
+      const { secciones, cambiado: heroRetitulado } =
+        tipo === "post" ? conTituloDeEntradaEnHero(pedidas, input.titulo) : { secciones: pedidas, cambiado: false };
 
-    const data = construirSecciones(input.secciones as SeccionSpec[], estilo);
-    const r = await wp.escribirContenidoElementor(
-      creds,
-      { tipo, ...(id !== undefined ? { id } : {}), titulo: input.titulo, data },
-      opciones,
-    );
-    if (!r.elementorOk) {
-      throw new Error(
-        "El WordPress no aceptó el diseño Elementor: falta el plugin conector, que es quien expone los metadatos de Elementor en la REST API. El cliente lo descarga desde el panel.",
+      const portadaId = id !== undefined && tipo === "page" ? await portadaDe(creds, opciones) : undefined;
+      const bloqueo = await puertaDeAprobacion(
+        ctx,
+        sitio,
+        "wp_crear_pagina_elementor",
+        input,
+        evaluarSensibilidad({
+          toolSlug: "wp_crear_pagina_elementor",
+          titulo: input.titulo,
+          ...(id !== undefined ? { contenidoId: id } : {}),
+          ...(portadaId !== undefined ? { portadaId } : {}),
+          tiposSeccion: input.secciones.map((s) => s.tipo),
+        }),
       );
-    }
-    const presentacion = await wp.ajustarPresentacion(
-      creds,
-      tipo,
-      r.id,
-      { ocultarTitulo: true, comentarios: input.permitir_comentarios ? "open" : "closed" },
-      opciones,
-    );
+      if (bloqueo) return bloqueo;
 
-    const notas = ["Verifica ahora con navegador_ver_pagina (pagina_completa=true) y compárala con la portada: si no se parece, corrígela."];
-    if (input.paleta && !usarPaleta) {
-      notas.push("Ignoré la paleta porque no diste motivo_paleta: se usó el diseño del sitio.");
-    }
-    if (estilo.origen === "por_defecto") {
-      notas.push("No pude leer el diseño del sitio y usé el aspecto por defecto: revisa la portada y, si no se parece, repite con una paleta y motivo_paleta.");
-    }
-    if (!presentacion.tituloOculto) {
-      notas.push("No pude ocultar el título del tema: si al verlo aparece repetido encima del diseño, dilo en el RESUMEN.");
-    }
-    return {
-      ok: true,
-      tipo,
-      id: r.id,
-      link: r.link,
-      secciones: input.secciones.length,
-      backup_id: backupId,
-      diseno_origen: estilo.origen,
-      estilo_aplicado: resumirEstilo(estilo),
-      titulo_del_tema_oculto: presentacion.tituloOculto,
-      comentarios: presentacion.comentarios,
-      nota: notas.join(" "),
+      let backupId: string | null = null;
+      if (id !== undefined && antes) {
+        backupId = await hacerBackup(ctx, sitio, `${tipo}:${id}`, {
+          tipo,
+          id,
+          titulo: antes.titulo,
+          contenido: antes.contenido,
+          status: antes.status,
+          ...(disenoAnterior ? { elementor_data: disenoAnterior } : {}),
+        });
+      }
+
+      // El diseño sale del sitio. Una paleta del modelo solo vale con motivo:
+      // «bonita» no es pedir otro estilo, y era así como salía negro y naranja.
+      const delSitio = await leerDisenoDelSitio(sitio, opciones, input.referencia_diseno ?? "/");
+      const usarPaleta = input.paleta !== undefined && input.motivo_paleta !== undefined;
+      const estilo = usarPaleta ? conPaleta(delSitio, input.paleta!) : delSitio;
+
+      const data = construirSecciones(secciones, estilo);
+      const r = await wp.escribirContenidoElementor(
+        creds,
+        { tipo, ...(id !== undefined ? { id } : {}), titulo: input.titulo, data },
+        opciones,
+      );
+      if (!r.elementorOk) {
+        throw new Error(
+          "El WordPress no aceptó el diseño Elementor: falta el plugin conector, que es quien expone los metadatos de Elementor en la REST API. El cliente lo descarga desde el panel.",
+        );
+      }
+      const presentacion = await wp.ajustarPresentacion(
+        creds,
+        tipo,
+        r.id,
+        { ocultarTitulo: true, comentarios: input.permitir_comentarios ? "open" : "closed" },
+        opciones,
+      );
+
+      const notas = ["Verifica ahora con navegador_ver_pagina (pagina_completa=true) y compárala con la portada: si no se parece, corrígela."];
+      if (input.paleta && !usarPaleta) {
+        notas.push("Ignoré la paleta porque no diste motivo_paleta: se usó el diseño del sitio.");
+      }
+      if (estilo.origen === "por_defecto") {
+        notas.push("No pude leer el diseño del sitio y usé el aspecto por defecto: revisa la portada y, si no se parece, repite con una paleta y motivo_paleta.");
+      }
+      if (!presentacion.tituloOculto) {
+        notas.push("No pude ocultar el título del tema: si al verlo aparece repetido encima del diseño, dilo en el RESUMEN.");
+      }
+      if (heroRetitulado) notas.push("Puse en el hero el mismo titular que la entrada.");
+      if (tipo === "post" && id === undefined) {
+        notas.push("Cuando la hayas verificado, enlázala en el blog del sitio con wp_enlazar_entrada_en_blog (su id y un extracto de 1-2 frases). No crees más entradas salvo que el cliente pidiera varias.");
+      }
+      return {
+        ok: true,
+        tipo,
+        id: r.id,
+        link: r.link,
+        secciones: secciones.length,
+        palabras: palabrasDeSecciones(secciones),
+        backup_id: backupId,
+        diseno_origen: estilo.origen,
+        estilo_aplicado: resumirEstilo(estilo),
+        titulo_del_tema_oculto: presentacion.tituloOculto,
+        comentarios: presentacion.comentarios,
+        nota: notas.join(" "),
+      };
     };
+
+    try {
+      const resultado = await trabajo();
+      if (reserva) {
+        if (esBloqueo(resultado) || typeof resultado.id !== "number") reserva.liberar();
+        else reserva.confirmar(resultado.id);
+      }
+      return resultado;
+    } catch (error) {
+      reserva?.liberar();
+      throw error;
+    }
   },
   simulate(_ctx, input) {
     return {
