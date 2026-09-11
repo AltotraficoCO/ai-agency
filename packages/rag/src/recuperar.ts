@@ -26,6 +26,16 @@ import {
 
 export const TIMEOUT_MS = 800;
 
+/**
+ * Tope cuando se busca por significado. Incluye vectorizar la pregunta en el
+ * proveedor (una llamada de red), así que 800 ms dejaría la mitad semántica
+ * degradándose a cada rato.
+ */
+export const TIMEOUT_COMPLETO_MS = 1500;
+
+/** Tope del reintento solo por palabras cuando la búsqueda por significado falla. */
+export const TIMEOUT_LEXICO_MS = 600;
+
 /** Longitud máxima de la consulta compuesta. Más allá el vector se difumina. */
 const MAXIMO_CARACTERES_CONSULTA = 400;
 
@@ -231,9 +241,9 @@ export async function recuperar(
     };
   }
 
-  const timeout = deps.timeoutMs ?? TIMEOUT_MS;
+  const timeout = deps.timeoutMs ?? (modo === "completo" ? TIMEOUT_COMPLETO_MS : TIMEOUT_MS);
   // Embedding y búsqueda comparten el mismo tope: al motor le da igual dónde
-  // se fue el tiempo, lo que no puede es esperar más de 800 ms en total.
+  // se fue el tiempo, lo que no puede es esperar indefinidamente.
   const resultado = await conTope(async (signal) => {
     // En modo solo texto se manda `null` como vector: la rama vectorial de
     // `search_knowledge` lleva `and qvec is not null`, se queda vacía y la
@@ -258,28 +268,83 @@ export async function recuperar(
     return filas;
   }, timeout);
 
-  const milisegundos = reloj() - inicio;
-
   if (!resultado.ok) {
     deps.registro?.aviso("conocimiento.degradado", {
       motivo: resultado.motivo,
-      milisegundos,
+      milisegundos: reloj() - inicio,
       consulta,
     });
+
+    // Con la búsqueda por significado encendida, lo que falló puede ser solo
+    // esa mitad (el proveedor, el vector, su tiempo). La mitad por palabras no
+    // depende de nada de eso: se intenta una vez antes de dejar al agente sin
+    // conocimiento, que sería peor que no haber encendido nunca los vectores.
+    if (modo === "completo") {
+      const lexico = await conTope(
+        (signal) =>
+          deps.db.buscar({
+            workspaceId: input.workspaceId,
+            cerebroIds: input.cerebroIds,
+            consulta: consultaLexica(consulta),
+            embedding: null,
+            k: Math.max(limite * 2, 8),
+            signal,
+          }),
+        TIMEOUT_LEXICO_MS,
+      );
+      if (lexico.ok) {
+        return armarResultado(deps, input.workspaceId, {
+          consulta,
+          filas: lexico.valor,
+          ajustes,
+          limite,
+          modo: "solo-texto",
+          degradado: true,
+          milisegundos: reloj() - inicio,
+        });
+      }
+    }
+
     return {
       consulta,
       fragmentos: [],
       candidatos: [],
       degradado: true,
-      milisegundos,
+      milisegundos: reloj() - inicio,
       modo,
       explicacion,
     };
   }
 
-  const candidatos = aplicarUmbral(resultado.valor, ajustes, limite, modo);
+  return armarResultado(deps, input.workspaceId, {
+    consulta,
+    filas: resultado.valor,
+    ajustes,
+    limite,
+    modo,
+    degradado: false,
+    milisegundos: reloj() - inicio,
+  });
+}
+
+async function armarResultado(
+  deps: DepsRecuperacion,
+  workspaceId: string,
+  datos: {
+    consulta: string;
+    filas: readonly FilaBusqueda[];
+    ajustes: AjustesRecuperacion;
+    limite: number;
+    modo: ModoConocimiento;
+    degradado: boolean;
+    milisegundos: number;
+  },
+): Promise<ResultadoRecuperacion> {
+  const { consulta, ajustes, limite, modo, degradado, milisegundos } = datos;
+  const explicacion = explicacionDelModo(modo);
+  const candidatos = aplicarUmbral(datos.filas, ajustes, limite, modo);
   const usados = candidatos.filter((c) => c.usado);
-  const fuentes = await citarFuentes(deps.db, input.workspaceId, usados);
+  const fuentes = await citarFuentes(deps.db, workspaceId, usados);
 
   return {
     consulta,
@@ -298,7 +363,7 @@ export async function recuperar(
       };
     }),
     candidatos,
-    degradado: false,
+    degradado,
     milisegundos,
     modo,
     explicacion,

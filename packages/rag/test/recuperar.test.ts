@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { aplicarUmbral, componerConsulta, consultaLexica, recuperar, TIMEOUT_MS } from "../src/recuperar.js";
+import {
+  aplicarUmbral,
+  componerConsulta,
+  consultaLexica,
+  recuperar,
+  TIMEOUT_COMPLETO_MS,
+  TIMEOUT_LEXICO_MS,
+} from "../src/recuperar.js";
 import { Cerebro } from "../src/cerebro.js";
 import { DbFalsa, EmbeddingsFalsos, filaBusqueda } from "./dobles.js";
 import { AJUSTES_POR_DEFECTO, type FilaBusqueda } from "../src/types.js";
@@ -64,7 +71,7 @@ describe("composición de la consulta con dos turnos", () => {
 });
 
 describe("degradación por tiempo", () => {
-  it("a los 800 ms devuelve vacío en vez de colgar el turno", async () => {
+  it("con todo colgado devuelve vacío en vez de colgar el turno", async () => {
     const db = new DbFalsa();
     const embeddings = new EmbeddingsFalsos();
     db.respuestaBusqueda = (): Promise<readonly FilaBusqueda[]> =>
@@ -82,8 +89,30 @@ describe("degradación por tiempo", () => {
 
     expect(r.degradado).toBe(true);
     expect(r.fragmentos).toEqual([]);
-    expect(transcurrido).toBeLessThan(TIMEOUT_MS + 400);
+    // Intento por significado + reintento por palabras, y nada más.
+    expect(transcurrido).toBeLessThan(TIMEOUT_COMPLETO_MS + TIMEOUT_LEXICO_MS + 400);
     expect(avisos).toContain("conocimiento.degradado");
+  });
+
+  it("si falla la búsqueda por significado, encuentra por palabras en vez de quedarse sin nada", async () => {
+    const db = new DbFalsa();
+    const embeddings = new EmbeddingsFalsos();
+    embeddings.incrustar = async (): Promise<never> => {
+      throw new Error("gateway 503");
+    };
+    const vistos: (readonly number[] | null)[] = [];
+    db.respuestaBusqueda = async ({ embedding }): Promise<readonly FilaBusqueda[]> => {
+      vistos.push(embedding);
+      return [filaBusqueda({ chunkId: "c1" })];
+    };
+    const r = await recuperar(
+      { db, embeddings },
+      { workspaceId: "ws", cerebroIds: ["cerebro-1"], turnosUsuario: ["¿hacen domicilios?"] },
+    );
+    expect(vistos).toEqual([null]);
+    expect(r.degradado).toBe(true);
+    expect(r.modo).toBe("solo-texto");
+    expect(r.candidatos.map((c) => c.chunkId)).toEqual(["c1"]);
   });
 
   it("un fallo del proveedor de embeddings tampoco lanza: degrada", async () => {

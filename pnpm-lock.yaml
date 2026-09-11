@@ -251,6 +251,9 @@ importers:
 
   packages/rag:
     dependencies:
+      '@ai-sdk/openai-compatible':
+        specifier: ^2.0.73
+        version: 2.0.73(zod@4.4.3)
       ai:
         specifier: 6.0.271
         version: 6.0.271(zod@4.4.3)

@@ -3,9 +3,11 @@
  */
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { MarcoApp } from "@/components/marco-app";
 import { AccionesBase } from "@/components/conocimiento/acciones-base";
 import { DetalleBase } from "@/components/conocimiento/detalle-base";
+import { completarVectores } from "@/lib/conocimiento/completar";
 import { leerCerebro } from "@/lib/conocimiento/conocimiento";
 import { datosDelMarco } from "@/lib/marco";
 
@@ -17,6 +19,12 @@ export default async function PaginaBaseDeConocimiento({ params }: { params: Pro
   const marco = await datosDelMarco();
   const ficha = await leerCerebro(marco.actual.workspaceId, id);
   if (!ficha) notFound();
+
+  // Si esta base se aprendió cuando no había búsqueda por significado, se
+  // completa después de responder. Acotado y con pausa: la página se refresca
+  // cada pocos segundos mientras aprende.
+  const workspaceId = marco.actual.workspaceId;
+  after(() => completarVectores({ workspaceId, cerebroId: ficha.id }));
 
   return (
     <MarcoApp

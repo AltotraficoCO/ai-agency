@@ -312,7 +312,7 @@ export class Cerebro {
   }): Promise<ResultadoRevectorizado> {
     if (!this.deps.embeddings) {
       throw new Error(
-        "Todavía no hay proveedor de búsqueda por significado configurado: pon OPENAI_API_KEY y vuelve a intentarlo.",
+        "Todavía no hay proveedor de búsqueda por significado configurado: pon OPENROUTER_API_KEY u OPENAI_API_KEY y vuelve a intentarlo.",
       );
     }
     if (!this.deps.revectorizado) {

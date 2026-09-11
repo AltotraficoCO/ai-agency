@@ -24,6 +24,7 @@ import type {
   CerebroRef,
   FuenteRef,
   PlanEscritura,
+  RevectorizadoDbPort,
 } from '@strappy/rag';
 import type { TenantScope } from '../client.js';
 import { toVectorLiteral } from '../client.js';
@@ -203,10 +204,10 @@ export function crearConocimientoDb(scope: TenantScope): ConocimientoDbPort {
         metadata: Record<string, unknown> | null;
       }>(
         `select * from public.search_knowledge($1::uuid[], $2, $3::vector, $4)`,
-        // Sin embedding se pasa NULL a proposito: es el modo "solo texto", que
-        // existe porque OpenRouter no ofrece endpoint de embeddings. La rama
-        // vectorial de search_knowledge lleva `and qvec is not null`, asi que
-        // se queda vacia y la fusion devuelve solo los aciertos por palabras.
+        // Sin embedding se pasa NULL a proposito: es el modo "solo texto", el
+        // de una instalacion sin proveedor de embeddings. La rama vectorial de
+        // search_knowledge lleva `and qvec is not null`, asi que se queda
+        // vacia y la fusion devuelve solo los aciertos por palabras.
         [[...cerebroIds], consulta, embedding ? toVectorLiteral([...embedding]) : null, k],
       );
       return rows.map((r) => ({
@@ -233,6 +234,78 @@ export function crearConocimientoDb(scope: TenantScope): ConocimientoDbPort {
       );
       for (const r of rows) mapa.set(r.id, { titulo: r.title, uri: r.uri });
       return mapa;
+    },
+  };
+}
+
+/**
+ * `RevectorizadoDbPort` de `@strappy/rag`: pone vector a lo que se indexó en
+ * modo solo texto, sin volver a descargar ni trocear nada.
+ *
+ * `guardarVectores` solo escribe donde `embedding IS NULL`: dos pasadas a la
+ * vez (dos pestañas abiertas en la misma base) no se pisan ni pagan dos veces
+ * por escribir el mismo trozo. Cuando a una fuente ya no le queda ningún trozo
+ * sin vector, deja de decir `modo: solo-texto`.
+ */
+export function crearRevectorizadoDb(scope: TenantScope): RevectorizadoDbPort {
+  const ws = scope.workspaceId;
+
+  return {
+    async trozosSinVector({ workspaceId, cerebroId, limite }) {
+      scope.assertSameWorkspace(workspaceId);
+      const { rows } = await scope.query<{
+        id: string;
+        source_id: string;
+        brain_id: string;
+        content: string;
+      }>(
+        `select id, source_id, brain_id, content
+           from public.brain_chunks
+          where workspace_id = $1 and embedding is null
+            and ($2::uuid is null or brain_id = $2::uuid)
+          order by id
+          limit $3`,
+        [ws, cerebroId ?? null, limite],
+      );
+      return rows.map((r) => ({
+        id: r.id,
+        fuenteId: r.source_id,
+        cerebroId: r.brain_id,
+        contenido: r.content,
+      }));
+    },
+
+    async guardarVectores({ workspaceId, modelo, vectores }) {
+      scope.assertSameWorkspace(workspaceId);
+      if (vectores.length === 0) return;
+
+      const fuentes = new Set<string>();
+      for (const { id, embedding } of vectores) {
+        const { rows } = await scope.query<{ source_id: string }>(
+          `update public.brain_chunks
+              set embedding = $3::vector,
+                  metadata = (coalesce(metadata, '{}'::jsonb) - 'sinVectorizar' - 'modo')
+                             || jsonb_build_object('modelo', $4::text)
+            where workspace_id = $1 and id = $2 and embedding is null
+            returning source_id`,
+          [ws, id, toVectorLiteral([...embedding]), modelo],
+        );
+        for (const fila of rows) fuentes.add(fila.source_id);
+      }
+
+      if (fuentes.size > 0) {
+        await scope.query(
+          `update public.brain_sources s
+              set metadata = (coalesce(s.metadata, '{}'::jsonb) - 'sinVectorizar')
+                             || jsonb_build_object('modo', 'completo'),
+                  updated_at = now()
+            where s.workspace_id = $1 and s.id = any($2::uuid[])
+              and not exists (select 1 from public.brain_chunks c
+                               where c.workspace_id = s.workspace_id and c.source_id = s.id
+                                 and c.embedding is null)`,
+          [ws, [...fuentes]],
+        );
+      }
     },
   };
 }

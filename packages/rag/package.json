@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^2.0.73",
     "ai": "6.0.271"
   },
   "devDependencies": {

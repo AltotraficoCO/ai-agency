@@ -5,10 +5,9 @@
  * de 800 ms con degradación, umbrales y cita de la fuente) y `@strappy/db` pone
  * las tablas. Aquí solo se enchufan.
  *
- * Sin `AI_GATEWAY_API_KEY` no hay embeddings, así que la búsqueda se degrada:
- * `Cerebro.search` devuelve vacío en lugar de lanzar y el turno sigue sin
- * conocimiento. Es lo correcto —un agente mudo es peor que uno sin catálogo—
- * pero conviene saberlo al leer una respuesta genérica en desarrollo.
+ * Los embeddings salen de la cartera de modelos: con `OPENROUTER_API_KEY` (la
+ * misma del chat) la búsqueda es por significado y por palabras. Sin ningún
+ * proveedor se degrada a solo palabras en lugar de fallar.
  */
 import { Cerebro, crearEmbeddingsSiHayProveedor } from "@strappy/rag";
 import type { PuertosDeBase, TenantScope } from "@strappy/db";
@@ -20,9 +19,8 @@ export function crearCerebro(scope: TenantScope, puertos: PuertosDeBase): Cerebr
     db: puertos.conocimiento,
     // Sin proveedor de embeddings el cerebro entra en modo "solo texto" en vez
     // de fallar: encuentra por coincidencia de palabras, que es gratis y sirve
-    // para nombres de producto, precios y referencias exactas. OpenRouter, que
-    // es nuestra cartera, no ofrece embeddings; basta anadir OPENAI_API_KEY
-    // para que el modo completo se active solo, sin tocar codigo.
+    // para nombres de producto, precios y referencias exactas. Con la clave de
+    // OpenRouter (nuestra cartera) el modo completo se activa solo.
     ...(embeddings ? { embeddings } : {}),
     turnos: {
       async ultimosTurnosUsuario({ workspaceId, conversationId, cuantos }) {

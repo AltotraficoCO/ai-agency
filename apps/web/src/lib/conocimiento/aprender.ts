@@ -17,9 +17,11 @@ import "server-only";
  *     una frase en español que la persona entiende; si no había texto que leer,
  *     en «revisar» diciendo por qué.
  *
- * Embeddings: solo si hay proveedor (`crearEmbeddingsSiHayProveedor`). Sin él
- * se indexa en modo solo texto —búsqueda por palabras— y funciona igual desde
- * el primer minuto; la cartera del proyecto es OpenRouter, que no los ofrece.
+ * Embeddings: solo si hay proveedor (`crearEmbeddingsSiHayProveedor`); en
+ * producción basta la clave de OpenRouter, la cartera del proyecto. Sin él se
+ * indexa en modo solo texto —búsqueda por palabras— y funciona igual desde el
+ * primer minuto. Al terminar de aprender, lo que la base tuviera sin vector de
+ * antes se completa (`completarVectores`).
  */
 import {
   crearEmbeddingsSiHayProveedor,
@@ -33,6 +35,7 @@ import {
 import { crearConocimientoDb, crearModelTiersPort } from "@strappy/db/adapters";
 import { conEspacio } from "../db/pool";
 import { analizarSitio } from "../meta/sitio";
+import { completarVectores } from "./completar";
 import { archivoADocumento, extensionDe, type ArchivoSubido } from "./extractores";
 import { ErrorLegible, esFalloDeProveedor, mensajeLegible } from "./mensajes";
 
@@ -141,11 +144,23 @@ async function indexar(
   opciones: { titulo?: string } = {},
 ): Promise<ResultadoIngesta> {
   try {
-    return await indexarUnaVez(fuente, documento, opciones, false);
+    const resultado = await indexarUnaVez(fuente, documento, opciones, false);
+    // Lo nuevo ya se vectorizó; lo que la base tuviera en solo texto de antes
+    // se completa ahora. Acotado y con pausa por base: no frena el aprendizaje.
+    await completarVectores({ workspaceId: fuente.workspaceId, cerebroId: fuente.cerebroId });
+    return resultado;
   } catch (error) {
     const texto = error instanceof Error ? error.message : String(error);
-    if (!esFalloDeProveedor(texto)) throw error;
-    console.warn("[conocimiento] proveedor de embeddings caído; se indexa solo por palabras", texto);
+    // Cualquier fallo con la búsqueda por significado encendida se reintenta
+    // solo por palabras, no solo los del proveedor: la escritura de vectores es
+    // lo más nuevo del circuito y, si falla, la fuente tiene que quedar aprendida
+    // igual. Si también falla sin vectores, el error es de verdad y se propaga.
+    console.warn(
+      esFalloDeProveedor(texto)
+        ? "[conocimiento] proveedor de embeddings caído; se indexa solo por palabras"
+        : "[conocimiento] falló el indexado con vectores; se reintenta solo por palabras",
+      texto,
+    );
     return indexarUnaVez(fuente, documento, opciones, true);
   }
 }

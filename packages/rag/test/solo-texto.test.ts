@@ -1,10 +1,10 @@
 /**
  * Modo solo texto: el conocimiento funciona sin proveedor de embeddings.
  *
- * Lo que aquí se protege no es una función, es una decisión de producto: la
- * cartera del proyecto es OpenRouter y OpenRouter no tiene embeddings, así que
- * sin este modo los Cerebros no existen. Si alguno de estos tests empieza a
- * estorbar, lo que hay que revisar es el código, no el test.
+ * Lo que aquí se protege no es una función, es una decisión de producto: una
+ * instalación sin proveedor de embeddings (desarrollo, un despliegue a medio
+ * configurar) sigue teniendo Cerebros que funcionan. Si alguno de estos tests
+ * empieza a estorbar, lo que hay que revisar es el código, no el test.
  */
 import { describe, expect, it } from "vitest";
 import { Cerebro } from "../src/cerebro.js";

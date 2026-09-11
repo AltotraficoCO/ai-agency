@@ -3,33 +3,38 @@
  *
  * POR QUÉ EXISTE ESTE ARCHIVO (no es un apaño, no lo borres):
  *
- * La cartera de modelos del proyecto es OpenRouter, y OpenRouter no tiene
- * endpoint de embeddings: solo conversación. Sin una clave de un proveedor que
- * sí los ofrezca, cualquier intento de vectorizar termina en «AI Gateway
- * authentication failed», la ingesta falla entera y el Cerebro se queda vacío.
- * Un agente que responde sin el catálogo del cliente degrada con elegancia,
- * pero degrada: sin Cerebros el producto pierde la mitad de su valor.
+ * Buscar por significado necesita un proveedor de embeddings. La cartera de
+ * modelos del proyecto es OpenRouter, y OpenRouter SÍ los sirve
+ * (`POST /api/v1/embeddings`, mismo protocolo que OpenAI): con la clave que ya
+ * usa el chat, el conocimiento funciona en modo completo sin configurar nada
+ * más. Probado contra `openai/text-embedding-3-small`: 1536 dimensiones.
  *
- * La salida no es apagar el conocimiento, es apagar SOLO la mitad semántica.
- * La mitad léxica (`to_tsvector` + `ts_rank_cd` en español) ya está construida,
- * es gratis y encuentra nombres de producto, precios y referencias literales.
- * Así que cuando no hay proveedor de embeddings el sistema entra en modo solo
- * texto A PROPÓSITO Y DICIÉNDOLO —no por un error atrapado— y el conocimiento
- * sigue funcionando desde el primer minuto.
+ * Aun así, una instalación puede no tener ninguna clave (desarrollo, un
+ * despliegue a medio configurar). Entonces no se apaga el conocimiento: se
+ * apaga SOLO la mitad semántica. La mitad léxica (`to_tsvector` + `ts_rank_cd`
+ * en español) es gratis y encuentra nombres de producto, precios y referencias
+ * literales. Ese modo solo texto se decide ANTES de intentar nada —no por
+ * atrapar un 401— y se dice.
  *
- * El día que exista una clave, el modo completo se enciende solo: basta con
- * poner `OPENAI_API_KEY`. Los embeddings de `text-embedding-3-small` cuestan
- * 0,02 USD por millón de tokens; indexar un catálogo entero cuesta céntimos.
+ * Proveedores, por orden:
+ *  1. OpenRouter (`OPENROUTER_API_KEY`), si la cartera es OpenRouter, que es la
+ *     de por defecto (`MODEL_WALLET`).
+ *  2. OpenAI directo (`OPENAI_API_KEY`).
+ *  3. Vercel AI Gateway (`AI_GATEWAY_API_KEY`).
+ *
+ * Los embeddings de `text-embedding-3-small` cuestan 0,02 USD por millón de
+ * tokens: indexar el catálogo entero de un cliente cuesta céntimos.
  */
 
 export type ModoConocimiento = "completo" | "solo-texto";
 
-/**
- * Variables que habilitan el modo completo, en orden de preferencia.
- * `OPENAI_API_KEY` primero: es la ruta directa a OpenAI, sin pasarela de por
- * medio, y es la que basta poner para encender los embeddings.
- */
-export const VARIABLES_DE_EMBEDDINGS = ["OPENAI_API_KEY", "AI_GATEWAY_API_KEY"] as const;
+export type ProveedorEmbeddings = "openrouter" | "openai" | "pasarela";
+
+/** Variables que habilitan el modo completo. El orden real lo decide `proveedorDeEmbeddings`. */
+export const VARIABLES_DE_EMBEDDINGS = ["OPENROUTER_API_KEY", "OPENAI_API_KEY", "AI_GATEWAY_API_KEY"] as const;
+
+export const URL_OPENROUTER = "https://openrouter.ai/api/v1";
+export const URL_OPENAI = "https://api.openai.com/v1";
 
 export type Entorno = Readonly<Record<string, string | undefined>>;
 
@@ -37,6 +42,8 @@ export type DiagnosticoModo = {
   readonly modo: ModoConocimiento;
   /** Qué variable de entorno habilitó el modo completo, si alguna. */
   readonly variable: string | null;
+  /** Qué proveedor vectoriza, si alguno. */
+  readonly proveedor: ProveedorEmbeddings | null;
   /** Explicación técnica, para registros y para la consola. */
   readonly motivo: string;
   /** Explicación para el cliente, sin una sola palabra de jerga. */
@@ -47,26 +54,47 @@ export type DiagnosticoModo = {
  * Lee `process.env` sin depender de los tipos de Node: este paquete se compila
  * con `lib: ES2023` a secas y no debe arrastrar `@types/node`.
  */
-function entornoDelProceso(): Entorno {
+export function entornoDelProceso(): Entorno {
   const global = globalThis as { process?: { env?: Entorno } };
   return global.process?.env ?? {};
 }
 
 function valorNoVacio(entorno: Entorno, clave: string): string | null {
   const valor = entorno[clave];
-  return typeof valor === "string" && valor.trim() !== "" ? valor : null;
+  return typeof valor === "string" && valor.trim() !== "" ? valor.trim() : null;
 }
 
-/** Primera variable de embeddings con valor, o `null` si no hay ninguna. */
+/**
+ * El proveedor de embeddings de esta instalación, o `null` si no hay ninguno.
+ *
+ * La cartera manda: con `MODEL_WALLET=vercel-gateway` la clave de OpenRouter no
+ * se usa para vectorizar, igual que no se usa para conversar.
+ */
+export function proveedorDeEmbeddings(entorno: Entorno = entornoDelProceso()): {
+  proveedor: ProveedorEmbeddings;
+  variable: (typeof VARIABLES_DE_EMBEDDINGS)[number];
+  valor: string;
+} | null {
+  const cartera = valorNoVacio(entorno, "MODEL_WALLET") ?? "openrouter";
+
+  const openrouter = valorNoVacio(entorno, "OPENROUTER_API_KEY");
+  if (cartera === "openrouter" && openrouter) {
+    return { proveedor: "openrouter", variable: "OPENROUTER_API_KEY", valor: openrouter };
+  }
+  const openai = valorNoVacio(entorno, "OPENAI_API_KEY");
+  if (openai) return { proveedor: "openai", variable: "OPENAI_API_KEY", valor: openai };
+  const pasarela = valorNoVacio(entorno, "AI_GATEWAY_API_KEY");
+  if (pasarela) return { proveedor: "pasarela", variable: "AI_GATEWAY_API_KEY", valor: pasarela };
+  return null;
+}
+
+/** Primera variable de embeddings utilizable, o `null` si no hay ninguna. */
 export function claveDeEmbeddings(entorno: Entorno = entornoDelProceso()): {
   variable: string;
   valor: string;
 } | null {
-  for (const variable of VARIABLES_DE_EMBEDDINGS) {
-    const valor = valorNoVacio(entorno, variable);
-    if (valor !== null) return { variable, valor };
-  }
-  return null;
+  const elegido = proveedorDeEmbeddings(entorno);
+  return elegido ? { variable: elegido.variable, valor: elegido.valor } : null;
 }
 
 /**
@@ -75,7 +103,7 @@ export function claveDeEmbeddings(entorno: Entorno = entornoDelProceso()): {
  * resultado de atrapar un 401.
  */
 export function hayProveedorDeEmbeddings(entorno: Entorno = entornoDelProceso()): boolean {
-  return claveDeEmbeddings(entorno) !== null;
+  return proveedorDeEmbeddings(entorno) !== null;
 }
 
 /** Texto para el cliente. Prohibido: «embedding», «vector», «similitud coseno». */
@@ -87,23 +115,32 @@ export function explicacionDelModo(modo: ModoConocimiento): string {
         "Puede no encontrar nada si la misma cosa se pregunta de otra manera.";
 }
 
+const NOMBRE_PROVEEDOR: Record<ProveedorEmbeddings, string> = {
+  openrouter: "OpenRouter",
+  openai: "OpenAI",
+  pasarela: "Vercel AI Gateway",
+};
+
 export function detectarModoConocimiento(entorno: Entorno = entornoDelProceso()): DiagnosticoModo {
-  const clave = claveDeEmbeddings(entorno);
-  if (clave) {
+  const elegido = proveedorDeEmbeddings(entorno);
+  if (elegido) {
     return {
       modo: "completo",
-      variable: clave.variable,
-      motivo: `Hay proveedor de embeddings (${clave.variable}): búsqueda por significado y por palabras.`,
+      variable: elegido.variable,
+      proveedor: elegido.proveedor,
+      motivo: `Hay proveedor de embeddings: ${NOMBRE_PROVEEDOR[elegido.proveedor]} (${elegido.variable}). Búsqueda por significado y por palabras.`,
       explicacion: explicacionDelModo("completo"),
     };
   }
   return {
     modo: "solo-texto",
     variable: null,
+    proveedor: null,
     motivo:
-      `No hay proveedor de embeddings (falta ${VARIABLES_DE_EMBEDDINGS.join(" o ")}). ` +
+      `No hay proveedor de embeddings (falta ${VARIABLES_DE_EMBEDDINGS.join(", ")}). ` +
       "Modo solo texto: se indexa y se busca únicamente por coincidencia de palabras. " +
-      "Poner OPENAI_API_KEY activa el modo completo sin tocar código ni reingerir.",
+      "Con OPENROUTER_API_KEY (la cartera de modelos) u OPENAI_API_KEY el modo completo se activa sin tocar código, " +
+      "y lo ya indexado se completa sin reingerir.",
     explicacion: explicacionDelModo("solo-texto"),
   };
 }

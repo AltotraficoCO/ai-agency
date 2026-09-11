@@ -2,8 +2,8 @@
  * Reindexado posterior: poner vector a lo que se indexó en modo solo texto.
  *
  * POR QUÉ EXISTE: los Cerebros ingeridos sin proveedor de embeddings quedan
- * completos y buscables por palabras, pero sin vector. El día que aparezca una
- * clave (`OPENAI_API_KEY`) hay dos caminos: volver a descargar, trocear e
+ * completos y buscables por palabras, pero sin vector. El día que aparezca un
+ * proveedor (la clave de OpenRouter basta) hay dos caminos: volver a descargar, trocear e
  * ingerir el conocimiento de todos los clientes, o recorrer los trozos con
  * `embedding IS NULL` y vectorizarlos donde están. Esto es lo segundo. Es la
  * diferencia entre encender la búsqueda por significado en un minuto y rehacer
