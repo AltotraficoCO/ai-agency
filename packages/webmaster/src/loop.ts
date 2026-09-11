@@ -229,13 +229,16 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
     });
   }
   if (input.aprobaciones?.length) {
+    // Las respuestas del AI SDK tienen que ser el ÚLTIMO mensaje: el SDK solo
+    // ejecuta una herramienta aprobada si la conversación termina justo en ese
+    // mensaje de herramienta. Poner detrás el aviso de reanudación le hacía
+    // ignorar la aprobación; el modelo la volvía a pedir con la misma huella,
+    // ya aprobada, y la tarea quedaba "en espera" sin botones que pulsar.
     mensajes.push({ role: "tool", content: [...input.aprobaciones] });
-  }
-  if (input.mensajesPrevios?.length) {
-    // Se reanuda tras una decisión humana. Sin esta línea el modelo lee su
-    // propio "no lo reintentes" del intento anterior y cierra sin hacer nada:
-    // hay dos caminos de aprobación —el del AI SDK y el de la propia
-    // herramienta— y solo el primero se reanuda con un mensaje de respuesta.
+  } else if (input.mensajesPrevios?.length) {
+    // Se reanuda una aprobación de la propia herramienta (portada, precios):
+    // ahí no hay respuesta que inyectar. Sin este aviso el modelo lee su propio
+    // "no lo reintentes" del intento anterior y cierra sin hacer nada.
     mensajes.push({
       role: "user",
       content:
@@ -268,30 +271,87 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
   });
 
   try {
-    const resultado = await generateText({
-      model: input.model,
-      system: sistema,
-      messages: mensajes,
-      tools,
-      // El tope de acciones del catálogo. No es una sugerencia: es lo que
-      // impide que una tarea mal entendida se coma el saldo del cliente.
-      stopWhen: stepCountIs(agent.maxAcciones),
-      experimental_context: contexto,
-      abortSignal: señal,
-      timeout: agent.timeoutMs,
-    });
+    let textoFinal = "";
 
-    pasos = resultado.steps.length;
-    for (const paso of resultado.steps) {
-      const n = normalizeUsage(paso.usage);
-      uso = {
-        inputTokens: uso.inputTokens + n.inputTokens,
-        outputTokens: uso.outputTokens + n.outputTokens,
-        cacheReadTokens: uso.cacheReadTokens + (n.cacheReadTokens ?? 0),
-        cacheWriteTokens: uso.cacheWriteTokens + (n.cacheWriteTokens ?? 0),
-      };
-      creditos += creditsForUsage(input.rates, input.modelId, n).credits;
+    for (let ronda = 0; ; ronda++) {
+      const resultado = await generateText({
+        model: input.model,
+        system: sistema,
+        messages: mensajes,
+        tools,
+        // El tope de acciones del catálogo. No es una sugerencia: es lo que
+        // impide que una tarea mal entendida se coma el saldo del cliente.
+        stopWhen: stepCountIs(agent.maxAcciones),
+        experimental_context: contexto,
+        abortSignal: señal,
+        timeout: agent.timeoutMs,
+      });
+
+      pasos += resultado.steps.length;
+      for (const paso of resultado.steps) {
+        const n = normalizeUsage(paso.usage);
+        uso = {
+          inputTokens: uso.inputTokens + n.inputTokens,
+          outputTokens: uso.outputTokens + n.outputTokens,
+          cacheReadTokens: uso.cacheReadTokens + (n.cacheReadTokens ?? 0),
+          cacheWriteTokens: uso.cacheWriteTokens + (n.cacheWriteTokens ?? 0),
+        };
+        creditos += creditsForUsage(input.rates, input.modelId, n).credits;
+      }
+      mensajes.push(...resultado.response.messages);
+      textoFinal = resultado.text;
+
+      // ¿El AI SDK cortó alguna herramienta sensible antes de ejecutarla?
+      const solicitudes = resultado.content.filter(
+        (p): p is Extract<typeof p, { type: "tool-approval-request" }> =>
+          p.type === "tool-approval-request",
+      );
+      const yaDecididas: ToolApprovalResponse[] = [];
+      for (const s of solicitudes) {
+        // `pedir_aprobacion` es la pregunta del propio agente: al cliente se le
+        // enseña su propuesta, no el nombre de una herramienta.
+        const propuesta =
+          s.toolCall.toolName === "pedir_aprobacion"
+            ? String((s.toolCall.input as { propuesta?: unknown } | undefined)?.propuesta ?? "").trim()
+            : "";
+        const registro = await sitio.approvals.request({
+          workspaceId: input.workspaceId,
+          taskId: sitio.taskId,
+          siteId: sitio.siteId,
+          huella: huellaAccion(sitio.taskId, s.toolCall.toolName, s.toolCall.input),
+          toolSlug: s.toolCall.toolName,
+          motivo: propuesta
+            ? "necesito tu confirmación antes de seguir"
+            : "es una operación de administración del sitio",
+          resumen: propuesta || describirSolicitud(s.toolCall.toolName, s.toolCall.input),
+          entrada: redactSecrets(s.toolCall.input),
+        });
+        if (registro.decision) {
+          // Misma acción que una persona ya decidió: se contesta con esa decisión.
+          yaDecididas.push({
+            type: "tool-approval-response",
+            approvalId: s.approvalId,
+            approved: registro.decision === "aprobada",
+            ...(registro.decision === "aprobada" ? {} : { reason: "Una persona ya rechazó esta acción." }),
+          });
+        } else {
+          pendientes.push({
+            id: registro.id,
+            herramienta: s.toolCall.toolName,
+            motivo: propuesta ? "confirmación del cliente" : "operación de administración del sitio",
+          });
+        }
+      }
+
+      // Si todo lo que se cortó ya estaba decidido, esperar un clic sería
+      // dejar la tarea colgada de un botón que nadie puede ver: se sigue.
+      if (yaDecididas.length > 0 && pendientes.length === 0 && ronda < MAX_RONDAS_DECIDIDAS) {
+        mensajes.push({ role: "tool", content: yaDecididas });
+        continue;
+      }
+      break;
     }
+
     // Las herramientas también se venden: su coste declarado se suma aparte
     // del de los tokens, que es lo que separa el precio del coste.
     for (const a of acciones) {
@@ -299,37 +359,8 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
       creditos += input.rates.tools?.[a.herramienta] ?? def?.creditCost ?? 0;
     }
 
-    // ¿El AI SDK cortó alguna herramienta sensible antes de ejecutarla?
-    const solicitudes = resultado.content.filter(
-      (p): p is Extract<typeof p, { type: "tool-approval-request" }> =>
-        p.type === "tool-approval-request",
-    );
-    for (const s of solicitudes) {
-      // `pedir_aprobacion` es la pregunta del propio agente: al cliente se le
-      // enseña su propuesta, no el nombre de una herramienta.
-      const propuesta =
-        s.toolCall.toolName === "pedir_aprobacion"
-          ? String((s.toolCall.input as { propuesta?: unknown } | undefined)?.propuesta ?? "").trim()
-          : "";
-      const registro = await sitio.approvals.request({
-        workspaceId: input.workspaceId,
-        taskId: sitio.taskId,
-        siteId: sitio.siteId,
-        huella: huellaAccion(sitio.taskId, s.toolCall.toolName, s.toolCall.input),
-        toolSlug: s.toolCall.toolName,
-        motivo: propuesta ? "necesito tu confirmación antes de seguir" : "es una operación de administración del sitio",
-        resumen: propuesta || `${s.toolCall.toolName}: espera el visto bueno de una persona`,
-        entrada: redactSecrets(s.toolCall.input),
-      });
-      pendientes.push({
-        id: registro.id,
-        herramienta: s.toolCall.toolName,
-        motivo: propuesta ? "confirmación del cliente" : "operación de administración del sitio",
-      });
-    }
-
-    const texto = limpiarSecretos(quitarRazonamiento(resultado.text), sitio);
-    const esperando = solicitudes.length > 0 || pendientes.length > 0;
+    const texto = limpiarSecretos(quitarRazonamiento(textoFinal), sitio);
+    const esperando = pendientes.length > 0;
     const resumen =
       esperando && !texto.includes("RESUMEN:")
         ? "Necesito tu aprobación para continuar. Revisa la propuesta y pulsa Aprobar o Rechazar."
@@ -340,7 +371,7 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
         estado: "esperando_aprobacion",
         resumen,
         evidencia: evidencia(),
-        mensajes: [...mensajes, ...resultado.response.messages],
+        mensajes,
       };
     }
     return { estado: "completada", resumen, evidencia: evidencia() };
@@ -359,6 +390,35 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
 // ---------------------------------------------------------------------------
 // Utilidades
 // ---------------------------------------------------------------------------
+
+/**
+ * Rondas extra cuando el modelo vuelve a proponer una acción que una persona ya
+ * decidió. Acotadas: un modelo que insiste sin fin no debe comerse el saldo.
+ */
+const MAX_RONDAS_DECIDIDAS = 3;
+
+/**
+ * Lo que ve el cliente en la tarjeta de aprobación. "wp_instalar_plugin: espera
+ * el visto bueno" no dice QUÉ plugin, y aprobar a ciegas no es aprobar.
+ */
+export function describirSolicitud(toolName: string, entrada: unknown): string {
+  const e = (entrada ?? {}) as Record<string, unknown>;
+  const texto = (v: unknown) => String(v ?? "?");
+  switch (toolName) {
+    case "wp_instalar_plugin":
+      return `Instalar y activar el plugin «${texto(e.slug)}».`;
+    case "wp_cambiar_plugin":
+      return `${e.estado === "active" ? "Activar" : "Desactivar"} el plugin «${texto(e.plugin)}».`;
+    case "wp_eliminar_plugin":
+      return `Eliminar el plugin «${texto(e.plugin)}».`;
+    case "wp_crear_usuario":
+      return `Crear el usuario «${texto(e.username)}» (${texto(e.email)}) con el rol ${texto(e.role)}.`;
+    case "wp_cambiar_rol_usuario":
+      return `Cambiar el rol del usuario ${texto(e.usuario_id)} a ${texto(e.role)}.`;
+    default:
+      return `${toolName}: ${JSON.stringify(redactSecrets(entrada)).slice(0, 160)}`;
+  }
+}
 
 /** La URL que el agente puede nombrar. De las credenciales solo sale esto. */
 export function urlVisible(sitio: SitioContext): string {

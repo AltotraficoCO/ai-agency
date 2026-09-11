@@ -330,6 +330,85 @@ describe("aprobación humana", () => {
       0,
     );
   });
+
+  /** Lo mismo que hace la web al pulsar Aprobar: contestar las peticiones abiertas. */
+  function respuestasAprobadas(mensajes: readonly unknown[]) {
+    return mensajes
+      .flatMap((msg) => {
+        const contenido = (msg as { content?: unknown }).content;
+        return Array.isArray(contenido) ? (contenido as { type?: string; approvalId?: string }[]) : [];
+      })
+      .filter((p) => p.type === "tool-approval-request" && p.approvalId)
+      .map((p) => ({ type: "tool-approval-response" as const, approvalId: p.approvalId!, approved: true }));
+  }
+
+  it("aprobar la instalación y reanudar instala el plugin sin que el modelo lo vuelva a pedir", async () => {
+    // El fallo real: el aviso de reanudación iba DETRÁS de la respuesta de
+    // aprobación, el AI SDK la ignoraba y la tarea quedaba en espera sin botones.
+    const m = montar();
+    const entrada = { slug: "litespeed-cache" };
+    const primero = await correr(m, [
+      { llama: "wp_instalar_plugin", con: entrada },
+      { dice: "RESUMEN: pendiente." },
+    ]);
+    expect(primero.resultado.estado).toBe("esperando_aprobacion");
+    if (primero.resultado.estado !== "esperando_aprobacion") return;
+
+    m.aprobaciones.decidir(huellaAccion("task_1", "wp_instalar_plugin", entrada), "aprobada");
+    const { modelo, llamadas } = modeloGuionizado([{ dice: "RESUMEN: instalé litespeed-cache." }]);
+    const segundo = await ejecutarTareaWebmaster({
+      agent: webmaster,
+      model: modelo,
+      modelId: "prueba/modelo",
+      rates: TARIFAS,
+      workspaceId: "ws_1",
+      agentName: "Max",
+      sitio: m.sitio,
+      tarea: { id: "task_1", titulo: "Instala un plugin de caché", detalle: null },
+      mensajesPrevios: primero.resultado.mensajes,
+      aprobaciones: respuestasAprobadas(primero.resultado.mensajes),
+    });
+
+    expect(segundo.estado).toBe("completada");
+    expect(m.wp.estado.plugins.some((p) => p.plugin.startsWith("litespeed-cache/"))).toBe(true);
+    expect(llamadas).not.toContain("wp_instalar_plugin");
+  });
+
+  it("si el modelo repite una acción ya aprobada, sigue solo en vez de esperar un clic imposible", async () => {
+    const m = montar();
+    const entrada = { slug: "litespeed-cache" };
+    const primero = await correr(m, [
+      { llama: "wp_instalar_plugin", con: entrada },
+      { dice: "RESUMEN: pendiente." },
+    ]);
+    if (primero.resultado.estado !== "esperando_aprobacion") throw new Error("debía quedar en espera");
+    m.aprobaciones.decidir(huellaAccion("task_1", "wp_instalar_plugin", entrada), "aprobada");
+
+    // Se reanuda bien, y el modelo vuelve a pedir EXACTAMENTE la misma acción
+    // (p. ej. para reintentarla). La huella ya está aprobada: nadie puede
+    // pulsar un botón que no se pinta, así que el bucle sigue con esa decisión.
+    const { modelo } = modeloGuionizado([
+      { llama: "wp_instalar_plugin", con: entrada },
+      { dice: "RESUMEN: instalado." },
+    ]);
+    const segundo = await ejecutarTareaWebmaster({
+      agent: webmaster,
+      model: modelo,
+      modelId: "prueba/modelo",
+      rates: TARIFAS,
+      workspaceId: "ws_1",
+      agentName: "Max",
+      sitio: m.sitio,
+      tarea: { id: "task_1", titulo: "Instala un plugin de caché", detalle: null },
+      mensajesPrevios: primero.resultado.mensajes,
+      aprobaciones: respuestasAprobadas(primero.resultado.mensajes),
+    });
+
+    // Si falla, que el mensaje diga por qué en vez de solo "fallida".
+    expect(segundo.estado === "fallida" ? segundo.error : segundo.estado).toBe("completada");
+    expect(segundo.evidencia.aprobacionesPendientes).toEqual([]);
+    expect(m.wp.estado.plugins.some((p) => p.plugin.startsWith("litespeed-cache/"))).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
