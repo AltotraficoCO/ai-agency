@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "../lib/cn";
 import { focusRing } from "../lib/focus";
 import { Avatar } from "../components/avatar";
@@ -9,6 +9,7 @@ import { IconButton } from "../components/icon-button";
 import { Tooltip } from "../components/tooltip";
 import { BotonTema } from "./boton-tema";
 import { CreditsWidget, type CreditsWidgetProps } from "./credits-widget";
+import { useGruposMenu } from "./grupos-menu";
 import {
   destinoAjustes,
   destinoContratar,
@@ -17,6 +18,7 @@ import {
   menuPrincipal,
   type DestinoNav,
   type EstadoCanal,
+  type GrupoNav,
   type Ruta,
 } from "./navigation";
 
@@ -153,6 +155,8 @@ export function Sidebar({
   className,
   ...props
 }: SidebarProps) {
+  const [elecciones, elegirGrupo] = useGruposMenu();
+
   if (colapsado) {
     return (
       <nav
@@ -255,30 +259,18 @@ export function Sidebar({
       <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-2">
         {menuPrincipal.map((entrada) =>
           esGrupoNav(entrada) ? (
-            <div
+            <GrupoPlegable
               key={entrada.id}
-              role="group"
-              aria-labelledby={`nav-grupo-${entrada.id}`}
-              className="flex flex-col gap-1 pt-3"
-            >
-              <span
-                id={`nav-grupo-${entrada.id}`}
-                className="flex items-center gap-1.5 px-2.5 pb-0.5 text-2xs font-medium uppercase tracking-wide text-fg-muted"
-              >
-                <entrada.icono size={12} strokeWidth={2} aria-hidden />
-                {entrada.etiqueta}
-              </span>
-              {entrada.destinos.map((destino) => (
-                <DestinoLink
-                  key={destino.id}
-                  destino={destino}
-                  activo={destino.href === rutaActiva}
-                  pendientes={pendientes}
-                  estadoCanales={estadoCanales}
-                  linkComponent={linkComponent}
-                />
-              ))}
-            </div>
+              grupo={entrada}
+              rutaActiva={rutaActiva}
+              abierto={
+                elecciones[entrada.id] ?? entrada.destinos.some((d) => d.href === rutaActiva)
+              }
+              onAlternar={(abierto) => elegirGrupo(entrada.id, abierto)}
+              pendientes={pendientes}
+              estadoCanales={estadoCanales}
+              linkComponent={linkComponent}
+            />
           ) : (
             <DestinoLink
               key={entrada.id}
@@ -330,6 +322,109 @@ export function Sidebar({
         </button>
       </div>
     </nav>
+  );
+}
+
+/**
+ * Un módulo del menú (WhatsApp, Negocio) que se abre y se cierra.
+ *
+ * Cerrado, el título sigue diciendo lo importante: si estás dentro (punto
+ * verde) y cuántas conversaciones esperan en la Bandeja. Así recoger el menú
+ * no esconde nada urgente.
+ */
+function GrupoPlegable({
+  grupo,
+  rutaActiva,
+  abierto,
+  onAlternar,
+  pendientes,
+  estadoCanales,
+  linkComponent,
+}: {
+  grupo: GrupoNav;
+  rutaActiva: Ruta;
+  abierto: boolean;
+  onAlternar: (abierto: boolean) => void;
+  pendientes?: number;
+  estadoCanales?: EstadoCanal;
+  linkComponent: React.ElementType;
+}) {
+  const idContenido = `nav-grupo-${grupo.id}`;
+  const contieneActiva = grupo.destinos.some((d) => d.href === rutaActiva);
+  const tieneContador = grupo.destinos.some((d) => d.indicador === "contador");
+  const Icono = grupo.icono;
+
+  return (
+    <div className="flex flex-col pt-1">
+      <button
+        type="button"
+        aria-expanded={abierto}
+        aria-controls={idContenido}
+        onClick={() => onAlternar(!abierto)}
+        className={cn(
+          "group flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-left text-base font-medium",
+          "transition-colors duration-[var(--dur-fast)] hover:bg-hover",
+          contieneActiva && !abierto ? "text-fg" : "text-fg-secondary hover:text-fg",
+          focusRing,
+        )}
+      >
+        <Icono
+          size={18}
+          strokeWidth={1.75}
+          aria-hidden
+          className={cn("shrink-0", contieneActiva && "text-primary-fg")}
+        />
+        <span className="truncate">{grupo.etiqueta}</span>
+        <span className="ml-auto flex items-center gap-1.5">
+          {!abierto && tieneContador && pendientes ? (
+            <span className="tnum rounded-full bg-primary px-1.5 py-px text-2xs font-semibold text-[var(--fg-on-brand)]">
+              {pendientes > 99 ? "99+" : pendientes}
+              <span className="sr-only"> conversaciones sin atender</span>
+            </span>
+          ) : null}
+          {!abierto && contieneActiva ? (
+            <span aria-hidden className="size-1.5 rounded-full bg-primary" />
+          ) : null}
+          <ChevronRight
+            size={15}
+            strokeWidth={2}
+            aria-hidden
+            className={cn(
+              "text-fg-muted transition-transform duration-[var(--dur-base)] ease-[var(--ease-out-quart)] motion-reduce:transition-none",
+              abierto && "rotate-90",
+            )}
+          />
+        </span>
+      </button>
+
+      {/* grid-rows 0fr → 1fr anima la altura sin medirla en JavaScript. */}
+      <div
+        id={idContenido}
+        className={cn(
+          "grid transition-[grid-template-rows] duration-[var(--dur-base)] ease-[var(--ease-out-quart)] motion-reduce:transition-none",
+          abierto ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+      >
+        <div className="overflow-hidden" {...(abierto ? {} : { inert: true })}>
+          <div
+            role="group"
+            aria-label={grupo.etiqueta}
+            className="ml-[18px] flex flex-col gap-0.5 border-l border-[var(--border-subtle)] py-1 pl-2"
+          >
+            {grupo.destinos.map((destino) => (
+              <DestinoLink
+                key={destino.id}
+                destino={destino}
+                activo={destino.href === rutaActiva}
+                pendientes={pendientes}
+                estadoCanales={estadoCanales}
+                linkComponent={linkComponent}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
