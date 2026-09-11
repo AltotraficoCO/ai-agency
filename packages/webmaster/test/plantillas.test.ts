@@ -1,0 +1,100 @@
+/**
+ * Plantillas de Elementor sin plugin: el caso que motivó estas herramientas es
+ * añadir un enlace al footer de un sitio con Elementor, que el Webmaster no
+ * sabía hacer y resolvía publicando un post de "evidencia".
+ */
+import { describe, expect, it } from "vitest";
+import { executeToolDef, type ToolContext } from "@strappy/tools";
+import { SCOPES_WORDPRESS, webmasterToolRegistry, type SitioContext } from "../src/index.js";
+import { aplicarCambio, resumirPlantilla, type NodoElementor } from "../src/wordpress/plantillas.js";
+import { BackupsEnMemoria, BASE_DOBLE, crearDobleWordPress, estadoInicial } from "../src/testing/index.js";
+
+const footer = (): NodoElementor[] =>
+  JSON.parse(estadoInicial().plantillas.find((p) => p.id === 78)!.data) as NodoElementor[];
+
+describe("resumen de una plantilla", () => {
+  it("lista contenedores y widgets con sus enlaces, sin confundir imágenes con enlaces", () => {
+    const { contenedores, widgets } = resumirPlantilla(footer());
+    expect(contenedores).toEqual([{ id: "f0c0n7a", tipo: "container", profundidad: 0, widgets: 2 }]);
+    expect(widgets.map((w) => w.tipo)).toEqual(["image", "social-icons"]);
+    expect(widgets[0]?.enlaces).toBeUndefined();
+    expect(widgets[1]?.enlaces).toEqual(["https://instagram.com/aurora"]);
+  });
+});
+
+describe("cambios sobre una plantilla", () => {
+  it("añade un enlace externo junto a los widgets existentes, escapado, sin tocar el original", () => {
+    const original = footer();
+    const copiaDelOriginal = structuredClone(original);
+    const { data, widgetId } = aplicarCambio(original, {
+      accion: "anadir_enlace",
+      texto: 'Strappy "IA"',
+      url: "https://strappy.vercel.app/",
+    });
+
+    expect(original).toEqual(copiaDelOriginal);
+    const contenedor = data[0]!;
+    expect(contenedor.elements).toHaveLength(3);
+    const nuevo = contenedor.elements![2]!;
+    expect(nuevo.id).toBe(widgetId);
+    expect(nuevo.widgetType).toBe("text-editor");
+    const html = String(nuevo.settings?.editor);
+    expect(html).toContain('href="https://strappy.vercel.app/"');
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain("Strappy &quot;IA&quot;");
+  });
+
+  it("rechaza enlaces que no son enlaces y widgets que no existen", () => {
+    expect(() =>
+      aplicarCambio(footer(), { accion: "anadir_enlace", texto: "x", url: "javascript:alert(1)" }),
+    ).toThrow(/ruta del sitio/);
+    expect(() => aplicarCambio(footer(), { accion: "eliminar_widget", widget_id: "noexiste" })).toThrow(
+      /No existe el widget/,
+    );
+  });
+
+  it("quita un widget", () => {
+    const { data } = aplicarCambio(footer(), { accion: "eliminar_widget", widget_id: "f2s0c1a" });
+    expect(data[0]!.elements!.map((e) => e.id)).toEqual(["f1m4g3n"]);
+  });
+});
+
+describe("wp_editar_plantilla_elementor contra el doble", () => {
+  it("escribe el enlace en el footer y devuelve backup y widget para deshacer", async () => {
+    const wp = crearDobleWordPress();
+    const sitio: SitioContext = {
+      siteId: "site_1",
+      taskId: "task_footer",
+      tipo: "wp",
+      wp: { url: BASE_DOBLE, user: wp.estado.usuario, appPassword: wp.estado.appPassword },
+      backups: new BackupsEnMemoria(),
+      approvals: {
+        async check() {
+          return null;
+        },
+        async request() {
+          return { id: "ap", decision: null };
+        },
+      },
+      fetch: wp.fetch,
+    };
+    const ctx = {
+      workspaceId: "ws_1",
+      dryRun: false,
+      scopes: [...SCOPES_WORDPRESS],
+      ports: {},
+      now: () => new Date(),
+      ...{ sitio },
+    } as ToolContext;
+
+    const salida = (await executeToolDef(webmasterToolRegistry.get("wp_editar_plantilla_elementor"), ctx, {
+      plantilla_id: 78,
+      cambio: { accion: "anadir_enlace", texto: "Strappy", url: "https://strappy.vercel.app/" },
+    } as never)) as Record<string, unknown>;
+
+    expect(salida.ok).toBe(true);
+    expect(typeof salida.backup_id).toBe("string");
+    expect(typeof salida.widget_id).toBe("string");
+    expect(wp.estado.plantillas.find((p) => p.id === 78)!.data).toContain("https://strappy.vercel.app/");
+  });
+});

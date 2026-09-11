@@ -90,6 +90,12 @@ const ENTRADAS_WP: Record<string, unknown> = {
     incluir_footer: true,
   },
   pedir_aprobacion: { propuesta: "Añadir al footer un enlace a https://www.google.com." },
+  wp_listar_plantillas_elementor: {},
+  wp_leer_plantilla_elementor: { id: 78 },
+  wp_editar_plantilla_elementor: {
+    plantilla_id: 78,
+    cambio: { accion: "anadir_enlace", texto: "Strappy", url: "https://strappy.vercel.app/" },
+  },
   verificar_http: { path: "/nuestra-historia", contiene: "1998" },
   navegador_ver_pagina: { path: "/", pagina_completa: false },
   navegador_click: { texto: "Inicio" },

@@ -22,13 +22,28 @@ export type PaginaDoble = {
   meta: Record<string, unknown>;
 };
 
+/**
+ * Una plantilla de Elementor (`elementor_library`). Su diseño se expone en el
+ * meta `_elementor_data` sin plugin, como en un sitio real con Elementor
+ * reciente: por eso no depende de `conectorInstalado`.
+ */
+export type PlantillaDoble = {
+  id: number;
+  titulo: string;
+  tipo: string;
+  status: string;
+  /** `_elementor_data` tal cual lo guarda WordPress: JSON serializado. */
+  data: string;
+};
+
 export type EstadoWordPress = {
   nombre: string;
   usuario: string;
   appPassword: string;
-  /** El plugin conector instalado: sin él no se pueden escribir metas de Elementor. */
+  /** El plugin conector instalado: sin él no se pueden escribir metas de páginas Elementor. */
   conectorInstalado: boolean;
   contenido: PaginaDoble[];
+  plantillas: PlantillaDoble[];
   ajustes: Record<string, unknown>;
   plugins: { plugin: string; name: string; status: string; version: string }[];
   comentarios: { id: number; author_name: string; content: { rendered: string }; status: string; post: number }[];
@@ -86,6 +101,59 @@ export function estadoInicial(): EstadoWordPress {
         slug: "masa-madre-en-casa",
         status: "publish",
         meta: {},
+      },
+    ],
+    plantillas: [
+      {
+        id: 12,
+        titulo: "Header",
+        tipo: "header",
+        status: "publish",
+        data: JSON.stringify([
+          {
+            id: "h0c0n7a",
+            elType: "container",
+            settings: {},
+            elements: [
+              {
+                id: "h1l0g0a",
+                elType: "widget",
+                widgetType: "heading",
+                settings: { title: "Panadería Aurora", link: { url: "/" } },
+                elements: [],
+              },
+            ],
+          },
+        ]),
+      },
+      {
+        id: 78,
+        titulo: "Footer",
+        tipo: "footer",
+        status: "publish",
+        data: JSON.stringify([
+          {
+            id: "f0c0n7a",
+            elType: "container",
+            settings: {},
+            elements: [
+              {
+                id: "f1m4g3n",
+                elType: "widget",
+                widgetType: "image",
+                settings: { image: { url: `${BASE_DOBLE}/wp-content/uploads/logo.png` } },
+                elements: [],
+              },
+              {
+                id: "f2s0c1a",
+                elType: "widget",
+                widgetType: "social-icons",
+                settings: { social_icon_list: [{ link: { url: "https://instagram.com/aurora" } }] },
+                elements: [],
+              },
+            ],
+          },
+        ]),
       },
     ],
     ajustes: {
@@ -219,6 +287,22 @@ export function crearDobleWordPress(
       return json({ id: ++siguienteId });
     }
     if (ruta.startsWith("/wp-json/strappy/")) return error("rest_no_route", "No existe la ruta.", 404);
+
+    // --- Plantillas de Elementor (sin plugin: el meta está expuesto) ---
+    if (ruta === "/wp-json/wp/v2/elementor_library") {
+      return json(estado.plantillas.map(vistaPlantilla));
+    }
+    const plantilla = /^\/wp-json\/wp\/v2\/elementor_library\/(\d+)$/.exec(ruta);
+    if (plantilla) {
+      const p = estado.plantillas.find((x) => x.id === Number(plantilla[1]));
+      if (!p) return error("rest_post_invalid_id", "Identificador inválido.", 404);
+      if (metodo === "POST") {
+        const meta = cuerpo().meta as Record<string, unknown> | undefined;
+        if (meta && typeof meta._elementor_data === "string") p.data = meta._elementor_data;
+      }
+      return json(vistaPlantilla(p));
+    }
+    if (ruta === "/wp-json/elementor/v1/cache") return json({ success: true });
 
     // --- Ajustes ---
     if (ruta === "/wp-json/wp/v2/settings") {
@@ -373,5 +457,14 @@ function vista(c: PaginaDoble, base: string, edit: boolean) {
     status: c.status,
     slug: c.slug,
     meta: c.meta,
+  };
+}
+
+function vistaPlantilla(p: PlantillaDoble) {
+  return {
+    id: p.id,
+    title: { raw: p.titulo, rendered: p.titulo },
+    status: p.status,
+    meta: { _elementor_template_type: p.tipo, _elementor_data: p.data },
   };
 }

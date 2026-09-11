@@ -957,7 +957,7 @@ export const wpCrearHeaderGlobal = defineTool({
     );
     if (!header.disponible) {
       throw new Error(
-        "El sitio no tiene el plugin conector, que es el único capaz de registrar un header global en cualquier tema. El cliente debe instalarlo desde el panel.",
+        "No se puede crear un header o footer global NUEVO en este sitio. Si el sitio ya tiene su header o footer hecho con Elementor, edítalo con wp_listar_plantillas_elementor, wp_leer_plantilla_elementor y wp_editar_plantilla_elementor. No crees páginas ni posts como rodeo.",
       );
     }
 

@@ -27,17 +27,18 @@ import {
 } from "../src/index.js";
 
 describe("registro de herramientas", () => {
-  it("están las 40 herramientas y ninguna repetida", () => {
-    expect(HERRAMIENTAS_WEBMASTER).toHaveLength(40);
+  it("están las 43 herramientas y ninguna repetida", () => {
+    expect(HERRAMIENTAS_WEBMASTER).toHaveLength(43);
     const slugs = HERRAMIENTAS_WEBMASTER.map((t) => t.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
-    expect(webmasterToolRegistry.list()).toHaveLength(40);
+    expect(webmasterToolRegistry.list()).toHaveLength(43);
   });
 
   it("porta las familias del proyecto anterior", () => {
     const slugs = HERRAMIENTAS_WEBMASTER.map((t) => t.slug);
     const cuenta = (p: string) => slugs.filter((s) => s.startsWith(p)).length;
-    expect(cuenta("wp_")).toBe(21);
+    // 21 del proyecto anterior + 3 de plantillas de Elementor.
+    expect(cuenta("wp_")).toBe(24);
     expect(cuenta("conector_")).toBe(10);
     expect(cuenta("navegador_")).toBe(5);
     for (const suelta of ["sitio_salud", "verificar_http", "ver_referencia"]) {
@@ -172,7 +173,7 @@ describe("cifrado de credenciales", () => {
 describe("los dos adaptadores salen de la misma definición", () => {
   it("el descriptor MCP se deriva del mismo Zod que valida en ejecución", () => {
     const descriptores = webmasterToolRegistry.list().map(toMcpDescriptor);
-    expect(descriptores).toHaveLength(40);
+    expect(descriptores).toHaveLength(43);
 
     const editar = descriptores.find((d) => d.name === "wp_editar_contenido");
     expect(editar?.annotations.readOnlyHint).toBe(false);
@@ -188,7 +189,7 @@ describe("los dos adaptadores salen de la misma definición", () => {
 
   it("el conjunto para el AI SDK tiene needsApproval donde la ficha lo pide", () => {
     const set = toAiToolSet(HERRAMIENTAS_WEBMASTER);
-    expect(Object.keys(set)).toHaveLength(40);
+    expect(Object.keys(set)).toHaveLength(43);
     expect(set.wp_instalar_plugin?.needsApproval).toBe(true);
     expect(set.wp_listar_contenido?.needsApproval).toBe(false);
   });
