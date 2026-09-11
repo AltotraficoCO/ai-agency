@@ -1,5 +1,6 @@
 import { Badge, Card, CardBody, CardDescription, CardHeader, CardTitle } from "@strappy/ui";
 import { MarcoApp } from "@/components/marco-app";
+import { NavAjustes } from "@/components/nav-ajustes";
 import { BannerCreditos } from "@/components/negocio/banner-creditos";
 import { BarraConsumo } from "@/components/negocio/barra-consumo";
 import { FacturaCombinada } from "@/components/negocio/factura-combinada";
@@ -55,6 +56,7 @@ export default async function PaginaFacturacion() {
       pendientes={marco.pendientes}
       titulo="Facturación"
     >
+      <NavAjustes />
       <div className="mx-auto flex max-w-4xl flex-col gap-4 p-6">
         <BannerCreditos estado={negocio.cartera.estado} proyeccion={negocio.cartera.proyeccion} />
 

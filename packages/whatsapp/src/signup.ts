@@ -80,6 +80,11 @@ export type DependenciasRegistro = {
   app: { appId: string; appSecret: string };
   /** Persiste el estado tras CADA paso. Sin esto no hay reanudación posible. */
   guardarEstado(estado: EstadoRegistro): Promise<void>;
+  /**
+   * URL propia para los webhooks de esta WABA. Solo hace falta si otro producto
+   * comparte la app de Meta; ver `suscribirApp`.
+   */
+  webhook?: { url: string; verifyToken: string };
   crearCliente?: (accessToken: string) => ClienteWhatsApp;
   /** PIN de dos pasos; por defecto, seis dígitos aleatorios criptográficos. */
   generarPin?: () => string;
@@ -196,7 +201,7 @@ export async function ejecutarRegistro(
   // --- Paso 3: suscribir nuestra app a los webhooks de la WABA --------------
   if (indice(estado.paso) <= indice("suscribir_app")) {
     try {
-      await api.suscribirApp(estado.wabaId);
+      await api.suscribirApp(estado.wabaId, deps.webhook);
       estado.appSuscrita = true;
       await avanzar("registrar_numero");
     } catch (error) {

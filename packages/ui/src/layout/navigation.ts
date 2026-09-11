@@ -4,7 +4,6 @@ import {
   Bot,
   Inbox,
   House,
-  Plug,
   Settings,
   Sparkles,
   Users,
@@ -20,7 +19,7 @@ export const rutas = {
   bandeja: "/bandeja",
   agentes: "/agentes",
   contactos: "/contactos",
-  canales: "/canales",
+  canales: "/ajustes/canales",
   conocimiento: "/conocimiento",
   analitica: "/analitica",
   contratar: "/contratar",
@@ -42,13 +41,18 @@ export interface DestinoNav {
   destacado?: boolean;
 }
 
-/** Los siete destinos están siempre visibles: sin acordeones, sin submenús. */
+/**
+ * Los seis destinos están siempre visibles: sin acordeones, sin submenús.
+ *
+ * Canales no está aquí a propósito: WhatsApp se conecta una vez y luego no se
+ * vuelve a tocar, así que vive en Ajustes junto a la cuenta y la facturación en
+ * vez de ocupar un sitio en el menú de todos los días.
+ */
 export const destinosPrincipales: readonly DestinoNav[] = [
   { id: "inicio", etiqueta: "Inicio", href: rutas.inicio, icono: House },
   { id: "bandeja", etiqueta: "Bandeja", href: rutas.bandeja, icono: Inbox, indicador: "contador" },
   { id: "agentes", etiqueta: "Agentes", href: rutas.agentes, icono: Bot },
   { id: "contactos", etiqueta: "Contactos", href: rutas.contactos, icono: Users },
-  { id: "canales", etiqueta: "Canales", href: rutas.canales, icono: Plug, indicador: "estado" },
   { id: "conocimiento", etiqueta: "Conocimiento", href: rutas.conocimiento, icono: BookOpen },
   { id: "analitica", etiqueta: "Analítica", href: rutas.analitica, icono: ChartColumn },
 ];

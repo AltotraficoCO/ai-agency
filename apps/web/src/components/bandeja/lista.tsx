@@ -205,7 +205,7 @@ export function Lista({
                 title="Conecta WhatsApp para empezar"
                 description="En cuanto tu número esté conectado, cada conversación aparecerá aquí y sabrás si contestó la IA o contestaste tú."
                 action={
-                  <EnlaceBoton href="/canales" size="sm">
+                  <EnlaceBoton href="/ajustes/canales" size="sm">
                     Conectar WhatsApp
                   </EnlaceBoton>
                 }

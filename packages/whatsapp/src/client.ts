@@ -465,9 +465,25 @@ export function crearClienteWhatsApp(opciones: OpcionesCliente) {
       return peticion({ method: "POST", path: `${phoneNumberId}/deregister` });
     },
 
-    /** Suscribe nuestra app a los webhooks de la WABA del cliente. */
-    async suscribirApp(wabaId: string): Promise<{ success?: boolean }> {
-      return peticion({ method: "POST", path: `${wabaId}/subscribed_apps` });
+    /**
+     * Suscribe nuestra app a los webhooks de la WABA del cliente.
+     *
+     * `webhook` manda los eventos de ESTA WABA a una URL propia. Hace falta
+     * cuando otro producto comparte la app de Meta: la URL de la app es una sola
+     * y, sin sobreescribirla, los mensajes del cliente llegarían a ese otro
+     * producto. Meta la verifica con un GET y `verifyToken` antes de aceptarla.
+     */
+    async suscribirApp(
+      wabaId: string,
+      webhook?: { url: string; verifyToken: string },
+    ): Promise<{ success?: boolean }> {
+      return peticion({
+        method: "POST",
+        path: `${wabaId}/subscribed_apps`,
+        ...(webhook
+          ? { body: { override_callback_uri: webhook.url, verify_token: webhook.verifyToken } }
+          : {}),
+      });
     },
 
     async listarAppsSuscritas(
@@ -486,6 +502,11 @@ export function crearClienteWhatsApp(opciones: OpcionesCliente) {
       appId: string;
       appSecret: string;
       code: string;
+      /**
+       * El mismo `redirect_uri` que abrió el diálogo. Meta lo exige cuando el
+       * alta va por redirección; con el SDK de JavaScript no se manda.
+       */
+      redirectUri?: string;
     }): Promise<{ access_token?: string; token_type?: string; expires_in?: number }> {
       return peticion({
         method: "GET",
@@ -494,6 +515,7 @@ export function crearClienteWhatsApp(opciones: OpcionesCliente) {
           client_id: input.appId,
           client_secret: input.appSecret,
           code: input.code,
+          redirect_uri: input.redirectUri,
         },
         // Un `code` es de un solo uso: reintentar solo garantiza un segundo fallo.
         sinReintentos: true,

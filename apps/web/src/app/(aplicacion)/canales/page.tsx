@@ -1,16 +1,10 @@
-import { PaginaVacia } from "../pagina-vacia";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Canales" };
-
-// Lee el espacio y el saldo en cada visita: no hay nada que prerenderizar.
-export const dynamic = "force-dynamic";
-
+/**
+ * Canales se mudó a Ajustes. Esta ruta queda solo para que los enlaces viejos
+ * —correos, marcadores, la ficha de un agente abierta desde antes— sigan
+ * llegando a su sitio en vez de a un 404.
+ */
 export default function Pagina() {
-  return (
-    <PaginaVacia
-      titulo="Canales"
-      encabezado="Ningún canal conectado"
-      descripcion="Conecta tu WhatsApp para que el agente atienda de verdad. Mientras tanto, puedes probarlo en el simulador desde la ficha del agente."
-    />
-  );
+  redirect("/ajustes/canales");
 }

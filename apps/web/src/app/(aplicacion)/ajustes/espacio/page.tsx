@@ -1,5 +1,6 @@
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@strappy/ui";
 import { MarcoApp } from "@/components/marco-app";
+import { NavAjustes } from "@/components/nav-ajustes";
 import { FormularioEspacio } from "@/components/negocio/formularios-ajustes";
 import { datosDelMarco } from "@/lib/marco";
 import { accionGuardarEspacio } from "@/lib/negocio/acciones";
@@ -22,6 +23,7 @@ export default async function PaginaEspacio() {
       pendientes={marco.pendientes}
       titulo="Espacio de trabajo"
     >
+      <NavAjustes />
       <div className="mx-auto max-w-2xl p-6">
         <Card>
           <CardHeader>

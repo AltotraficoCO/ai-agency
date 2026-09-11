@@ -1,5 +1,6 @@
 import { Badge, Button, Card, CardBody, CardHeader, CardTitle } from "@strappy/ui";
 import { MarcoApp } from "@/components/marco-app";
+import { NavAjustes } from "@/components/nav-ajustes";
 import { datosDelMarco } from "@/lib/marco";
 
 export const metadata = { title: "Tu cuenta" };
@@ -15,6 +16,7 @@ export default async function PaginaCuenta() {
       pendientes={marco.pendientes}
       titulo="Tu cuenta"
     >
+      <NavAjustes />
       <div className="mx-auto max-w-xl p-6">
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-3">

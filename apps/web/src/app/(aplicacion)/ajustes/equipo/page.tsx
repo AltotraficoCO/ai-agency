@@ -1,5 +1,6 @@
 import { Badge, Card, CardBody, CardDescription, CardHeader, CardTitle } from "@strappy/ui";
 import { MarcoApp } from "@/components/marco-app";
+import { NavAjustes } from "@/components/nav-ajustes";
 import {
   BotonAccion,
   FormularioInvitar,
@@ -24,6 +25,7 @@ export default async function PaginaEquipo() {
       pendientes={marco.pendientes}
       titulo="Equipo"
     >
+      <NavAjustes />
       <div className="mx-auto flex max-w-3xl flex-col gap-4 p-6">
         <Card>
           <CardHeader>

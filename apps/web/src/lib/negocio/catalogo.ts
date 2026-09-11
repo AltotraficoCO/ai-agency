@@ -66,7 +66,7 @@ const CONEXIONES_POR_AGENTE: Record<string, readonly { clave: string; nombre: st
         clave: "whatsapp",
         nombre: "WhatsApp",
         descripcion: "Tu número de WhatsApp Business, para que pueda atender.",
-        ruta: "/canales",
+        ruta: "/ajustes/canales",
       },
       {
         clave: "conocimiento",
@@ -94,7 +94,7 @@ const CONEXIONES_POR_AGENTE: Record<string, readonly { clave: string; nombre: st
         clave: "whatsapp",
         nombre: "WhatsApp",
         descripcion: "Por dónde salen las campañas.",
-        ruta: "/canales",
+        ruta: "/ajustes/canales",
       },
     ],
   };
