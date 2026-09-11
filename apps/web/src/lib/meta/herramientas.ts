@@ -286,8 +286,11 @@ export function crearHerramientasDeStrap(entorno: EntornoStrap): ToolDef<never, 
                   pista: z.string().optional(),
                 }),
               )
-              .max(4)
-              .default([]),
+              .default([])
+              // Se piden como mucho cuatro, pero se aceptan de más y se enseñan las
+              // cuatro primeras: rechazarlas hacía que el modelo le pidiera perdón a
+              // la persona por «pasarse con las opciones».
+              .describe("Como mucho 4 opciones; si mandas más, solo se enseñan las 4 primeras"),
             multiple: z
               .boolean()
               .optional()
@@ -299,7 +302,7 @@ export function crearHerramientasDeStrap(entorno: EntornoStrap): ToolDef<never, 
           }),
         )
         .min(1)
-        .max(3),
+        .describe("Como mucho 3 preguntas por ronda; si mandas más, solo se hacen las 3 primeras"),
     }),
     sensitive: false,
     creditCost: 0,
@@ -310,7 +313,7 @@ export function crearHerramientasDeStrap(entorno: EntornoStrap): ToolDef<never, 
       return {
         tipo: "preguntas",
         fase,
-        preguntas: entrada.preguntas.map((p) => {
+        preguntas: entrada.preguntas.slice(0, 3).map((p) => {
           const clave = exigirClave(p.clave);
           // Si la pregunta es del guion, manda el guion: que admita varias
           // respuestas o texto libre no puede depender de que el modelo se
@@ -318,7 +321,7 @@ export function crearHerramientasDeStrap(entorno: EntornoStrap): ToolDef<never, 
           const guion = preguntaDelGuion(clave);
           const opciones =
             p.opciones.length > 0
-              ? p.opciones.map((o) => ({
+              ? p.opciones.slice(0, 4).map((o) => ({
                   valor: o.valor,
                   etiqueta: o.etiqueta,
                   ...(o.pista ? { pista: o.pista } : {}),

@@ -3,20 +3,19 @@
 /**
  * El armazón de la aplicación.
  *
- * Vive en el cliente porque el menú necesita saber la ruta actual y porque
- * `next/link` no se puede pasar como propiedad desde un componente de servidor.
- * Todo lo que recibe son datos planos: quién es el usuario y cuánto le queda de
- * saldo. No sabe de dónde salen.
+ * Dos piezas con vidas distintas:
+ *  · `ArmazonApp` va en el layout y se conserva entre navegaciones: es el menú
+ *    lateral. No se desmonta nunca, así que no parpadea ni «recarga».
+ *  · `MarcoApp` lo pinta cada página: la barra superior (título, migas,
+ *    acciones) y la zona de contenido.
  *
- * El menú lateral y el menú móvil se exportan sueltos para las pantallas que
- * montan su propio armazón (la Bandeja): así el menú es el mismo en todas, se
- * pliega igual y recuerda lo mismo.
+ * Lo que una página necesita decirle al menú —qué destino marcar cuando la URL
+ * no basta, o el contador en vivo de la Bandeja— viaja por un contexto.
  */
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  AppShell,
   MenuMovil,
   Sidebar,
   Topbar,
@@ -34,12 +33,14 @@ type DatosMenu = {
   rutaActiva?: Ruta;
 };
 
-export interface MarcoAppProps extends DatosMenu {
-  titulo: React.ReactNode;
-  contexto?: React.ReactNode;
-  acciones?: React.ReactNode;
-  children: React.ReactNode;
-}
+type ContextoArmazon = {
+  datos: DatosMenu;
+  rutaForzada: Ruta | null;
+  setRutaForzada: (ruta: Ruta | null) => void;
+  setPendientesVivos: (n: number | null) => void;
+};
+
+const Armazon = React.createContext<ContextoArmazon | null>(null);
 
 /**
  * De la ruta real al destino del menú. `/agentes/x/probar` sigue siendo Agentes
@@ -55,32 +56,80 @@ function rutaActivaDe(pathname: string): Ruta {
   return (encontrada ?? rutas.inicio) as Ruta;
 }
 
-function useSidebarProps({ usuario, creditos, pendientes, rutaActiva }: DatosMenu) {
+function usePropsDelMenu(datos: DatosMenu, rutaForzada: Ruta | null) {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
   return {
     pathname,
     props: {
-      rutaActiva: rutaActiva ?? rutaActivaDe(pathname),
-      usuario,
-      creditos: { ...creditos, onClick: () => router.push("/ajustes/facturacion") },
-      ...(pendientes ? { pendientes } : {}),
+      rutaActiva: datos.rutaActiva ?? rutaForzada ?? rutaActivaDe(pathname),
+      usuario: datos.usuario,
+      creditos: { ...datos.creditos, onClick: () => router.push("/ajustes/facturacion") },
+      ...(datos.pendientes ? { pendientes: datos.pendientes } : {}),
       linkComponent: Link,
       onUsuarioClick: () => router.push("/ajustes/cuenta"),
     },
   };
 }
 
-/** El menú de escritorio, con su botón de plegar. */
-export function MenuLateralApp(datos: DatosMenu) {
-  const { props } = useSidebarProps(datos);
+/** El armazón persistente: menú lateral a la izquierda, la página a la derecha. */
+export function ArmazonApp({ children, ...datosIniciales }: DatosMenu & { children: React.ReactNode }) {
+  const pathname = usePathname() ?? "/";
+  const [rutaForzada, setRutaForzada] = React.useState<Ruta | null>(null);
+  const [pendientesVivos, setPendientesVivos] = React.useState<number | null>(null);
+  const [rutaVista, setRutaVista] = React.useState(pathname);
+
+  // Lo que forzó una página no sobrevive a la navegación: la siguiente decide.
+  if (rutaVista !== pathname) {
+    setRutaVista(pathname);
+    setRutaForzada(null);
+  }
+
+  const datos: DatosMenu = {
+    ...datosIniciales,
+    ...(pendientesVivos !== null ? { pendientes: pendientesVivos } : {}),
+  };
+  const contexto = React.useMemo(
+    () => ({ datos, rutaForzada, setRutaForzada, setPendientesVivos }),
+    // `datos` cambia solo cuando cambian sus partes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [datosIniciales.usuario, datosIniciales.creditos, datosIniciales.pendientes, pendientesVivos, rutaForzada],
+  );
+
+  const { props } = usePropsDelMenu(datos, rutaForzada);
   const [colapsado, alternar] = useMenuColapsado();
-  return <Sidebar {...props} colapsado={colapsado} onAlternarColapso={alternar} />;
+
+  return (
+    <Armazon.Provider value={contexto}>
+      <div className="flex h-dvh w-full overflow-hidden bg-page">
+        <div className="hidden h-full md:flex">
+          <Sidebar {...props} colapsado={colapsado} onAlternarColapso={alternar} />
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      </div>
+    </Armazon.Provider>
+  );
+}
+
+function useArmazon(): ContextoArmazon {
+  const contexto = React.useContext(Armazon);
+  if (!contexto) throw new Error("MarcoApp tiene que ir dentro de ArmazonApp (el layout de la aplicación).");
+  return contexto;
+}
+
+/** Para pantallas con datos en vivo (la Bandeja): mantiene al día el contador del menú. */
+export function usePendientesDelMenu(pendientes: number): void {
+  const { setPendientesVivos } = useArmazon();
+  React.useEffect(() => {
+    setPendientesVivos(pendientes);
+  }, [pendientes, setPendientesVivos]);
+  React.useEffect(() => () => setPendientesVivos(null), [setPendientesVivos]);
 }
 
 /** El botón que abre el menú en pantallas estrechas. */
-export function BotonMenuMovilApp(datos: DatosMenu) {
-  const { pathname, props } = useSidebarProps(datos);
+export function BotonMenuMovilApp() {
+  const { datos, rutaForzada } = useArmazon();
+  const { pathname, props } = usePropsDelMenu(datos, rutaForzada);
   const [abierto, setAbierto] = React.useState(false);
   const [rutaVista, setRutaVista] = React.useState(pathname);
 
@@ -98,20 +147,50 @@ export function BotonMenuMovilApp(datos: DatosMenu) {
   );
 }
 
-export function MarcoApp({ titulo, contexto, acciones, children, ...datos }: MarcoAppProps) {
+export interface MarcoAppProps {
+  /** Se conservan por compatibilidad: el menú ya los recibe del layout. */
+  usuario?: DatosMenu["usuario"];
+  creditos?: DatosMenu["creditos"];
+  pendientes?: number;
+  /** Destino del menú a marcar cuando la URL no basta. */
+  rutaActiva?: Ruta;
+  titulo: React.ReactNode;
+  contexto?: React.ReactNode;
+  acciones?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+/** La barra superior y el contenido de una página. El menú ya está en el layout. */
+export function MarcoApp({ rutaActiva, titulo, contexto, acciones, children }: MarcoAppProps) {
+  const { setRutaForzada } = useArmazon();
+  React.useEffect(() => {
+    if (rutaActiva) setRutaForzada(rutaActiva);
+  }, [rutaActiva, setRutaForzada]);
+
   return (
-    <AppShell
-      nav={<MenuLateralApp {...datos} />}
-      topbar={
-        <Topbar
-          inicio={<BotonMenuMovilApp {...datos} />}
-          titulo={titulo}
-          {...(contexto ? { contexto } : {})}
-          {...(acciones ? { acciones } : {})}
-        />
-      }
-    >
-      {children}
-    </AppShell>
+    <>
+      <BarraApp titulo={titulo} {...(contexto ? { contexto } : {})} {...(acciones ? { acciones } : {})} />
+      <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+    </>
+  );
+}
+
+/** Solo la barra superior, para pantallas que montan su propio contenido (la Bandeja). */
+export function BarraApp({
+  titulo,
+  contexto,
+  acciones,
+}: {
+  titulo: React.ReactNode;
+  contexto?: React.ReactNode;
+  acciones?: React.ReactNode;
+}) {
+  return (
+    <Topbar
+      inicio={<BotonMenuMovilApp />}
+      titulo={titulo}
+      {...(contexto ? { contexto } : {})}
+      {...(acciones ? { acciones } : {})}
+    />
   );
 }

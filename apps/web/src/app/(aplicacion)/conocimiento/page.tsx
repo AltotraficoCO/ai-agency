@@ -11,7 +11,7 @@ export default function Pagina() {
       titulo="Conocimiento"
       encabezado="Tu agente aún no sabe nada de tu negocio"
       descripcion="Cuéntale a Strap tu catálogo, tus precios o la dirección de tu web y tu agente responderá con información real en lugar de inventar."
-      accion={{ etiqueta: "Enseñarle mi negocio", href: "/" }}
+      accion={{ etiqueta: "Enseñarle mi negocio", href: "/api/meta/empezar?intencion=conocimiento" }}
       accionSecundaria={{ etiqueta: "Ver mis agentes", href: "/agentes" }}
     />
   );

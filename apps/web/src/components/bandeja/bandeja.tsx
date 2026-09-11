@@ -26,7 +26,6 @@ import {
   WifiOff,
 } from "lucide-react";
 import {
-  AppShell,
   Avatar,
   Badge,
   Button,
@@ -42,14 +41,12 @@ import {
   Modal,
   ModalContent,
   Textarea,
-  Topbar,
-  rutas,
   toast,
   cn,
 } from "@strappy/ui";
 import type { Catalogos, ConversacionResumen, Etiqueta, Filtros, Hilo as HiloDatos } from "@/lib/bandeja/tipos";
 import { FILTROS_INICIALES } from "@/lib/bandeja/tipos";
-import { BotonMenuMovilApp, MenuLateralApp } from "@/components/marco-app";
+import { BarraApp, usePendientesDelMenu } from "@/components/marco-app";
 import * as api from "./api";
 import type { Contadores } from "./api";
 import { BarraControl } from "./barra-control";
@@ -75,6 +72,7 @@ export function Bandeja({ inicial }: { inicial: DatosIniciales }) {
   const [filtros, setFiltros] = React.useState<Filtros>(FILTROS_INICIALES);
   const [conversaciones, setConversaciones] = React.useState(inicial.conversaciones);
   const [contadores, setContadores] = React.useState(inicial.contadores);
+  usePendientesDelMenu(contadores["sin-leer"] ?? 0);
   const [cargandoLista, setCargandoLista] = React.useState(false);
   const [seleccionada, setSeleccionada] = React.useState<string | null>(null);
   const [hilo, setHilo] = React.useState<HiloDatos | null>(null);
@@ -349,25 +347,8 @@ export function Bandeja({ inicial }: { inicial: DatosIniciales }) {
   }, []);
 
   return (
-    <AppShell
-      nav={
-        <MenuLateralApp
-          rutaActiva={rutas.bandeja}
-          usuario={inicial.usuario}
-          creditos={inicial.creditos}
-          {...(contadores["sin-leer"] ? { pendientes: contadores["sin-leer"] } : {})}
-        />
-      }
-      topbar={
-        <Topbar
-          inicio={
-            <BotonMenuMovilApp
-              rutaActiva={rutas.bandeja}
-              usuario={inicial.usuario}
-              creditos={inicial.creditos}
-              {...(contadores["sin-leer"] ? { pendientes: contadores["sin-leer"] } : {})}
-            />
-          }
+    <>
+      <BarraApp
           contexto="WhatsApp"
           titulo="Bandeja"
           acciones={
@@ -379,8 +360,7 @@ export function Bandeja({ inicial }: { inicial: DatosIniciales }) {
             </>
           }
         />
-      }
-    >
+      <main className="min-h-0 flex-1 overflow-auto">
       <div className="flex h-full min-h-0 flex-col">
         {conexion === "caido" && (
           <div
@@ -549,7 +529,8 @@ export function Bandeja({ inicial }: { inicial: DatosIniciales }) {
           }
         }}
       />
-    </AppShell>
+      </main>
+    </>
   );
 }
 

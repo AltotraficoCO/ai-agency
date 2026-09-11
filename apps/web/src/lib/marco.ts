@@ -18,23 +18,24 @@ export async function datosDelMarco(): Promise<DatosMarco> {
   const actual = await exigirUsuarioActual();
 
   const { cartera, pendientes } = await conEspacio(actual.workspaceId, async (scope) => {
-    const [monedero, bandeja] = await Promise.all([
-      scope.query<{
-        included_balance: string;
-        purchased_balance: string;
-        included_granted: string;
-        period_end: string;
-      }>(
-        `select included_balance, purchased_balance, included_granted, period_end
-           from public.credit_wallets where workspace_id = $1`,
-        [scope.workspaceId],
-      ),
-      scope.query<{ n: string }>(
-        `select count(*) as n from public.conversations
-          where workspace_id = $1 and status = 'open' and unread_count > 0`,
-        [scope.workspaceId],
-      ),
-    ]);
+    // Una detrás de otra: `scope` es UNA conexión dentro de una transacción, y
+    // lanzarle dos consultas a la vez no las paraleliza (pg las encola) y además
+    // está deprecado. Esto corre en el layout, o sea en cada pantalla.
+    const monedero = await scope.query<{
+      included_balance: string;
+      purchased_balance: string;
+      included_granted: string;
+      period_end: string;
+    }>(
+      `select included_balance, purchased_balance, included_granted, period_end
+         from public.credit_wallets where workspace_id = $1`,
+      [scope.workspaceId],
+    );
+    const bandeja = await scope.query<{ n: string }>(
+      `select count(*) as n from public.conversations
+        where workspace_id = $1 and status = 'open' and unread_count > 0`,
+      [scope.workspaceId],
+    );
     return { cartera: monedero.rows[0], pendientes: Number(bandeja.rows[0]?.n ?? 0) };
   });
 

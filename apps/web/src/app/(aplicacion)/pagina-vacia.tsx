@@ -47,14 +47,19 @@ export async function PaginaVacia({
           action={
             accion ? (
               <Button asChild size="lg">
-                <Link href={accion.href}>{accion.etiqueta}</Link>
+                {/* Sin precarga: una acción puede crear algo (un hilo con Strap) y no debe ocurrir sin el clic. */}
+                <Link href={accion.href} prefetch={false}>
+                  {accion.etiqueta}
+                </Link>
               </Button>
             ) : undefined
           }
           secondaryAction={
             accionSecundaria ? (
               <Button asChild size="lg" variant="ghost">
-                <Link href={accionSecundaria.href}>{accionSecundaria.etiqueta}</Link>
+                <Link href={accionSecundaria.href} prefetch={false}>
+                  {accionSecundaria.etiqueta}
+                </Link>
               </Button>
             ) : undefined
           }

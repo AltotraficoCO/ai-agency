@@ -100,9 +100,19 @@ export interface TenantScope extends SqlExecutor {
 }
 
 function makeScope(conn: SqlExecutor, workspaceId: Uuid): TenantScope {
+  // Un scope es UNA conexion dentro de una transaccion: lo que se le lance con
+  // `Promise.all` no va en paralelo, pg lo encola solo... y hacerlo esta
+  // deprecado (desaparece en pg@9). Se encola aqui, en el unico sitio por el
+  // que pasa toda consulta con tenant, en vez de perseguir cada `Promise.all`.
+  // Un fallo no rompe la cola: cada consulta sigue devolviendo su propio error.
+  let cola: Promise<unknown> = Promise.resolve();
   return {
     workspaceId,
-    query: (text, values) => conn.query(text, values),
+    query: <T = Record<string, unknown>>(text: string, values?: readonly unknown[]) => {
+      const turno = cola.then(() => conn.query<T>(text, values));
+      cola = turno.catch(() => undefined);
+      return turno;
+    },
     assertSameWorkspace(other: Uuid) {
       if (other !== workspaceId) throw new TenantMismatchError(workspaceId, other);
     },
