@@ -86,6 +86,8 @@ export type FichaAgente = {
   nombre: string;
   descripcion: string | null;
   estado: ResumenAgente["estado"];
+  /** `conversational` atiende por WhatsApp; `task` trabaja por encargo para el negocio. */
+  tipo: string;
   modo: "lite" | "max";
   publicado: boolean;
   spec: EspecificacionAgente;
@@ -107,6 +109,7 @@ export async function leerAgente(
       name: string;
       description: string | null;
       status: FichaAgente["estado"];
+      agent_type: string;
       mode: "lite" | "max";
       active_version_id: string | null;
       spec: unknown;
@@ -115,7 +118,7 @@ export async function leerAgente(
       // El borrador gana sobre la version publicada: es lo que la persona
       // estaba escribiendo la ultima vez, y perderlo al recargar seria
       // imperdonable. La version publicada es lo que ejecuta el motor.
-      `select a.id, a.name, a.description, a.status, a.mode, a.active_version_id,
+      `select a.id, a.name, a.description, a.status, a.agent_type, a.mode, a.active_version_id,
               coalesce(b.spec, v.spec, ultima.spec, '{}'::jsonb) as spec,
               (b.spec is not null) as hay_borrador
          from public.agents a
@@ -140,6 +143,7 @@ export async function leerAgente(
       nombre: fila.name,
       descripcion: fila.description,
       estado: fila.status,
+      tipo: fila.agent_type,
       modo: fila.mode,
       publicado: Boolean(fila.active_version_id) && fila.status === "published",
       spec,

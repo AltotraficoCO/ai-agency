@@ -102,6 +102,8 @@ export {
 export { CreditsWidget, type CreditsWidgetProps } from "./layout/credits-widget";
 export { EncabezadoPagina, type EncabezadoPaginaProps } from "./layout/encabezado-pagina";
 export { MenuMovil, type MenuMovilProps } from "./layout/menu-movil";
+export { BotonTema } from "./layout/boton-tema";
+export { useMenuColapsado } from "./layout/menu-colapsado";
 export {
   IndicadorEscribiendo,
   type IndicadorEscribiendoProps,

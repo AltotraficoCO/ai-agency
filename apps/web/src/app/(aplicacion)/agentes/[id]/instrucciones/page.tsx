@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge } from "@strappy/ui";
+import { Badge, rutas } from "@strappy/ui";
 import { EnlaceBoton } from "@/components/enlace-boton";
 import { MarcoApp } from "@/components/marco-app";
 import { ConstructorAgente } from "@/components/constructor-agente";
@@ -19,13 +19,15 @@ export default async function PaginaInstrucciones({
   const marco = await datosDelMarco();
   const agente = await leerAgente(marco.actual.workspaceId, id);
   if (!agente) notFound();
+  const seccion = seccionDe(agente.tipo);
 
   return (
     <MarcoApp
       usuario={marco.usuario}
       creditos={marco.creditos}
       pendientes={marco.pendientes}
-      contexto={<Link href="/agentes">Agentes</Link>}
+      contexto={<Link href={seccion.href}>{seccion.etiqueta}</Link>}
+        rutaActiva={seccion.ruta}
       titulo={agente.nombre}
       acciones={
         <>
@@ -39,4 +41,11 @@ export default async function PaginaInstrucciones({
       <ConstructorAgente agentId={id} inicial={agente.spec} publicado={agente.publicado} />
     </MarcoApp>
   );
+}
+
+/** Un agente de WhatsApp vuelve a su módulo; uno por encargo, a los del negocio. */
+function seccionDe(tipo: string) {
+  return tipo === "conversational"
+    ? { href: rutas.agentesWhatsapp, etiqueta: "Agentes de WhatsApp", ruta: rutas.agentesWhatsapp }
+    : { href: rutas.agentes, etiqueta: "Agentes del negocio", ruta: rutas.agentes };
 }

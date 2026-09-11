@@ -14,7 +14,6 @@
  * acción, en lugar de adivinarse en el cliente.
  */
 import * as React from "react";
-import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -42,7 +41,6 @@ import {
   Input,
   Modal,
   ModalContent,
-  SidebarRail,
   Textarea,
   Topbar,
   rutas,
@@ -51,6 +49,7 @@ import {
 } from "@strappy/ui";
 import type { Catalogos, ConversacionResumen, Etiqueta, Filtros, Hilo as HiloDatos } from "@/lib/bandeja/tipos";
 import { FILTROS_INICIALES } from "@/lib/bandeja/tipos";
+import { BotonMenuMovilApp, MenuLateralApp } from "@/components/marco-app";
 import * as api from "./api";
 import type { Contadores } from "./api";
 import { BarraControl } from "./barra-control";
@@ -352,16 +351,23 @@ export function Bandeja({ inicial }: { inicial: DatosIniciales }) {
   return (
     <AppShell
       nav={
-        <SidebarRail
+        <MenuLateralApp
           rutaActiva={rutas.bandeja}
           usuario={inicial.usuario}
           creditos={inicial.creditos}
           {...(contadores["sin-leer"] ? { pendientes: contadores["sin-leer"] } : {})}
-          linkComponent={Link}
         />
       }
       topbar={
         <Topbar
+          inicio={
+            <BotonMenuMovilApp
+              rutaActiva={rutas.bandeja}
+              usuario={inicial.usuario}
+              creditos={inicial.creditos}
+              {...(contadores["sin-leer"] ? { pendientes: contadores["sin-leer"] } : {})}
+            />
+          }
           contexto="WhatsApp"
           titulo="Bandeja"
           acciones={

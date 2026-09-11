@@ -2,6 +2,8 @@ import {
   ChartColumn,
   BookOpen,
   Bot,
+  BotMessageSquare,
+  BriefcaseBusiness,
   Inbox,
   House,
   MessageCircle,
@@ -17,6 +19,7 @@ import {
  */
 export const rutas = {
   inicio: "/",
+  agentesWhatsapp: "/whatsapp/agentes",
   bandeja: "/bandeja",
   agentes: "/agentes",
   contactos: "/contactos",
@@ -62,7 +65,12 @@ export function esGrupoNav(entrada: EntradaNav): entrada is GrupoNav {
 }
 
 const inicio: DestinoNav = { id: "inicio", etiqueta: "Inicio", href: rutas.inicio, icono: House };
-const agentes: DestinoNav = { id: "agentes", etiqueta: "Agentes", href: rutas.agentes, icono: Bot };
+const agentesWhatsapp: DestinoNav = {
+  id: "agentesWhatsapp",
+  etiqueta: "Agentes de WhatsApp",
+  href: rutas.agentesWhatsapp,
+  icono: BotMessageSquare,
+};
 const bandeja: DestinoNav = {
   id: "bandeja",
   etiqueta: "Bandeja",
@@ -83,20 +91,33 @@ const analitica: DestinoNav = {
   href: rutas.analitica,
   icono: ChartColumn,
 };
+const agentesNegocio: DestinoNav = {
+  id: "agentes",
+  etiqueta: "Agentes del negocio",
+  href: rutas.agentes,
+  icono: Bot,
+};
 
 /**
  * El menú, en el orden en que se lee.
  *
+ * Dos módulos que no se mezclan. WhatsApp es la atención a clientes: los
+ * agentes que contestan (los que crea Strap y la Recepcionista), la bandeja,
+ * los contactos, lo que saben y cómo les va. Negocio son los agentes que
+ * trabajan por encargo para la empresa, como el Webmaster o Marketing.
+ *
  * Canales no está aquí a propósito: WhatsApp se conecta una vez y luego no se
- * vuelve a tocar, así que vive en Ajustes junto a la cuenta y la facturación en
- * vez de ocupar un sitio en el menú de todos los días.
+ * vuelve a tocar, así que vive en Ajustes.
  */
 export const menuPrincipal: readonly EntradaNav[] = [
   inicio,
-  agentes,
-  { id: "whatsapp", etiqueta: "WhatsApp", icono: MessageCircle, destinos: [bandeja, contactos] },
-  conocimiento,
-  analitica,
+  {
+    id: "whatsapp",
+    etiqueta: "WhatsApp",
+    icono: MessageCircle,
+    destinos: [agentesWhatsapp, bandeja, contactos, conocimiento, analitica],
+  },
+  { id: "negocio", etiqueta: "Negocio", icono: BriefcaseBusiness, destinos: [agentesNegocio] },
 ];
 
 /** Los mismos destinos del menú, sin agrupar. */

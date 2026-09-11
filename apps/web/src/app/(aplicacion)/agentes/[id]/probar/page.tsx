@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { EmptyState } from "@strappy/ui";
+import { EmptyState, rutas } from "@strappy/ui";
 import { EncargosWebmaster } from "@/components/encargos-webmaster";
 import { EnlaceBoton } from "@/components/enlace-boton";
 import { MarcoApp } from "@/components/marco-app";
@@ -27,6 +27,7 @@ export default async function PaginaProbar({ params }: { params: Promise<{ id: s
   const marco = await datosDelMarco();
   const agente = await leerAgente(marco.actual.workspaceId, id);
   if (!agente) notFound();
+  const seccion = seccionDe(agente.tipo);
   const nombreAgente = agente.spec.identidad.nombre || agente.nombre;
 
   // El Webmaster no se prueba conversando: se le encargan cambios reales en el
@@ -42,7 +43,8 @@ export default async function PaginaProbar({ params }: { params: Promise<{ id: s
         usuario={marco.usuario}
         creditos={marco.creditos}
         pendientes={marco.pendientes}
-        contexto={<Link href="/agentes">Agentes</Link>}
+        contexto={<Link href={seccion.href}>{seccion.etiqueta}</Link>}
+        rutaActiva={seccion.ruta}
         titulo={`Encargos · ${agente.nombre}`}
       >
         <EncargosWebmaster
@@ -75,7 +77,8 @@ export default async function PaginaProbar({ params }: { params: Promise<{ id: s
       usuario={marco.usuario}
       creditos={marco.creditos}
       pendientes={marco.pendientes}
-      contexto={<Link href="/agentes">Agentes</Link>}
+      contexto={<Link href={seccion.href}>{seccion.etiqueta}</Link>}
+        rutaActiva={seccion.ruta}
       titulo={`Probar · ${agente.nombre}`}
       acciones={
         <EnlaceBoton size="sm" variant="ghost" href={`/agentes/${id}/instrucciones`}>
@@ -108,4 +111,11 @@ export default async function PaginaProbar({ params }: { params: Promise<{ id: s
       )}
     </MarcoApp>
   );
+}
+
+/** Un agente de WhatsApp vuelve a su módulo; uno por encargo, a los del negocio. */
+function seccionDe(tipo: string) {
+  return tipo === "conversational"
+    ? { href: rutas.agentesWhatsapp, etiqueta: "Agentes de WhatsApp", ruta: rutas.agentesWhatsapp }
+    : { href: rutas.agentes, etiqueta: "Agentes del negocio", ruta: rutas.agentes };
 }
