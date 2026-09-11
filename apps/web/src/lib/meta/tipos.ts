@@ -165,6 +165,8 @@ export type ChipIntencion = {
   readonly etiqueta: string;
   readonly mensaje: string;
   readonly icono: "bot" | "whatsapp" | "catalogo" | "catalogo-agentes";
+  /** Una línea bajo el título de la tarjeta: qué pasa si la pulsas. */
+  readonly descripcion: string;
   /**
    * Lo que Strap no construye no se le pide a Strap: el chip lleva directo a
    * la pantalla donde se hace, en vez de abrir un hilo para decir «aquí no».
@@ -176,18 +178,21 @@ export const CHIPS_INTENCION: readonly ChipIntencion[] = [
   {
     id: "crear-agente",
     etiqueta: "Crear un agente para WhatsApp",
+    descripcion: "Atiende a tus clientes, responde dudas y toma sus datos.",
     mensaje: "Quiero crear un agente que atienda a mis clientes por WhatsApp.",
     icono: "bot",
   },
   {
     id: "subir-catalogo",
     etiqueta: "Que conozca mi catálogo y precios",
+    descripcion: "Le enseñas tu negocio y responde con datos reales.",
     mensaje: "Quiero un agente de WhatsApp que conozca mi catálogo y mis precios.",
     icono: "catalogo",
   },
   {
     id: "conectar-whatsapp",
     etiqueta: "Conectar mi WhatsApp",
+    descripcion: "Vincula tu número de WhatsApp Business en un minuto.",
     mensaje: "",
     icono: "whatsapp",
     href: "/ajustes/canales",
@@ -195,6 +200,7 @@ export const CHIPS_INTENCION: readonly ChipIntencion[] = [
   {
     id: "contratar",
     etiqueta: "Ver Webmaster, Marketing y más",
+    descripcion: "Agentes listos que trabajan por encargo para tu empresa.",
     mensaje: "",
     icono: "catalogo-agentes",
     href: "/agentes",

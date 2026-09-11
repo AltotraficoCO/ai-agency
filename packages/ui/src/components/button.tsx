@@ -10,7 +10,7 @@ import { Spinner } from "./spinner";
 const buttonVariants = cva(
   cn(
     "relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap",
-    "rounded-md font-medium transition-[color,background-color,border-color,box-shadow] duration-[var(--dur-fast)]",
+    "cursor-pointer rounded-md font-medium transition-[color,background-color,border-color,box-shadow,transform] duration-[var(--dur-fast)] active:scale-[0.98] motion-reduce:active:scale-100",
     "disabled:pointer-events-none disabled:opacity-45",
     "[&_svg]:shrink-0",
     focusRing,

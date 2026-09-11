@@ -8,6 +8,7 @@
  * navegador hace lo que se espera. Un `useState` aquí rompe las tres cosas.
  */
 import * as React from "react";
+import { CalendarDays } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button, Input, Popover, PopoverContent, PopoverTrigger, SegmentedControl } from "@strappy/ui";
 import { ATAJOS, etiquetaDeRango, type ClaveAtajo, type RangoDias } from "@/lib/negocio/fechas";
@@ -51,6 +52,7 @@ export function SelectorFechas({ rango, atajo }: { rango: RangoDias; atajo: Clav
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="secondary" size="sm">
+            <CalendarDays size={14} strokeWidth={2} aria-hidden />
             {atajo ? "Otras fechas" : etiquetaDeRango(rango)}
           </Button>
         </PopoverTrigger>
@@ -70,7 +72,6 @@ export function SelectorFechas({ rango, atajo }: { rango: RangoDias; atajo: Clav
           </div>
         </PopoverContent>
       </Popover>
-      <span className="text-sm text-fg-muted">{etiquetaDeRango(rango)}</span>
     </div>
   );
 }

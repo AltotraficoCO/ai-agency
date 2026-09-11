@@ -3,8 +3,8 @@
 /**
  * El composer y el selector de modo.
  *
- * Noventa y seis píxeles de alto, radio 18 y el borde que se tiñe de marca al
- * enfocar. Es alto a propósito: invita a escribir una frase de verdad —«quiero
+ * Noventa y seis píxeles de alto, radio 2xl y el borde que se tiñe de marca y
+ * brilla al enfocar. Es alto a propósito: invita a escribir una frase de verdad —«quiero
  * que atienda pedidos de mi panadería por WhatsApp»— y no una palabra suelta.
  * Un composer de una línea produce mensajes de una línea.
  *
@@ -51,10 +51,9 @@ export function Composer({
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 border bg-raised p-3 transition-colors duration-[--dur-base]",
-        enfocado ? "border-primary shadow-e2" : "border-border",
+        "flex flex-col gap-2 rounded-2xl border bg-raised p-3 transition-[border-color,box-shadow] duration-[--dur-base]",
+        enfocado ? "border-primary shadow-glow" : "border-border hover:border-border-strong",
       )}
-      style={{ borderRadius: 18 }}
     >
       <textarea
         value={valor}
@@ -164,7 +163,7 @@ function BotonModo({
         aria-checked={activo}
         onClick={onClick}
         className={cn(
-          "inline-flex h-7 items-center gap-1 rounded-full px-3 text-sm transition-colors duration-[--dur-fast]",
+          "inline-flex h-7 cursor-pointer items-center gap-1 rounded-full px-3 text-sm transition-colors duration-[--dur-fast]",
           activo
             ? "bg-primary text-on-primary"
             : "text-fg-secondary hover:bg-hover hover:text-fg",

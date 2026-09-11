@@ -11,7 +11,7 @@ export function Card({ className, interactive, ...props }: CardProps) {
       className={cn(
         "rounded-xl border border-border bg-raised shadow-e1",
         interactive &&
-          "cursor-pointer transition-colors duration-[var(--dur-fast)] hover:border-border-strong hover:bg-hover",
+          "cursor-pointer transition-[transform,border-color,background-color,box-shadow] duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:-translate-y-0.5 hover:border-[color-mix(in_oklab,var(--brand),transparent_55%)] hover:bg-hover hover:shadow-e2 motion-reduce:hover:translate-y-0",
         className,
       )}
       {...props}

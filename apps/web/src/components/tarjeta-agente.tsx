@@ -3,11 +3,9 @@
 /**
  * Las tarjetas de la pantalla de Agentes.
  *
- * Cada agente del catálogo tiene su personaje, y un punto que dice la verdad:
- * verde si atiende o trabaja ahora mismo, gris si todavía no hace nada. Toda la
- * tarjeta abre el agente; el menú guarda lo secundario. La de contratar va
- * siempre primera: añadir un agente es la acción de esta pantalla, no un botón
- * escondido en la barra.
+ * Cada agente del catálogo tiene su personaje y un estado que se lee en texto,
+ * no solo en un punto de color: «Activo», «Borrador», «En pausa». Toda la
+ * tarjeta abre el agente; el menú guarda lo secundario.
  *
  * Los personajes vienen con fondo transparente y de cuerpo entero: se muestran
  * enteros sobre un halo, sin recortarlos en círculo, que les cortaría la gorra
@@ -16,8 +14,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bot, EllipsisVertical, Plus } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@strappy/ui";
+import { ArrowRight, Bot, EllipsisVertical } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, cn } from "@strappy/ui";
 
 type Papel = { nombre: string; imagen?: string; halo: string };
 
@@ -41,9 +39,13 @@ const PAPELES: Record<string, Papel> = {
 
 /** Los agentes propios no tienen personaje todavía: un robot sobre un degradado. */
 const PROPIO: Papel = {
-  nombre: "Agente propio",
+  nombre: "Agente de WhatsApp",
   halo: "radial-gradient(circle, rgba(57,255,20,0.22) 0%, rgba(57,255,20,0) 70%)",
 };
+
+/** Hover común: se eleva un poco y el borde se tiñe de marca. Sin mover el layout. */
+const TARJETA =
+  "group relative flex aspect-[4/5] cursor-pointer flex-col rounded-xl border p-4 transition-[transform,border-color,background-color,box-shadow] duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:-translate-y-0.5 hover:shadow-e2 motion-reduce:hover:translate-y-0";
 
 export type DatosTarjetaAgente = {
   id: string;
@@ -60,13 +62,31 @@ export function TarjetaAgente({ agente, destino }: { agente: DatosTarjetaAgente;
   const estado = agente.activo ? "Activo" : agente.estado === "paused" ? "En pausa" : "Borrador";
 
   return (
-    <div className="group relative flex aspect-[4/5] flex-col rounded-xl border border-[var(--border-subtle)] bg-inset p-4 transition-colors hover:border-[var(--border-strong)] hover:bg-hover">
+    <div
+      className={cn(
+        TARJETA,
+        "border-border bg-raised hover:border-[color-mix(in_oklab,var(--brand),transparent_55%)] hover:bg-hover",
+      )}
+    >
       {/* El enlace cubre la tarjeta; el menú va por encima para no anidar elementos interactivos. */}
       <Link
         href={destino}
         aria-label={`Abrir ${agente.nombre}`}
-        className="absolute inset-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-strong)]"
+        className="absolute inset-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
       />
+
+      <span
+        className={cn(
+          "pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-2xs font-medium",
+          agente.activo ? "bg-success-soft text-success-fg" : "bg-hover text-fg-muted",
+        )}
+      >
+        <span
+          aria-hidden
+          className={cn("size-1.5 rounded-full", agente.activo ? "animate-pulse bg-success" : "bg-fg-muted")}
+        />
+        {estado}
+      </span>
 
       <div className="absolute right-2 top-2 z-10">
         <DropdownMenu>
@@ -74,13 +94,14 @@ export function TarjetaAgente({ agente, destino }: { agente: DatosTarjetaAgente;
             <button
               type="button"
               aria-label={`Opciones de ${agente.nombre}`}
-              className="grid size-8 place-items-center rounded-md text-fg-muted transition-colors hover:bg-active hover:text-fg"
+              className="grid size-8 cursor-pointer place-items-center rounded-md text-fg-muted transition-colors hover:bg-active hover:text-fg"
             >
               <EllipsisVertical size={16} strokeWidth={1.75} aria-hidden />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={() => router.push(destino)}>Abrir</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push(`/agentes/${agente.id}/probar`)}>Probar</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => router.push(`/agentes/${agente.id}/instrucciones`)}>
               Instrucciones
             </DropdownMenuItem>
@@ -89,41 +110,58 @@ export function TarjetaAgente({ agente, destino }: { agente: DatosTarjetaAgente;
       </div>
 
       <div className="pointer-events-none flex flex-1 items-center justify-center">
-        <span className="relative grid size-32 place-items-center">
-          <span aria-hidden className="absolute inset-0 rounded-full" style={{ background: papel.halo }} />
-          {papel.imagen ? (
-            <Image
-              src={papel.imagen}
-              alt=""
-              width={160}
-              height={160}
-              sizes="160px"
-              className="relative size-36 object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.45)] transition-transform duration-[var(--dur-base)] group-hover:-translate-y-1 motion-reduce:transition-none"
-            />
-          ) : (
-            <span className="relative grid size-20 place-items-center rounded-full bg-[linear-gradient(135deg,#39ff14_0%,#0080ff_100%)] text-black shadow-lg ring-1 ring-white/10">
-              <Bot size={34} strokeWidth={1.75} aria-hidden />
-            </span>
-          )}
-          <span
-            title={estado}
-            className={`absolute bottom-2 right-2 size-4 rounded-full border-[3px] border-black/40 ${
-              agente.activo ? "bg-success" : "bg-[var(--border-strong)]"
-            }`}
-          >
-            <span className="sr-only">{estado}</span>
-          </span>
-        </span>
+        <Retrato papel={papel} />
       </div>
 
-      <div className="pointer-events-none min-w-0">
-        <p className="truncate text-base font-semibold text-fg">{agente.nombre}</p>
-        <p className="truncate text-2xs text-fg-muted">
-          {papel.nombre} · {agente.modo === "max" ? "Max" : "Lite"}
-          {agente.activo ? "" : ` · ${estado}`}
-        </p>
+      <div className="pointer-events-none flex min-w-0 items-end justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-base font-semibold text-fg">{agente.nombre}</p>
+          <p className="truncate text-2xs text-fg-muted">
+            {papel.nombre} · {agente.modo === "max" ? "Max" : "Lite"}
+          </p>
+        </div>
+        <ArrowRight
+          size={16}
+          strokeWidth={2}
+          aria-hidden
+          className="shrink-0 -translate-x-1 text-primary-fg opacity-0 transition duration-[var(--dur-base)] group-hover:translate-x-0 group-hover:opacity-100"
+        />
       </div>
     </div>
+  );
+}
+
+function Retrato({ papel, apagado = false }: { papel: Papel; apagado?: boolean }) {
+  return (
+    <span className="relative grid size-32 place-items-center">
+      {!apagado && <span aria-hidden className="absolute inset-0 rounded-full" style={{ background: papel.halo }} />}
+      {papel.imagen ? (
+        <Image
+          src={papel.imagen}
+          alt=""
+          width={160}
+          height={160}
+          sizes="160px"
+          className={cn(
+            "relative size-36 object-contain transition duration-[var(--dur-base)] motion-reduce:transition-none",
+            apagado
+              ? "opacity-50 grayscale group-hover:opacity-100 group-hover:grayscale-0"
+              : "drop-shadow-[0_8px_16px_rgba(0,0,0,0.45)] group-hover:-translate-y-1",
+          )}
+        />
+      ) : (
+        <span
+          className={cn(
+            "relative grid size-20 place-items-center rounded-full",
+            apagado
+              ? "bg-hover text-fg-muted"
+              : "bg-[linear-gradient(135deg,#39ff14_0%,#0080ff_100%)] text-black shadow-lg ring-1 ring-white/10",
+          )}
+        >
+          <Bot size={34} strokeWidth={1.75} aria-hidden />
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -147,29 +185,17 @@ export function TarjetaCatalogo({ ficha }: { ficha: DatosTarjetaCatalogo }) {
   return (
     <Link
       href={`/contratar/${ficha.slug}`}
-      className="group relative flex aspect-[4/5] flex-col rounded-xl border border-dashed border-[var(--border-subtle)] p-4 transition-colors hover:border-[var(--border-strong)] hover:bg-hover"
+      className={cn(
+        TARJETA,
+        "border-dashed border-border hover:border-solid hover:border-[color-mix(in_oklab,var(--brand),transparent_55%)] hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]",
+      )}
     >
       <span className="absolute left-3 top-3 rounded-full bg-hover px-2 py-0.5 text-2xs text-fg-muted">
         Sin contratar
       </span>
 
       <div className="flex flex-1 items-center justify-center">
-        <span className="relative grid size-32 place-items-center">
-          {papel.imagen ? (
-            <Image
-              src={papel.imagen}
-              alt=""
-              width={160}
-              height={160}
-              sizes="160px"
-              className="size-36 object-contain opacity-50 grayscale transition duration-[var(--dur-base)] group-hover:opacity-100 group-hover:grayscale-0 motion-reduce:transition-none"
-            />
-          ) : (
-            <span className="grid size-20 place-items-center rounded-full bg-hover text-fg-muted">
-              <Bot size={34} strokeWidth={1.75} aria-hidden />
-            </span>
-          )}
-        </span>
+        <Retrato papel={papel} apagado />
       </div>
 
       <div className="min-w-0">
@@ -177,22 +203,16 @@ export function TarjetaCatalogo({ ficha }: { ficha: DatosTarjetaCatalogo }) {
           {ficha.nombre}
         </p>
         <p className="truncate text-2xs text-fg-muted">{ficha.tagline ?? papel.nombre}</p>
-        <p className="mt-2 text-2xs font-medium text-primary-fg">
+        <p className="mt-2 inline-flex items-center gap-1 text-2xs font-semibold text-primary-fg">
           Contratar{ficha.costeUsd > 0 ? ` · ${usd.format(ficha.costeUsd)}/mes` : ""}
+          <ArrowRight
+            size={12}
+            strokeWidth={2.5}
+            aria-hidden
+            className="transition-transform duration-[var(--dur-base)] group-hover:translate-x-0.5"
+          />
         </p>
       </div>
-    </Link>
-  );
-}
-
-export function TarjetaContratar() {
-  return (
-    <Link
-      href="/contratar"
-      className="flex aspect-[4/5] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border-strong)] text-fg-muted transition-colors hover:bg-hover hover:text-fg"
-    >
-      <Plus size={28} strokeWidth={1.5} aria-hidden />
-      <span className="text-sm">Contratar agente</span>
     </Link>
   );
 }

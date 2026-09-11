@@ -22,7 +22,7 @@ import * as React from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from "ai";
 import { CircleAlert, RotateCcw } from "lucide-react";
-import { Button, Spinner } from "@strappy/ui";
+import { Button, IndicadorEscribiendo, Spinner } from "@strappy/ui";
 import type {
   ModoConstruccion,
   SalidaHerramientaStrap,
@@ -39,6 +39,7 @@ import {
   EstilosDeStrap,
   type RespuestaDeBloque,
 } from "./partes";
+import { TextoStrap, limpiarTextoStrap } from "./texto-strap";
 
 export interface HiloProps {
   hiloId: string;
@@ -148,10 +149,12 @@ export function Hilo({
             />
           ))}
 
-          {status === "submitted" ? (
-            <div className="flex items-center gap-3 text-fg-muted">
-              <Orbe size={32} pose="construyendo" />
-              <Spinner label="Strap está trabajando" />
+          {esperandoRespuesta(status, ultimo) ? (
+            <div className="strappy-fade-in flex items-start gap-3">
+              <Orbe size={32} pose="construyendo" quieto />
+              <span className="rounded-2xl rounded-tl-md border border-border bg-raised px-4 py-3.5">
+                <IndicadorEscribiendo etiqueta="Strap está escribiendo" />
+              </span>
             </div>
           ) : null}
 
@@ -238,8 +241,8 @@ function Mensaje({
 }) {
   if (mensaje.role === "user") {
     return (
-      <div className="flex justify-end">
-        <p className="max-w-[80%] rounded-2xl bg-selected px-4 py-2.5 text-md text-fg">
+      <div className="strappy-slide-up flex justify-end">
+        <p className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-selected px-4 py-2.5 text-md text-fg">
           {textoDe(mensaje)}
         </p>
       </div>
@@ -247,7 +250,7 @@ function Mensaje({
   }
 
   return (
-    <div className="flex gap-3">
+    <div className="strappy-slide-up flex gap-3">
       <Orbe size={32} pose="esperando" quieto={!ocupado} className="mt-0.5" />
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         {mensaje.parts.map((parte, indice) => (
@@ -283,8 +286,12 @@ function ParteDelAgente({
   onEditar: (clave: string, valor: string) => void;
 }) {
   if (parte.type === "text") {
-    if (parte.text.trim().length === 0) return null;
-    return <p className="whitespace-pre-wrap text-md text-fg">{parte.text}</p>;
+    if (limpiarTextoStrap(parte.text).length === 0) return null;
+    return (
+      <div className="w-fit max-w-full rounded-2xl rounded-tl-md border border-border bg-raised px-4 py-2.5">
+        <TextoStrap texto={parte.text} />
+      </div>
+    );
   }
 
   if (!isToolUIPart(parte)) return null;
@@ -296,7 +303,7 @@ function ParteDelAgente({
     // sigue trabajando, lo cuenta el aviso de abajo.
     if (!enCurso) return null;
     return (
-      <p className="inline-flex items-center gap-2 text-base text-fg-muted">
+      <p className="strappy-fade-in inline-flex w-fit items-center gap-2 rounded-full border border-border bg-inset px-3 py-1.5 text-sm text-fg-secondary">
         <Spinner size="sm" label="" />
         {enMarcha(parte.type)}
       </p>
@@ -363,10 +370,25 @@ const SALIDAS_VISIBLES = new Set(["preguntas", "checklist", "tarjeta", "progreso
  * o en un mensaje de la persona sin respuesta es un turno cortado, aunque el
  * chat diga que ya terminó.
  */
+/**
+ * Los tres puntos salen mientras no hay nada que leer: al enviar, y durante el
+ * stream hasta que llega la primera palabra o empieza una herramienta (que ya
+ * dice lo que hace con su propia etiqueta).
+ */
+function esperandoRespuesta(status: string, ultimo: UIMessage | undefined): boolean {
+  if (status === "submitted") return true;
+  if (status !== "streaming") return false;
+  if (!ultimo || ultimo.role !== "assistant") return true;
+  return !ultimo.parts.some(
+    (parte) =>
+      (parte.type === "text" && limpiarTextoStrap(parte.text).length > 0) || isToolUIPart(parte),
+  );
+}
+
 function terminoBien(mensaje: UIMessage): boolean {
   if (mensaje.role !== "assistant") return false;
   return mensaje.parts.some((parte) => {
-    if (parte.type === "text") return parte.text.trim().length > 0;
+    if (parte.type === "text") return limpiarTextoStrap(parte.text).length > 0;
     if (!isToolUIPart(parte) || parte.state !== "output-available") return false;
     const salida = parte.output as { tipo?: unknown } | undefined;
     return typeof salida?.tipo === "string" && SALIDAS_VISIBLES.has(salida.tipo);

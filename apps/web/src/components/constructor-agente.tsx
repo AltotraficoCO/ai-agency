@@ -3,32 +3,35 @@
 /**
  * El constructor de agentes.
  *
- * La tesis de la pantalla, y por eso las dos columnas están pegadas: los
- * formularios de la izquierda ESCRIBEN el prompt de la derecha. Al enfocar un
- * campo se resalta la sección que ese campo produce. Nadie tiene que explicar
- * qué es un prompt; se ve.
+ * Pensado para quien no sabe qué es un prompt, ni tiene por qué saberlo: lo
+ * principal es un formulario en tarjetas con preguntas en su idioma —cómo se
+ * llama, qué hace, qué no hace, cuándo te pasa la conversación—. Esas
+ * respuestas escriben las instrucciones que el agente lee de verdad.
  *
- * El editor es de verdad, no una vista previa: si alguien escribe directamente
- * en él, sus palabras ganan sobre lo que compondrían los formularios, y la
- * interfaz lo dice en lugar de sobrescribirlas en silencio.
+ * Las instrucciones compiladas, con sus `##` y sus `**`, siguen ahí para quien
+ * las quiera tocar, pero detrás de «Ver instrucciones técnicas». Si alguien las
+ * edita a mano, sus palabras ganan sobre lo que compondría el formulario, y la
+ * pantalla lo avisa arriba en vez de sobrescribirlas en silencio.
  */
 import * as React from "react";
-import { Sparkles, Undo2 } from "lucide-react";
+import {
+  ChevronDown,
+  Code2,
+  Hand,
+  ListChecks,
+  MessageSquareText,
+  Plus,
+  ShieldX,
+  Sparkles,
+  Undo2,
+  UserRound,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { Decoration, EditorView } from "@codemirror/view";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-  Badge,
-  Button,
-  Field,
-  Input,
-  Textarea,
-  toast,
-} from "@strappy/ui";
+import { Badge, Button, Field, Input, Textarea, cn, toast } from "@strappy/ui";
 // Del subpaquete `spec`, no del barril: `@strappy/db` arrastra `node:crypto` y
 // `node:dns`, y esto es un componente de cliente.
 import {
@@ -53,6 +56,8 @@ export function ConstructorAgente({ agentId, inicial, publicado }: ConstructorAg
   const [seccion, setSeccion] = React.useState<ClaveSeccion | null>(null);
   const [guardando, setGuardando] = React.useState(false);
   const [publicando, setPublicando] = React.useState(false);
+  const [tecnicas, setTecnicas] = React.useState(false);
+  const [sucio, setSucio] = React.useState(false);
   const editor = React.useRef<ReactCodeMirrorRef>(null);
 
   const compuesto = React.useMemo(() => componerInstrucciones(spec), [spec]);
@@ -66,113 +71,160 @@ export function ConstructorAgente({ agentId, inicial, publicado }: ConstructorAg
     [rango],
   );
 
-  // Al enfocar un campo, el prompt se desplaza a la sección que ese campo escribe.
+  // Con las instrucciones técnicas abiertas, enfocar un campo lleva a la
+  // sección que ese campo escribe.
   React.useEffect(() => {
-    if (!rango) return;
+    if (!rango || !tecnicas) return;
     const vista = editor.current?.view;
     if (!vista) return;
     const linea = Math.min(rango.desde, vista.state.doc.lines);
     vista.dispatch({
-      effects: EditorView.scrollIntoView(vista.state.doc.line(linea).from, { y: "start" }),
+      effects: EditorView.scrollIntoView(vista.state.doc.line(linea).from, { y: "center" }),
     });
-  }, [rango]);
+  }, [rango, tecnicas]);
 
   const actualizar = React.useCallback((cambio: Partial<EspecificacionAgente>) => {
     setSpec((previo) => ({ ...previo, ...cambio }));
+    setSucio(true);
   }, []);
 
   async function alGuardar() {
     setGuardando(true);
     const resultado = await guardarBorrador(agentId, conManual(spec, manual));
     setGuardando(false);
-    if (resultado.ok) toast.success("Borrador guardado.");
-    else toast.error(resultado.error);
+    if (resultado.ok) {
+      setSucio(false);
+      toast.success("Borrador guardado.");
+    } else toast.error(resultado.error);
   }
 
   async function alPublicar() {
     setPublicando(true);
     const resultado = await publicarAgente(agentId, conManual(spec, manual));
     setPublicando(false);
-    if (resultado.ok) toast.success("Publicado. El agente ya atiende con estas instrucciones.");
-    else toast.error(resultado.error);
+    if (resultado.ok) {
+      setSucio(false);
+      toast.success("Publicado. El agente ya atiende con estas instrucciones.");
+    } else toast.error(resultado.error);
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)]">
-      {/* ── Izquierda: los formularios que escriben el prompt ─────────────── */}
-      <aside className="min-h-0 overflow-y-auto border-r border-border p-4">
-        <Accordion type="multiple" defaultValue={["identidad", "hace"]}>
-          <AccordionItem value="identidad">
-            <AccordionTrigger>{SECCIONES.identidad}</AccordionTrigger>
-            <AccordionContent className="flex flex-col gap-3">
-              <Field label="Cómo se llama">
-                {(campo) => (
-                  <Input {...campo}
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 py-8">
+          <div className="strappy-slide-up flex flex-col gap-1">
+            <h2 className="text-2xl font-semibold tracking-tight text-fg">Cómo trabaja tu agente</h2>
+            <p className="text-base text-fg-secondary">
+              Responde con tus palabras. Con esto se escriben las instrucciones que tu agente sigue en cada
+              conversación.
+            </p>
+          </div>
+
+          {manual ? (
+            <div
+              role="status"
+              className="flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning-soft px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <p className="text-sm text-warning-fg">
+                Editaste las instrucciones técnicas a mano. Mientras sea así, los cambios de este formulario no
+                se aplican.
+              </p>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="w-fit shrink-0"
+                onClick={() => {
+                  setManual(null);
+                  setSucio(true);
+                  toast.success("Vuelve a escribirlas el formulario.");
+                }}
+              >
+                <Undo2 size={16} aria-hidden />
+                Volver al formulario
+              </Button>
+            </div>
+          ) : null}
+
+          <Seccion
+            icono={UserRound}
+            titulo={SECCIONES.identidad}
+            descripcion="Su nombre, para qué existe y cómo le habla a tus clientes."
+            activa={seccion === "identidad"}
+          >
+            <Field label="Cómo se llama">
+              {(campo) => (
+                <Input
+                  {...campo}
                   value={spec.identidad.nombre}
                   placeholder="Espiga"
                   onFocus={() => setSeccion("identidad")}
-                  onChange={(e) =>
-                    actualizar({ identidad: { ...spec.identidad, nombre: e.target.value } })
-                  }
+                  onChange={(e) => actualizar({ identidad: { ...spec.identidad, nombre: e.target.value } })}
                 />
-                )}
-              </Field>
-              <Field label="Para qué existe" help="Una frase. «atender a quien escribe y no dejar a nadie sin respuesta».">
-                {(campo) => (
-                  <Textarea {...campo}
+              )}
+            </Field>
+            <Field label="Para qué existe" help="Una frase. «atender a quien escribe y no dejar a nadie sin respuesta».">
+              {(campo) => (
+                <Textarea
+                  {...campo}
                   rows={2}
                   value={spec.identidad.proposito}
                   onFocus={() => setSeccion("identidad")}
-                  onChange={(e) =>
-                    actualizar({ identidad: { ...spec.identidad, proposito: e.target.value } })
-                  }
+                  onChange={(e) => actualizar({ identidad: { ...spec.identidad, proposito: e.target.value } })}
                 />
-                )}
-              </Field>
-              <Field label="Cómo habla" help="Con tus palabras: «cercano y breve, tutea, sin tecnicismos».">
-                {(campo) => (
-                  <Textarea {...campo}
+              )}
+            </Field>
+            <Field label="Cómo habla" help="Con tus palabras: «cercano y breve, tutea, sin tecnicismos».">
+              {(campo) => (
+                <Textarea
+                  {...campo}
                   rows={2}
                   value={spec.identidad.tono}
                   onFocus={() => setSeccion("identidad")}
-                  onChange={(e) =>
-                    actualizar({ identidad: { ...spec.identidad, tono: e.target.value } })
-                  }
+                  onChange={(e) => actualizar({ identidad: { ...spec.identidad, tono: e.target.value } })}
                 />
-                )}
-              </Field>
-            </AccordionContent>
-          </AccordionItem>
+              )}
+            </Field>
+          </Seccion>
 
-          <AccordionItem value="hace">
-            <AccordionTrigger>{SECCIONES.hace}</AccordionTrigger>
-            <AccordionContent>
-              <ListaEditable
-                valores={spec.hace}
-                marcador="Responde dudas sobre precios y horarios"
-                alCambiar={(hace) => actualizar({ hace })}
-                alEnfocar={() => setSeccion("hace")}
-              />
-            </AccordionContent>
-          </AccordionItem>
+          <Seccion
+            icono={ListChecks}
+            titulo={SECCIONES.hace}
+            descripcion="Lo que resuelve solo, sin tener que preguntarte."
+            activa={seccion === "hace"}
+          >
+            <ListaEditable
+              valores={spec.hace}
+              marcador="Responde dudas sobre precios y horarios"
+              anadir="Añadir algo que hace"
+              alCambiar={(hace) => actualizar({ hace })}
+              alEnfocar={() => setSeccion("hace")}
+            />
+          </Seccion>
 
-          <AccordionItem value="noHace">
-            <AccordionTrigger>{SECCIONES.noHace}</AccordionTrigger>
-            <AccordionContent>
-              <ListaEditable
-                valores={spec.noHace}
-                marcador="No inventa precios que no estén confirmados"
-                alCambiar={(noHace) => actualizar({ noHace })}
-                alEnfocar={() => setSeccion("noHace")}
-              />
-            </AccordionContent>
-          </AccordionItem>
+          <Seccion
+            icono={ShieldX}
+            titulo={SECCIONES.noHace}
+            descripcion="Los límites: lo que nunca debe prometer ni inventar."
+            activa={seccion === "noHace"}
+          >
+            <ListaEditable
+              valores={spec.noHace}
+              marcador="No inventa precios que no estén confirmados"
+              anadir="Añadir un límite"
+              alCambiar={(noHace) => actualizar({ noHace })}
+              alEnfocar={() => setSeccion("noHace")}
+            />
+          </Seccion>
 
-          <AccordionItem value="recoger">
-            <AccordionTrigger>{SECCIONES.recoger}</AccordionTrigger>
-            <AccordionContent className="flex flex-col gap-3">
+          <Seccion
+            icono={MessageSquareText}
+            titulo={SECCIONES.recoger}
+            descripcion="Los datos que averigua durante la charla y guarda en Contactos."
+            activa={seccion === "recoger"}
+          >
+            <div className="flex flex-col gap-2">
               {spec.recoger.map((campo, i) => (
-                <div key={i} className="flex gap-2">
+                <div key={i} className="flex items-center gap-2">
                   <Input
                     aria-label="Nombre del dato"
                     className="flex-1"
@@ -189,131 +241,189 @@ export function ConstructorAgente({ agentId, inicial, publicado }: ConstructorAg
                       actualizar({ recoger });
                     }}
                   />
+                  <BotonQuitar onClick={() => actualizar({ recoger: spec.recoger.filter((_, j) => j !== i) })} />
+                </div>
+              ))}
+              <BotonAnadir
+                texto="Añadir un dato"
+                onClick={() => actualizar({ recoger: [...spec.recoger, { clave: "", etiqueta: "" }] })}
+              />
+            </div>
+          </Seccion>
+
+          <Seccion
+            icono={Hand}
+            titulo={SECCIONES.escalar}
+            descripcion="Cuándo deja de responder y le pasa la conversación a tu equipo."
+            activa={seccion === "escalar"}
+          >
+            <ListaEditable
+              valores={spec.escalar}
+              marcador="Cuando la persona se queje de un pedido"
+              anadir="Añadir un caso"
+              alCambiar={(escalar) => actualizar({ escalar })}
+              alEnfocar={() => setSeccion("escalar")}
+            />
+          </Seccion>
+
+          {/* ── Lo técnico, plegado por defecto ──────────────────────────────── */}
+          <div className="overflow-hidden rounded-xl border border-border bg-raised">
+            <button
+              type="button"
+              aria-expanded={tecnicas}
+              onClick={() => setTecnicas((v) => !v)}
+              className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-hover"
+            >
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-hover text-fg-muted">
+                <Code2 size={16} aria-hidden />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-base font-medium text-fg">Ver instrucciones técnicas</span>
+                <span className="text-sm text-fg-muted">
+                  El texto exacto que lee tu agente. Solo si quieres afinarlo a mano.
+                </span>
+              </span>
+              {manual ? <Badge tone="aviso">Editado a mano</Badge> : null}
+              <ChevronDown
+                size={16}
+                aria-hidden
+                className={cn("shrink-0 text-fg-muted transition-transform duration-[var(--dur-base)]", tecnicas && "rotate-180")}
+              />
+            </button>
+
+            {tecnicas ? (
+              <div className="strappy-fade-in border-t border-border">
+                <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
+                  {manual ? (
+                    <Badge tone="aviso">Editado a mano</Badge>
+                  ) : (
+                    <Badge tone="ia">Lo escribe el formulario</Badge>
+                  )}
+                  <span className="tnum ml-auto text-2xs text-fg-muted">
+                    {tokens.toLocaleString("es-CO")} tokens aprox.
+                  </span>
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => actualizar({ recoger: spec.recoger.filter((_, j) => j !== i) })}
+                    onClick={() =>
+                      toast.info(
+                        "Mejorar con IA todavía no está conectado. Aparecerá cuando Strap entre en esta pantalla.",
+                      )
+                    }
                   >
-                    Quitar
+                    <Sparkles size={16} aria-hidden />
+                    Mejorar con IA
                   </Button>
                 </div>
-              ))}
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() =>
-                  actualizar({ recoger: [...spec.recoger, { clave: "", etiqueta: "" }] })
-                }
-              >
-                Añadir un dato
-              </Button>
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="escalar">
-            <AccordionTrigger>{SECCIONES.escalar}</AccordionTrigger>
-            <AccordionContent>
-              <ListaEditable
-                valores={spec.escalar}
-                marcador="Cuando la persona se queje de un pedido"
-                alCambiar={(escalar) => actualizar({ escalar })}
-                alEnfocar={() => setSeccion("escalar")}
-              />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      </aside>
-
-      {/* ── Derecha: el prompt, que es lo que el agente lee de verdad ─────── */}
-      <section className="flex min-h-0 flex-col">
-        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
-          <h2 className="text-base font-semibold text-fg">Instrucciones del agente</h2>
-          {manual ? (
-            <Badge tone="aviso">Editado a mano</Badge>
-          ) : (
-            <Badge tone="ia">Lo escriben los formularios</Badge>
-          )}
-          <span className="tnum ml-auto text-2xs text-fg-muted">
-            {tokens.toLocaleString("es-CO")} tokens aprox.
-          </span>
-          {manual && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setManual(null);
-                toast.success("Vuelve a escribirlo el formulario.");
-              }}
-            >
-              <Undo2 size={16} aria-hidden />
-              Deshacer mis cambios
-            </Button>
-          )}
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() =>
-              toast.info(
-                "Mejorar con IA todavía no está conectado. Aparecerá cuando el meta-agente entre en esta pantalla.",
-              )
-            }
-          >
-            <Sparkles size={16} aria-hidden />
-            Mejorar con IA
-          </Button>
+                <div className="h-[420px] border-t border-border bg-inset">
+                  <CodeMirror
+                    ref={editor}
+                    value={prompt}
+                    height="420px"
+                    className="h-full text-sm"
+                    theme="none"
+                    extensions={extensiones}
+                    basicSetup={{ lineNumbers: false, foldGutter: false, highlightActiveLine: false }}
+                    onChange={(valor) => {
+                      setManual(valor);
+                      setSucio(true);
+                    }}
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
+      </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <CodeMirror
-            ref={editor}
-            value={prompt}
-            height="100%"
-            className="h-full text-sm"
-            theme="none"
-            extensions={extensiones}
-            basicSetup={{ lineNumbers: false, foldGutter: false, highlightActiveLine: false }}
-            onChange={(valor) => setManual(valor)}
-          />
-        </div>
-
-        <div className="flex items-center gap-2 border-t border-border px-4 py-3">
-          <p className="text-2xs text-fg-muted">
-            {publicado
-              ? "Publicar reemplaza lo que tu agente usa ahora mismo."
-              : "Este agente todavía no atiende a nadie. Publícalo cuando esté listo."}
+      {/* ── Acciones, siempre a la vista ─────────────────────────────────── */}
+      <div className="shrink-0 border-t border-border bg-page/95 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-6 py-3 sm:flex-row sm:items-center">
+          <p className="flex items-center gap-2 text-sm text-fg-muted">
+            {sucio ? (
+              <>
+                <span aria-hidden className="size-1.5 rounded-full bg-warning" />
+                Tienes cambios sin guardar.
+              </>
+            ) : publicado ? (
+              "Publicar reemplaza lo que tu agente usa ahora mismo."
+            ) : (
+              "Este agente todavía no atiende a nadie. Publícalo cuando esté listo."
+            )}
           </p>
-          <div className="ml-auto flex gap-2">
-            <Button variant="ghost" onClick={alGuardar} loading={guardando}>
+          <div className="flex gap-2 sm:ml-auto">
+            <Button variant="secondary" onClick={alGuardar} loading={guardando} loadingLabel="Guardando">
               Guardar borrador
             </Button>
-            <Button onClick={alPublicar} loading={publicando}>
+            <Button onClick={alPublicar} loading={publicando} loadingLabel="Publicando">
               Publicar
             </Button>
           </div>
         </div>
-      </section>
+      </div>
     </div>
+  );
+}
+
+function Seccion({
+  icono: Icono,
+  titulo,
+  descripcion,
+  activa,
+  children,
+}: {
+  icono: LucideIcon;
+  titulo: string;
+  descripcion: string;
+  activa: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      className={cn(
+        "strappy-slide-up flex flex-col gap-4 rounded-xl border bg-raised p-5 transition-colors duration-[var(--dur-base)]",
+        activa ? "border-[color-mix(in_oklab,var(--brand),transparent_55%)]" : "border-border",
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className={cn(
+            "grid size-9 shrink-0 place-items-center rounded-lg transition-colors",
+            activa ? "bg-primary-soft text-primary-fg" : "bg-hover text-fg-secondary",
+          )}
+        >
+          <Icono size={18} strokeWidth={1.75} aria-hidden />
+        </span>
+        <div className="flex flex-col gap-0.5">
+          <h3 className="text-lg font-semibold text-fg">{titulo}</h3>
+          <p className="text-sm text-fg-muted">{descripcion}</p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-3">{children}</div>
+    </section>
   );
 }
 
 function ListaEditable({
   valores,
   marcador,
+  anadir,
   alCambiar,
   alEnfocar,
 }: {
   valores: string[];
   marcador: string;
+  anadir: string;
   alCambiar: (valores: string[]) => void;
   alEnfocar: () => void;
 }) {
   return (
     <div className="flex flex-col gap-2">
       {valores.map((valor, i) => (
-        <div key={i} className="flex gap-2">
+        <div key={i} className="flex items-start gap-2">
           <Textarea
-            rows={2}
-            className="flex-1"
+            rows={1}
+            className="min-h-10 flex-1"
             value={valor}
             placeholder={marcador}
             onFocus={alEnfocar}
@@ -323,20 +433,39 @@ function ListaEditable({
               alCambiar(copia);
             }}
           />
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label="Quitar"
-            onClick={() => alCambiar(valores.filter((_, j) => j !== i))}
-          >
-            Quitar
-          </Button>
+          <BotonQuitar onClick={() => alCambiar(valores.filter((_, j) => j !== i))} />
         </div>
       ))}
-      <Button variant="secondary" size="sm" onClick={() => alCambiar([...valores, ""])}>
-        Añadir
-      </Button>
+      {valores.length === 0 ? <p className="text-sm text-fg-muted">Todavía no hay nada aquí.</p> : null}
+      <BotonAnadir texto={anadir} onClick={() => alCambiar([...valores, ""])} />
     </div>
+  );
+}
+
+function BotonQuitar({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Quitar"
+      title="Quitar"
+      onClick={onClick}
+      className="mt-1 grid size-8 shrink-0 cursor-pointer place-items-center rounded-md text-fg-muted transition-colors hover:bg-danger-soft hover:text-danger-fg"
+    >
+      <X size={16} aria-hidden />
+    </button>
+  );
+}
+
+function BotonAnadir({ texto, onClick }: { texto: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-border text-sm font-medium text-fg-secondary transition-colors hover:border-[color-mix(in_oklab,var(--brand),transparent_50%)] hover:text-primary-fg"
+    >
+      <Plus size={16} aria-hidden />
+      {texto}
+    </button>
   );
 }
 
@@ -385,7 +514,7 @@ const LINEA_RESALTADA = Decoration.line({ class: "cm-seccion-activa" });
  */
 const TEMA_RESALTADO = EditorView.baseTheme({
   ".cm-seccion-activa": {
-    backgroundColor: "var(--primary-soft, rgba(99, 85, 240, 0.16))",
+    backgroundColor: "var(--brand-soft, rgba(57, 255, 20, 0.08))",
     borderLeft: "2px solid var(--brand, #39FF14)",
     marginLeft: "-2px",
   },

@@ -225,7 +225,7 @@ function Pregunta({
             aria-checked={marcada}
             onClick={() => onElegir(opcion.valor)}
             className={cn(
-              "flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors duration-[--dur-fast]",
+              "flex w-full cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-[color,background-color,border-color,transform] duration-[--dur-fast] active:scale-[0.99] motion-reduce:active:scale-100",
               marcada
                 ? "border-primary bg-primary-soft"
                 : "border-border bg-raised hover:border-border-strong hover:bg-hover",
@@ -294,7 +294,7 @@ export function BloqueChecklist({
   onEditar: (clave: string, valor: string) => void;
 }) {
   return (
-    <Card className="w-full">
+    <Card className="strappy-slide-up w-full border-l-2 border-l-primary">
       <CardBody className="flex flex-col gap-1 p-4">
         <p className="pb-2 text-base font-semibold text-fg">{salida.titulo}</p>
         {salida.items.map((item) => (
@@ -366,7 +366,7 @@ function LineaChecklist({
           onClick={() => setEditando(true)}
           className={cn(
             "-mx-1 rounded-sm px-1 py-0.5 text-left text-base text-fg",
-            editable ? "hover:bg-hover" : "cursor-default",
+            editable ? "cursor-pointer hover:bg-hover" : "cursor-default",
           )}
         >
           {item.valor}
@@ -382,7 +382,7 @@ function LineaChecklist({
 
 export function BloqueTarjeta({ salida }: { salida: SalidaTarjeta }) {
   return (
-    <div className="strap-muelle w-full overflow-hidden rounded-xl border border-border border-l-2 border-l-success bg-raised shadow-e2">
+    <div className="strap-muelle w-full overflow-hidden rounded-xl border border-border border-l-2 border-l-primary bg-raised shadow-e2">
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-0.5">
@@ -441,7 +441,7 @@ export function BloqueProgreso({
       <button
         type="button"
         onClick={() => setDesplegado(true)}
-        className="inline-flex items-center gap-2 rounded-lg border border-border bg-inset px-3 py-2 text-base text-fg-secondary transition-colors hover:bg-hover"
+        className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-inset px-3 py-2 text-base text-fg-secondary transition-colors hover:border-border-strong hover:bg-hover hover:text-fg"
       >
         <Check size={15} strokeWidth={2.5} className="text-success-fg" aria-hidden />
         {salida.resumen}
@@ -451,7 +451,7 @@ export function BloqueProgreso({
   }
 
   return (
-    <Card className="w-full">
+    <Card className="strappy-slide-up w-full border-l-2 border-l-primary">
       <CardBody className="flex flex-col gap-2 p-4">
         <p className="text-base font-semibold text-fg">{salida.titulo}</p>
         {salida.pasos.map((paso, indice) => (
@@ -497,7 +497,7 @@ function IconoEstado({ estado }: { estado: SalidaProgreso["pasos"][number]["esta
 
 export function BloqueAutojuego({ salida }: { salida: SalidaAutojuego }) {
   return (
-    <Card className="w-full">
+    <Card className="strappy-slide-up w-full border-l-2 border-l-primary">
       <CardBody className="flex flex-col gap-3 p-4">
         <div className="flex items-center gap-2">
           <Badge tone="ia">Prueba automática</Badge>
@@ -513,9 +513,10 @@ export function BloqueAutojuego({ salida }: { salida: SalidaAutojuego }) {
               <p
                 className={cn(
                   "max-w-[78%] rounded-2xl px-3 py-2 text-md",
+                  // La IA en neutro con borde, como en el resto de chats: sin verde sobre verde.
                   turno.quien === "cliente"
                     ? "bg-inset text-fg"
-                    : "bg-primary-soft text-fg",
+                    : "border border-border bg-hover text-fg",
                 )}
               >
                 {turno.texto}

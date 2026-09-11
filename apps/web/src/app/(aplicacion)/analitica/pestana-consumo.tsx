@@ -1,3 +1,4 @@
+import { Coins, MessageCircle } from "lucide-react";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@strappy/ui";
 import { BarraConsumo } from "@/components/negocio/barra-consumo";
 import { FacturaCombinada } from "@/components/negocio/factura-combinada";
@@ -31,13 +32,18 @@ export function PestanaConsumo({
   meta: GastoEnMeta;
 }) {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <section className="flex flex-col gap-4">
-        <header>
-          <h2 className="text-xl font-semibold tracking-tight text-fg">Tu consumo en Strappy</h2>
-          <p className="text-sm text-fg-secondary">
-            Créditos de inteligencia artificial. Es lo único que te facturamos por uso.
-          </p>
+        <header className="flex items-start gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-fg">
+            <Coins size={18} strokeWidth={1.75} aria-hidden />
+          </span>
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight text-fg">Tu consumo en Strappy</h2>
+            <p className="text-sm text-fg-secondary">
+              Créditos de inteligencia artificial. Es lo único que te facturamos por uso.
+            </p>
+          </div>
         </header>
 
         <Card>
@@ -118,16 +124,18 @@ export function PestanaConsumo({
         </div>
       </section>
 
-      <hr className="border-border" />
-
-      <section className="flex flex-col gap-4">
-        <header>
-          <h2 className="text-xl font-semibold tracking-tight text-fg">Tu gasto en Meta</h2>
-          <p className="text-sm text-fg-secondary">
-            Tu cuenta de WhatsApp es tuya y Meta te cobra a ti directamente. Te lo mostramos aquí para
-            que lo tengas todo en un sitio, pero no forma parte de tu factura con nosotros y nunca se
-            suma a tus créditos.
-          </p>
+      <section className="flex flex-col gap-4 border-t border-border pt-8">
+        <header className="flex items-start gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-info-soft text-info-fg">
+            <MessageCircle size={18} strokeWidth={1.75} aria-hidden />
+          </span>
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight text-fg">Tu gasto en Meta</h2>
+            <p className="text-sm text-fg-secondary">
+              Tu cuenta de WhatsApp es tuya y Meta te cobra a ti directamente. Te lo enseñamos aquí para que lo
+              tengas todo en un sitio, pero nunca se suma a tu factura con nosotros.
+            </p>
+          </div>
         </header>
         <TarjetaGastoMeta gasto={meta} />
       </section>

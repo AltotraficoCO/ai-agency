@@ -1,4 +1,5 @@
-import { Card, CardBody, CardHeader, CardTitle, CardDescription, Tabs, TabsContent, TabsList, TabsTrigger } from "@strappy/ui";
+import { Coins, Gauge, Info, MessagesSquare } from "lucide-react";
+import { EncabezadoPagina, Tabs, TabsContent, TabsList, TabsTrigger } from "@strappy/ui";
 import { MarcoApp } from "@/components/marco-app";
 import { datosDelMarco } from "@/lib/marco";
 import { SelectorFechas } from "@/components/negocio/selector-fechas";
@@ -7,7 +8,7 @@ import { BannerCreditos } from "@/components/negocio/banner-creditos";
 import { analiticaDeStrappy } from "@/lib/negocio/analitica";
 import { gastoEnMeta } from "@/lib/negocio/meta";
 import { ajustesDelEspacio, estadoDelNegocio } from "@/lib/negocio/cartera";
-import { rangoDesdeParametros } from "@/lib/negocio/fechas";
+import { etiquetaDeRango, rangoDesdeParametros } from "@/lib/negocio/fechas";
 import { PestanaConversaciones } from "./pestana-conversaciones";
 import { PestanaRendimiento } from "./pestana-rendimiento";
 import { PestanaConsumo } from "./pestana-consumo";
@@ -44,19 +45,35 @@ export default async function PaginaAnalitica({ searchParams }: { searchParams: 
       creditos={marco.creditos}
       pendientes={marco.pendientes}
       titulo="Analítica"
-      contexto={<SelectorFechas rango={rango} atajo={atajo} />}
     >
-      <div className="mx-auto flex max-w-6xl flex-col gap-5 p-6">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:py-8">
+        {/* El periodo va con las acciones del encabezado, no apretado en la
+            barra superior: es lo primero que se cambia en esta pantalla. */}
+        <EncabezadoPagina
+          titulo="Analítica"
+          descripcion={`${etiquetaDeRango(rango)} · Cuánto atienden tus agentes, qué resuelven solos y cuánto cuesta.`}
+          acciones={<SelectorFechas rango={rango} atajo={atajo} />}
+        />
+
         <BannerCreditos estado={negocio.cartera.estado} proyeccion={negocio.cartera.proyeccion} />
 
         <Tabs defaultValue={pestana}>
-          <TabsList>
-            <TabsTrigger value="conversaciones">Conversaciones</TabsTrigger>
-            <TabsTrigger value="rendimiento">Rendimiento</TabsTrigger>
-            <TabsTrigger value="consumo">Consumo</TabsTrigger>
+          <TabsList className="overflow-x-auto">
+            <TabsTrigger value="conversaciones">
+              <MessagesSquare size={16} strokeWidth={1.75} aria-hidden />
+              Conversaciones
+            </TabsTrigger>
+            <TabsTrigger value="rendimiento">
+              <Gauge size={16} strokeWidth={1.75} aria-hidden />
+              Rendimiento
+            </TabsTrigger>
+            <TabsTrigger value="consumo">
+              <Coins size={16} strokeWidth={1.75} aria-hidden />
+              Consumo
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="conversaciones" className="pt-5">
+          <TabsContent value="conversaciones" className="pt-6">
             <div className="flex flex-col gap-5">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 {analitica.indicadores.map((i) => (
@@ -67,27 +84,23 @@ export default async function PaginaAnalitica({ searchParams }: { searchParams: 
             </div>
           </TabsContent>
 
-          <TabsContent value="rendimiento" className="pt-5">
+          <TabsContent value="rendimiento" className="pt-6">
             <PestanaRendimiento analitica={analitica} />
           </TabsContent>
 
-          <TabsContent value="consumo" className="pt-5">
+          <TabsContent value="consumo" className="pt-6">
             <PestanaConsumo analitica={analitica} negocio={negocio} meta={meta} />
           </TabsContent>
         </Tabs>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Cómo leer estos números</CardTitle>
-            <CardDescription>
-              Lo que ves aquí son tus conversaciones y tus créditos de IA. El gasto de mensajería de
-              WhatsApp te lo cobra Meta directamente y aparece por separado, en la pestaña de Consumo.
-            </CardDescription>
-          </CardHeader>
-          <CardBody className="text-sm text-fg-secondary">
-            1 crédito ≈ una respuesta corta de la IA. 1.000 créditos = 1 USD.
-          </CardBody>
-        </Card>
+        <p className="flex items-start gap-2.5 rounded-lg border border-dashed border-border px-4 py-3 text-sm text-fg-secondary">
+          <Info size={16} strokeWidth={2} className="mt-0.5 shrink-0 text-fg-muted" aria-hidden />
+          <span>
+            <strong className="font-medium text-fg">Cómo leer estos números.</strong> 1 crédito ≈ una respuesta
+            corta de la IA; 1.000 créditos = 1 USD. Lo que Meta te cobra por WhatsApp va aparte, en la pestaña
+            Consumo.
+          </span>
+        </p>
       </div>
     </MarcoApp>
   );

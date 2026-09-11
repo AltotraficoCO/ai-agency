@@ -1,7 +1,7 @@
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@strappy/ui";
 import { MarcoApp } from "@/components/marco-app";
-import { NavAjustes } from "@/components/nav-ajustes";
+import { DisposicionAjustes } from "@/components/nav-ajustes";
 import { FormularioEspacio } from "@/components/negocio/formularios-ajustes";
+import { AvisoSoloLectura } from "@/components/negocio/seccion-ajustes";
 import { datosDelMarco } from "@/lib/marco";
 import { accionGuardarEspacio } from "@/lib/negocio/acciones";
 import { ajustesDelEspacio } from "@/lib/negocio/cartera";
@@ -21,34 +21,25 @@ export default async function PaginaEspacio() {
       usuario={marco.usuario}
       creditos={marco.creditos}
       pendientes={marco.pendientes}
+      contexto="Ajustes"
       titulo="Espacio de trabajo"
     >
-      <NavAjustes />
-      <div className="mx-auto max-w-2xl p-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Tu espacio</CardTitle>
-            <CardDescription>
-              El nombre, la zona horaria y cuándo hay alguien de tu equipo disponible.
-            </CardDescription>
-          </CardHeader>
-          <CardBody>
-            {!puedeEditar && (
-              <p className="mb-3 rounded-lg bg-inset px-3 py-2 text-2xs text-fg-muted">
-                Solo el propietario o un administrador pueden cambiar estos ajustes.
-              </p>
-            )}
-            <FormularioEspacio
-              accion={accionGuardarEspacio}
-              nombre={espacio.nombre}
-              zona={espacio.zonaHoraria}
-              horario={horario}
-              dias={DIAS_SEMANA}
-              puedeEditar={puedeEditar}
-            />
-          </CardBody>
-        </Card>
-      </div>
+      <DisposicionAjustes
+        titulo="Espacio de trabajo"
+        descripcion="El nombre de tu negocio, su zona horaria y cuándo atiende tu equipo."
+      >
+        {!puedeEditar && (
+          <AvisoSoloLectura>Solo el propietario o un administrador pueden cambiar estos ajustes.</AvisoSoloLectura>
+        )}
+        <FormularioEspacio
+          accion={accionGuardarEspacio}
+          nombre={espacio.nombre}
+          zona={espacio.zonaHoraria}
+          horario={horario}
+          dias={DIAS_SEMANA}
+          puedeEditar={puedeEditar}
+        />
+      </DisposicionAjustes>
     </MarcoApp>
   );
 }

@@ -7,6 +7,7 @@
  * robarle sitio permanente a la lista para algo que se usa una vez cada media
  * hora es el error que hace que las bandejas ajenas se sientan estrechas.
  */
+import { Check } from "lucide-react";
 import { Drawer, DrawerContent, Button, Field, Input, cn } from "@strappy/ui";
 import type { Catalogos, Filtros } from "@/lib/bandeja/tipos";
 
@@ -34,7 +35,7 @@ export function PanelFiltros({
     <Drawer open={abierto} onOpenChange={(v) => (v ? undefined : alCerrar())}>
       <DrawerContent
         title="Filtrar la bandeja"
-        description="Se aplica sobre la pestaña que tengas abierta."
+        description="Se suman a la pestaña que tengas abierta (Todas, Mías…)."
         width={360}
         footer={
           <>
@@ -55,12 +56,12 @@ export function PanelFiltros({
             >
               Quitar todo
             </Button>
-            <Button onClick={alCerrar}>Listo</Button>
+            <Button onClick={alCerrar}>Ver resultados</Button>
           </>
         }
       >
         <div className="flex flex-col gap-5">
-          <Grupo titulo="Estado">
+          <Grupo titulo="Estado" ayuda="Abiertas son las que siguen en curso.">
             <div className="flex flex-wrap gap-1.5">
               {ESTADOS.map((estado) => (
                 <Opcion
@@ -74,7 +75,7 @@ export function PanelFiltros({
             </div>
           </Grupo>
 
-          <Grupo titulo="Etiquetas">
+          <Grupo titulo="Etiquetas" ayuda="Las que le pusiste tú o tu equipo.">
             <div className="flex flex-wrap gap-1.5">
               {catalogos.etiquetas.length === 0 && (
                 <p className="text-sm text-fg-muted">Todavía no has creado etiquetas.</p>
@@ -96,7 +97,7 @@ export function PanelFiltros({
             </div>
           </Grupo>
 
-          <Grupo titulo="Asignada a">
+          <Grupo titulo="Asignada a" ayuda="Quién del equipo se hace cargo.">
             <div className="flex flex-wrap gap-1.5">
               <Opcion
                 activa={filtros.asignadoId === catalogos.yo.id}
@@ -126,7 +127,7 @@ export function PanelFiltros({
             </div>
           </Grupo>
 
-          <Grupo titulo="Canal">
+          <Grupo titulo="Número" ayuda="Por qué número de WhatsApp entró.">
             <div className="flex flex-wrap gap-1.5">
               {catalogos.canales.map((canal) => (
                 <Opcion
@@ -142,7 +143,7 @@ export function PanelFiltros({
             </div>
           </Grupo>
 
-          <Grupo titulo="Agente">
+          <Grupo titulo="Agente" ayuda="Qué agente de IA la atiende.">
             <div className="flex flex-wrap gap-1.5">
               {catalogos.agentes.map((agente) => (
                 <Opcion
@@ -158,7 +159,7 @@ export function PanelFiltros({
             </div>
           </Grupo>
 
-          <Grupo titulo="Fechas">
+          <Grupo titulo="Fechas" ayuda="Último mensaje entre estos días.">
             <div className="flex items-end gap-2">
               <Field label="Desde" className="flex-1">
                 {(propiedades) => (
@@ -188,10 +189,22 @@ export function PanelFiltros({
   );
 }
 
-function Grupo({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+/** Un grupo de filtros con una frase que dice, sin jerga, para qué sirve. */
+function Grupo({
+  titulo,
+  ayuda,
+  children,
+}: {
+  titulo: string;
+  ayuda?: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-fg-muted">{titulo}</h3>
+      <div className="flex flex-col gap-0.5">
+        <h3 className="text-sm font-semibold text-fg">{titulo}</h3>
+        {ayuda && <p className="text-xs text-fg-muted">{ayuda}</p>}
+      </div>
       {children}
     </section>
   );
@@ -222,15 +235,19 @@ function Opcion({
           : undefined
       }
       className={cn(
-        "inline-flex h-[30px] items-center gap-1.5 rounded-full border px-3 text-sm font-medium",
-        "transition-colors duration-[var(--dur-instant)]",
+        "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-sm font-medium",
+        "transition-colors duration-[var(--dur-fast)]",
         activa && !color
-          ? "border-[var(--brand)] bg-primary-soft text-primary-fg"
-          : "border-border bg-raised text-fg-secondary hover:border-border-strong hover:text-fg",
+          ? "border-[var(--brand)] bg-primary-soft text-fg"
+          : activa
+            ? "text-fg"
+            : "border-border bg-raised text-fg-secondary hover:border-border-strong hover:text-fg",
       )}
     >
-      {color && (
-        <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
+      {activa ? (
+        <Check size={13} strokeWidth={2.5} aria-hidden className={color ? undefined : "text-primary-fg"} />
+      ) : (
+        color && <span aria-hidden className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
       )}
       {children}
     </button>

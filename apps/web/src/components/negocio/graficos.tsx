@@ -14,8 +14,8 @@
  *   · Toda gráfica lleva su tabla equivalente al lado (`VerComoTabla`), que se
  *     compone fuera, en el servidor.
  *
- * El índigo es la IA y el fucsia el humano en TODO el producto. En la gráfica
- * de atención eso significa que, de un vistazo, el bloque índigo es lo que el
+ * El verde es la IA y el azul el humano en TODO el producto. En la gráfica de
+ * atención eso significa que, de un vistazo, el bloque verde es lo que el
  * agente resolvió solo: es literalmente la métrica de negocio del producto.
  */
 import * as React from "react";
@@ -40,7 +40,7 @@ const EJE = { fontSize: 11, fill: "var(--fg-muted)" } as const;
 const ESTILO_TOOLTIP = {
   backgroundColor: "var(--s-overlay)",
   border: "1px solid var(--border-default)",
-  borderRadius: "10px",
+  borderRadius: "8px",
   fontSize: "13px",
   color: "var(--fg-default)",
   boxShadow: "var(--shadow-2)",

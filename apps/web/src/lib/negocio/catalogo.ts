@@ -34,6 +34,28 @@ export type CampoPersonalizable = {
   readonly valorPorDefecto: string;
 };
 
+/** Iconos con los que se pinta cada capacidad; el componente decide el dibujo. */
+export type IconoCapacidad =
+  | "web"
+  | "plantilla"
+  | "plugin"
+  | "copia"
+  | "aprobacion"
+  | "mensaje"
+  | "conocimiento"
+  | "contacto"
+  | "agenda"
+  | "humano"
+  | "redactar"
+  | "segmentar"
+  | "medir";
+
+export type CapacidadAgente = {
+  readonly icono: IconoCapacidad;
+  readonly titulo: string;
+  readonly detalle: string;
+};
+
 export type FichaCatalogo = {
   readonly slug: string;
   readonly nombre: string;
@@ -42,6 +64,8 @@ export type FichaCatalogo = {
   readonly categoria: string;
   readonly tipo: string;
   readonly herramientas: readonly { slug: string; nombre: string }[];
+  /** Lo que sabe hacer, dicho como lo entiende un dueño de negocio. */
+  readonly capacidades: readonly CapacidadAgente[];
   readonly creditosMensuales: number;
   readonly costeUsd: number;
   readonly creditosAlta: number;
@@ -98,6 +122,79 @@ const CONEXIONES_POR_AGENTE: Record<string, readonly { clave: string; nombre: st
       },
     ],
   };
+
+/**
+ * Qué sabe hacer cada agente, en palabras de negocio.
+ *
+ * Antes la ficha enseñaba `catalog_agents.required_tools`, que es la lista de
+ * herramientas que el MOTOR exige conectadas, no lo que el agente hace. Por eso
+ * el Webmaster —que edita la web, cambia plantillas y gestiona plugins— salía
+ * con un único «Pasar a un humano». Lo que se promete al contratar es producto
+ * y se declara aquí, junto a lo que necesita conectado.
+ */
+const CAPACIDADES_POR_AGENTE: Record<string, readonly CapacidadAgente[]> = {
+  recepcionista: [
+    {
+      icono: "mensaje",
+      titulo: "Responde a todo el que escribe",
+      detalle: "A cualquier hora, por WhatsApp, con el tono de tu negocio.",
+    },
+    {
+      icono: "conocimiento",
+      titulo: "Resuelve dudas con tu información",
+      detalle: "Precios, horarios y preguntas frecuentes, sin inventar.",
+    },
+    {
+      icono: "contacto",
+      titulo: "Toma los datos del interesado",
+      detalle: "Nombre, teléfono y lo que busca, guardado en Contactos.",
+    },
+    {
+      icono: "humano",
+      titulo: "Te pasa la conversación cuando toca",
+      detalle: "Si el cliente lo pide o hay una queja, avisa a tu equipo.",
+    },
+  ],
+  webmaster: [
+    {
+      icono: "web",
+      titulo: "Cambia textos, páginas y entradas",
+      detalle: "Le pides el cambio y lo hace él mismo en tu WordPress.",
+    },
+    {
+      icono: "plantilla",
+      titulo: "Edita el encabezado y el pie de página",
+      detalle: "Enlaces, botones y textos de tus plantillas de Elementor.",
+    },
+    {
+      icono: "plugin",
+      titulo: "Gestiona tus plugins",
+      detalle: "Activa, desactiva o elimina los que le indiques.",
+    },
+    {
+      icono: "copia",
+      titulo: "Hace copia antes de tocar nada",
+      detalle: "Y te pide tu visto bueno en los cambios que se ven.",
+    },
+  ],
+  marketing: [
+    {
+      icono: "redactar",
+      titulo: "Redacta tus campañas",
+      detalle: "Contenidos y mensajes listos para enviar, con tu tono.",
+    },
+    {
+      icono: "segmentar",
+      titulo: "Agrupa a tus contactos",
+      detalle: "Por lo que aprendió de cada uno en las conversaciones.",
+    },
+    {
+      icono: "medir",
+      titulo: "Mide los resultados",
+      detalle: "Te cuenta qué funcionó y qué conviene cambiar.",
+    },
+  ],
+};
 
 /**
  * Los 3-5 campos que se preguntan al contratar.
@@ -275,6 +372,7 @@ export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCata
           slug,
           nombre: nombreHerramienta.get(slug) ?? slug,
         })),
+        capacidades: CAPACIDADES_POR_AGENTE[f.slug] ?? [],
         creditosMensuales: Number(f.monthly_credits ?? 0),
         costeUsd: creditosAUsd(Number(f.monthly_credits ?? 0)),
         creditosAlta: Number(f.setup_credits ?? 0),

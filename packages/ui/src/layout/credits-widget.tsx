@@ -64,8 +64,11 @@ export function CreditsWidget({
       className={cn(
         "flex flex-col gap-2 rounded-lg border bg-raised p-3",
         avisando ? "border-[var(--warning)]" : "border-border",
+        props.onClick &&
+          "cursor-pointer transition-colors duration-[var(--dur-fast)] hover:border-border-strong hover:bg-hover",
         className,
       )}
+      {...(props.onClick ? { role: "link", tabIndex: 0, title: "Ver consumo y plan" } : {})}
       {...props}
     >
       <div className="flex items-baseline justify-between gap-2">
@@ -98,8 +101,17 @@ export function CreditsWidget({
           : `Se renueva el ${renovacion}.`}
       </p>
 
-      {onAmpliar && (
-        <Button variant="secondary" size="sm" onClick={onAmpliar} className="w-full">
+      {/* Solo se ofrece ampliar cuando de verdad queda poco: antes es ruido comercial. */}
+      {onAmpliar && avisando && (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={(evento) => {
+            evento.stopPropagation();
+            onAmpliar();
+          }}
+          className="w-full"
+        >
           Ampliar plan
         </Button>
       )}

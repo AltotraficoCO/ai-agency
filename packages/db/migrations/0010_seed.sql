@@ -128,8 +128,8 @@ values
      "schedule":{"cron":"0 */6 * * *"}}'),
 
   ('marketing', 'Marketing',
-   'Redacta, publica y mide campanas',
-   'Prepara contenidos y mensajes de campana, segmenta contactos por lo aprendido en las conversaciones y reporta resultados.',
+   'Redacta, publica y mide campañas',
+   'Prepara contenidos y mensajes de campaña, segmenta contactos por lo aprendido en las conversaciones y reporta resultados.',
    'task', 'crecimiento',
    array['search_knowledge','save_contact_data'],
    0, 0, 30,

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { EmptyState } from "@strappy/ui";
 import { EncargosWebmaster } from "@/components/encargos-webmaster";
 import { EnlaceBoton } from "@/components/enlace-boton";
 import { MarcoApp } from "@/components/marco-app";
@@ -92,15 +93,17 @@ export default async function PaginaProbar({ params }: { params: Promise<{ id: s
           modeloDeEnsayo={!hayModeloReal()}
         />
       ) : (
-        <div className="mx-auto max-w-md py-20 text-center">
-          <h2 className="text-xl font-semibold text-fg">Este agente aún no está publicado</h2>
-          <p className="mt-2 text-base text-fg-secondary">
-            El motor solo ejecuta la versión publicada. Termina sus instrucciones y publícalo para
-            poder probarlo.
-          </p>
-          <EnlaceBoton className="mt-4" href={`/agentes/${id}/instrucciones`}>
-            Ir a las instrucciones
-          </EnlaceBoton>
+        <div className="grid min-h-full place-items-center px-6">
+          <EmptyState
+            className="strappy-slide-up"
+            title="Este agente aún no está publicado"
+            description="Solo se puede probar la versión publicada. Termina sus instrucciones y publícalo: en cuanto lo hagas, podrás hablar con él aquí."
+            action={
+              <EnlaceBoton size="lg" href={`/agentes/${id}/instrucciones`}>
+                Terminar y publicar
+              </EnlaceBoton>
+            }
+          />
         </div>
       )}
     </MarcoApp>

@@ -60,12 +60,17 @@ function DestinoLink({ destino, activo, pendientes, estadoCanales, linkComponent
       href={destino.href}
       aria-current={activo ? "page" : undefined}
       className={cn(
-        "group flex h-9 items-center gap-2.5 rounded-md px-2.5 text-base font-medium",
-        "transition-colors duration-[var(--dur-instant)]",
+        "group relative flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-base font-medium",
+        "transition-colors duration-[var(--dur-fast)]",
         activo
           ? "bg-selected text-fg"
           : "text-fg-secondary hover:bg-hover hover:text-fg",
-        destino.destacado && !activo && "text-primary-fg hover:bg-primary-soft",
+        // La barrita verde a la izquierda dice «estás aquí» sin depender solo del fondo.
+        activo &&
+          "before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-primary",
+        destino.destacado &&
+          !activo &&
+          "border border-[color-mix(in_oklab,var(--brand),transparent_60%)] bg-primary-soft text-primary-fg hover:bg-primary hover:text-[var(--fg-on-brand)] hover:shadow-glow",
         focusRing,
       )}
     >

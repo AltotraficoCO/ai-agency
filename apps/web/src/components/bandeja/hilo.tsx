@@ -3,20 +3,37 @@
 /**
  * El hilo.
  *
- * Aquí vive la tesis del producto: EL COLOR DICE QUIÉN HABLA. Índigo la IA,
- * fucsia tu equipo, neutro elevado el cliente, neutro medio el sistema. Ninguna
- * burbuja elige su color por otra vía que `quien`.
+ * Aquí vive la tesis del producto: SE VE QUIÉN HABLA. La IA escribe en neutro
+ * con borde y firma con su marca verde; tu equipo, en azul suave; el cliente,
+ * en neutro elevado a la izquierda; el sistema, en píldoras centradas. Ninguna
+ * burbuja elige su aspecto por otra vía que `quien`, y todas llevan además el
+ * nombre de quien habla: el color solo nunca basta.
+ *
+ * El verde no va de fondo de burbuja: un párrafo verde sobre verde se lee mal,
+ * y el acento pierde fuerza si lo tiñe todo.
  *
  * El barrido de 300 ms al tomar el control no es un adorno: cuando pasas a
- * mandar tú, todo lo que dice «esto lo lleva la IA» cambia de índigo a fucsia a
- * la vez, y esa transición ES la confirmación de que el cambio ocurrió. Un
- * cambio instantáneo se confunde con un fallo de pintado.
+ * mandar tú, las píldoras del sistema cambian al azul a la vez, y esa
+ * transición ES la confirmación de que el cambio ocurrió.
  */
 import * as React from "react";
-import { AlertCircle, Bookmark, Check, CheckCheck, Clock, StickyNote } from "lucide-react";
-import { Avatar, EmptyState, IconButton, Kbd, Skeleton, Tooltip, cn } from "@strappy/ui";
+import { AlertCircle, Bookmark, Check, CheckCheck, Clock, MessagesSquare, Sparkles, StickyNote } from "lucide-react";
+import {
+  Avatar,
+  Button,
+  EmptyState,
+  IconButton,
+  IndicadorEscribiendo,
+  Kbd,
+  Skeleton,
+  Tooltip,
+  cn,
+} from "@strappy/ui";
 import type { ElementoHilo, Hilo as HiloDatos } from "@/lib/bandeja/tipos";
 import { claveDeDia, fechaCompleta, hora, tituloDeDia } from "./formato";
+
+/** Cuánto se sigue mostrando «escribiendo» tras el último mensaje del cliente. */
+const ESPERA_RESPUESTA_IA_MS = 90_000;
 
 export function Hilo({
   hilo,
@@ -28,7 +45,28 @@ export function Hilo({
   alGuardarRespuesta: (texto: string) => void;
 }) {
   const contenedor = React.useRef<HTMLDivElement>(null);
-  const ultimoId = hilo?.elementos[hilo.elementos.length - 1]?.id ?? null;
+  const ultimo = hilo?.elementos[hilo.elementos.length - 1] ?? null;
+  const ultimoId = ultimo?.id ?? null;
+  const [ahora, setAhora] = React.useState(() => Date.now());
+
+  // El reloj avanza solo cada pocos segundos: basta para apagar el «escribiendo»
+  // si la respuesta no llega, sin repintar el hilo a cada instante.
+  React.useEffect(() => {
+    const t = window.setInterval(() => setAhora(Date.now()), 5_000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  // No hay una señal de «la IA está escribiendo» en el servidor. Se deduce de
+  // lo que sí es cierto: manda la IA, lo último lo dijo el cliente y hace muy
+  // poco. Si pasa el margen sin respuesta, se apaga en vez de mentir.
+  const iaPreparando =
+    hilo !== null &&
+    hilo.conversacion.mando === "ia" &&
+    ultimo !== null &&
+    ultimo.clase !== "evento" &&
+    ultimo.clase !== "nota" &&
+    ultimo.quien === "cliente" &&
+    ahora - new Date(ultimo.fecha).getTime() < ESPERA_RESPUESTA_IA_MS;
 
   // Al fondo con cada mensaje nuevo y al cambiar de conversación: quien atiende
   // quiere ver lo último, no dónde se quedó el scroll de otro hilo.
@@ -36,7 +74,7 @@ export function Hilo({
     const nodo = contenedor.current;
     if (!nodo) return;
     nodo.scrollTop = nodo.scrollHeight;
-  }, [ultimoId, hilo?.conversacion.id]);
+  }, [ultimoId, hilo?.conversacion.id, iaPreparando]);
 
   if (cargando && !hilo) return <EsqueletoHilo />;
   if (!hilo) return null;
@@ -45,15 +83,17 @@ export function Hilo({
   // variable dentro del `map` es exactamente lo que rompe con render
   // concurrente, donde el mismo árbol puede pintarse dos veces.
   const abreDia = marcarCambiosDeDia(hilo.elementos);
+  const total = hilo.elementos.length;
+  const agente = hilo.conversacion.agente?.nombre ?? "La IA";
 
   return (
     <div
       ref={contenedor}
       data-mando={hilo.conversacion.mando}
-      className="group/hilo min-h-0 flex-1 overflow-y-auto px-4 py-4"
+      className="group/hilo min-h-0 flex-1 overflow-y-auto px-4 py-5"
     >
       <div
-        className="mx-auto flex max-w-[62rem] flex-col gap-2"
+        className="mx-auto flex max-w-[58rem] flex-col gap-2.5"
         aria-live="polite"
         aria-relevant="additions"
         aria-label="Mensajes de la conversación"
@@ -65,17 +105,31 @@ export function Hilo({
               <Elemento
                 elemento={elemento}
                 posicion={posicion}
-                agente={hilo.conversacion.agente?.nombre ?? "La IA"}
+                // Solo los últimos entran con movimiento: al abrir una
+                // conversación larga, animar cien burbujas marea.
+                reciente={total - posicion <= 6}
+                agente={agente}
                 contacto={hilo.contacto.nombre}
                 alGuardarRespuesta={alGuardarRespuesta}
               />
             </React.Fragment>
           );
         })}
-        {hilo.elementos.length === 0 && (
-          <p className="py-10 text-center text-base text-fg-muted">
-            Todavía no hay mensajes en esta conversación.
-          </p>
+
+        {iaPreparando && (
+          <div className="strappy-fade-in flex w-full items-end justify-end gap-2">
+            <span className="rounded-2xl rounded-br-md border border-border bg-raised px-4 py-3">
+              <IndicadorEscribiendo etiqueta={`${agente} está preparando la respuesta`} />
+            </span>
+            <Avatar size="sm" tone="ia" name={agente} />
+          </div>
+        )}
+
+        {total === 0 && (
+          <div className="flex flex-col items-center gap-2 py-12 text-center">
+            <MessagesSquare size={28} strokeWidth={1.5} className="text-fg-muted" aria-hidden />
+            <p className="text-base text-fg-secondary">Todavía no hay mensajes en esta conversación.</p>
+          </div>
         )}
       </div>
     </div>
@@ -95,10 +149,10 @@ function marcarCambiosDeDia(elementos: readonly ElementoHilo[]): boolean[] {
 
 function SeparadorDeDia({ fecha }: { fecha: string }) {
   return (
-    <div className="my-3 flex items-center gap-3" role="separator">
-      <span className="h-px flex-1 bg-[var(--border-subtle)]" />
-      <span className="text-xs font-medium text-fg-muted">{tituloDeDia(fecha)}</span>
-      <span className="h-px flex-1 bg-[var(--border-subtle)]" />
+    <div className="my-2 flex justify-center" role="separator">
+      <span className="rounded-full border border-border bg-overlay px-3 py-0.5 text-2xs font-medium text-fg-secondary">
+        {tituloDeDia(fecha)}
+      </span>
     </div>
   );
 }
@@ -106,12 +160,14 @@ function SeparadorDeDia({ fecha }: { fecha: string }) {
 function Elemento({
   elemento,
   posicion,
+  reciente,
   agente,
   contacto,
   alGuardarRespuesta,
 }: {
   elemento: ElementoHilo;
   posicion: number;
+  reciente: boolean;
   agente: string;
   contacto: string;
   alGuardarRespuesta: (texto: string) => void;
@@ -124,24 +180,35 @@ function Elemento({
     elemento.quien === "ia" ? agente : elemento.quien === "humano" ? (elemento.autor ?? "Tu equipo") : contacto;
 
   return (
-    <div className={cn("flex w-full gap-2", propio ? "justify-end" : "justify-start")}>
-      {!propio && <Avatar size="sm" tone="cliente" name={contacto} className="mt-5" />}
-      <div className={cn("flex min-w-0 max-w-[min(42rem,78%)] flex-col gap-1", propio && "items-end")}>
-        <span className="px-1 text-2xs font-medium uppercase tracking-wide text-fg-muted">
-          {elemento.quien === "ia" && <span className="text-primary-fg">IA · {autor}</span>}
+    <div
+      className={cn(
+        "flex w-full items-end gap-2",
+        propio ? "justify-end" : "justify-start",
+        reciente && "strappy-slide-up",
+      )}
+    >
+      {!propio && <Avatar size="sm" tone="cliente" name={contacto} className="mb-5 shrink-0" />}
+
+      <div className={cn("flex min-w-0 max-w-[min(40rem,76%)] flex-col gap-1", propio && "items-end")}>
+        <span className="flex items-center gap-1 px-1 text-2xs font-medium">
+          {elemento.quien === "ia" && (
+            <span className="inline-flex items-center gap-1 text-fg-secondary">
+              <Sparkles size={11} strokeWidth={2} className="text-primary-fg" aria-hidden />
+              {autor} · IA
+            </span>
+          )}
           {elemento.quien === "humano" && <span className="text-human-fg">{autor}</span>}
-          {elemento.quien === "cliente" && <span>{autor}</span>}
+          {elemento.quien === "cliente" && <span className="text-fg-secondary">{autor}</span>}
         </span>
 
         <div className={cn("group/burbuja flex items-end gap-1", propio && "flex-row-reverse")}>
           <div
             data-quien={elemento.quien}
             className={cn(
-              "whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-md",
+              "whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-md leading-relaxed",
               "transition-colors duration-[var(--dur-slow)] motion-reduce:transition-none",
-              elemento.quien === "cliente" && "rounded-bl-md border border-border bg-raised text-fg",
-              elemento.quien === "ia" &&
-                "rounded-br-md bg-primary-soft text-fg ring-1 ring-[color-mix(in_oklab,var(--brand),transparent_70%)]",
+              elemento.quien === "cliente" && "rounded-bl-md bg-overlay text-fg",
+              elemento.quien === "ia" && "rounded-br-md border border-border bg-raised text-fg",
               elemento.quien === "humano" &&
                 "rounded-br-md bg-human-soft text-fg ring-1 ring-[color-mix(in_oklab,var(--human),transparent_60%)]",
             )}
@@ -169,6 +236,15 @@ function Elemento({
           {propio && <Acuse estado={elemento.estado} error={elemento.error} />}
         </span>
       </div>
+
+      {propio && (
+        <Avatar
+          size="sm"
+          tone={elemento.quien === "ia" ? "ia" : "humano"}
+          name={autor}
+          className="mb-5 shrink-0"
+        />
+      )}
     </div>
   );
 }
@@ -219,25 +295,25 @@ function Acuse({ estado, error }: { estado: string; error: string | null }) {
  * Las burbujas del sistema son las que hacen el barrido.
  *
  * Cuando el mando pasa a ser tuyo, el contenedor cambia `data-mando` y estas
- * pastillas viajan de índigo a fucsia en 300 ms, con un retraso escalonado que
- * hace que el cambio recorra el hilo de arriba abajo en lugar de parpadear.
+ * pastillas viajan al azul en 300 ms, con un retraso escalonado que hace que el
+ * cambio recorra el hilo de arriba abajo en lugar de parpadear.
  */
 function BurbujaSistema({ elemento, posicion }: { elemento: ElementoHilo; posicion: number }) {
+  const deLaIa = elemento.clase === "evento" && elemento.quien === "ia";
   return (
     <div className="flex justify-center py-1">
       <span
         style={{ transitionDelay: `${Math.min(posicion, 10) * 22}ms` }}
         className={cn(
-          "rounded-full border px-3 py-1 text-xs",
+          "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs",
           "transition-colors duration-300 ease-[var(--ease-out-quart)] motion-reduce:transition-none",
-          "border-border bg-hover text-fg-muted",
-          elemento.clase === "evento" &&
-            elemento.quien === "ia" &&
-            "border-[color-mix(in_oklab,var(--brand),transparent_65%)] bg-primary-soft text-primary-fg",
+          "border-border bg-inset text-fg-secondary",
+          deLaIa && "border-[color-mix(in_oklab,var(--brand),transparent_70%)]",
           "group-data-[mando=tuyo]/hilo:border-[color-mix(in_oklab,var(--human),transparent_60%)]",
           "group-data-[mando=tuyo]/hilo:bg-human-soft group-data-[mando=tuyo]/hilo:text-human-fg",
         )}
       >
+        {deLaIa && <span aria-hidden className="size-1.5 rounded-full bg-[var(--brand)]" />}
         {elemento.texto}
       </span>
     </div>
@@ -248,7 +324,7 @@ function BurbujaSistema({ elemento, posicion }: { elemento: ElementoHilo; posici
 function BurbujaNota({ elemento }: { elemento: Extract<ElementoHilo, { clase: "nota" }> }) {
   return (
     <div className="flex justify-center py-1">
-      <div className="w-full max-w-[min(42rem,78%)] rounded-xl border border-[color-mix(in_oklab,var(--warning),transparent_55%)] bg-[var(--warning-soft)] px-3.5 py-2">
+      <div className="w-full max-w-[min(40rem,76%)] rounded-xl border border-[color-mix(in_oklab,var(--warning),transparent_55%)] bg-[var(--warning-soft)] px-3.5 py-2">
         <p className="mb-1 flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-[var(--warning-fg)]">
           <StickyNote size={12} strokeWidth={2} aria-hidden />
           Nota interna · solo la ve tu equipo
@@ -266,7 +342,8 @@ function EsqueletoHilo() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 py-6">
       {[0, 1, 2, 3, 4].map((n) => (
-        <div key={n} className={cn("flex", n % 2 ? "justify-end" : "justify-start")}>
+        <div key={n} className={cn("flex items-end gap-2", n % 2 ? "justify-end" : "justify-start")}>
+          {n % 2 === 0 && <Skeleton shape="circulo" className="size-7" />}
           <Skeleton className="h-12 w-[min(28rem,60%)] rounded-2xl" />
         </div>
       ))}
@@ -277,38 +354,49 @@ function EsqueletoHilo() {
 /**
  * El vacío cuando no hay hilo abierto.
  *
- * Un hueco gris sería espacio desperdiciado en la pantalla que más se mira del
- * producto: se aprovecha para enseñar los atajos, que es lo que convierte a
- * quien atiende diez conversaciones al día en alguien que atiende cincuenta.
+ * No es un hueco: ofrece el siguiente paso —abrir la conversación que más lo
+ * necesita— y enseña los atajos, que es lo que convierte a quien atiende diez
+ * conversaciones al día en alguien que atiende cincuenta.
  */
-export function SinHiloSeleccionado() {
+export function SinHiloSeleccionado({
+  sinLeer,
+  alAbrirSiguiente,
+}: {
+  sinLeer: number;
+  /** Null cuando no hay ninguna conversación que abrir. */
+  alAbrirSiguiente: (() => void) | null;
+}) {
   const atajos: readonly { teclas: React.ReactNode; que: string }[] = [
     { teclas: <><Kbd>J</Kbd> <Kbd>K</Kbd></>, que: "Moverte por la lista" },
     { teclas: <><Kbd>⌘</Kbd>+<Kbd>.</Kbd></>, que: "Tomar o devolver el control" },
-    { teclas: <Kbd>/</Kbd>, que: "Buscar, o insertar una respuesta rápida" },
+    { teclas: <Kbd>/</Kbd>, que: "Buscar o insertar respuesta rápida" },
     { teclas: <><Kbd>⌘</Kbd>+<Kbd>L</Kbd></>, que: "Etiquetar la conversación" },
-    { teclas: <Kbd>Esc</Kbd>, que: "Cerrar lo que esté abierto" },
   ];
 
   return (
-    <div className="grid min-h-0 flex-1 place-items-center px-6">
-      <div className="flex max-w-md flex-col items-center gap-5">
+    <div className="grid min-h-0 flex-1 place-items-center overflow-y-auto px-6 py-8">
+      <div className="strappy-slide-up flex w-full max-w-lg flex-col items-center gap-5">
         <EmptyState
           variant="sin-resultados"
           size="sm"
-          title="Elige una conversación"
-          description="Aquí verás el hilo completo y sabrás de un vistazo si contestó la IA o contestó tu equipo."
+          title={sinLeer > 0 ? `Tienes ${sinLeer} ${sinLeer === 1 ? "conversación" : "conversaciones"} sin leer` : "Elige una conversación"}
+          description="Ábrela para ver el hilo completo y saber de un vistazo si contestó la IA o alguien de tu equipo."
+          action={
+            alAbrirSiguiente ? (
+              <Button onClick={alAbrirSiguiente}>
+                <MessagesSquare size={16} strokeWidth={1.75} aria-hidden />
+                {sinLeer > 0 ? "Abrir la primera sin leer" : "Abrir la más reciente"}
+              </Button>
+            ) : undefined
+          }
         />
-        <dl className="w-full rounded-xl border border-border bg-raised p-3">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-fg-muted">
+        <dl className="grid w-full gap-x-6 gap-y-1 rounded-xl border border-border bg-raised p-4 sm:grid-cols-2">
+          <p className="mb-1 text-2xs font-medium uppercase tracking-wide text-fg-muted sm:col-span-2">
             Atajos de teclado
           </p>
           {atajos.map((atajo) => (
-            <div
-              key={atajo.que}
-              className="flex items-center justify-between gap-4 border-t border-[var(--border-subtle)] py-1.5 first-of-type:border-t-0"
-            >
-              <dt className="text-base text-fg-secondary">{atajo.que}</dt>
+            <div key={atajo.que} className="flex items-center justify-between gap-3 py-1">
+              <dt className="text-sm text-fg-secondary">{atajo.que}</dt>
               <dd className="flex shrink-0 items-center gap-1">{atajo.teclas}</dd>
             </div>
           ))}

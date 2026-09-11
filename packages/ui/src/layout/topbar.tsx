@@ -7,22 +7,25 @@ export interface TopbarProps extends React.HTMLAttributes<HTMLElement> {
   /** Migas o subtítulo corto a la izquierda del título. */
   contexto?: React.ReactNode;
   acciones?: React.ReactNode;
+  /** Lo que va antes de todo: en móvil, el botón del menú. */
+  inicio?: React.ReactNode;
 }
 
-export function Topbar({ titulo, contexto, acciones, className, ...props }: TopbarProps) {
+export function Topbar({ titulo, contexto, acciones, inicio, className, ...props }: TopbarProps) {
   return (
     <header
       className={cn(
-        "flex h-[52px] shrink-0 items-center justify-between gap-3 border-b border-border bg-page px-4",
+        "flex h-[52px] shrink-0 items-center justify-between gap-3 border-b border-border bg-page/85 px-4 backdrop-blur-md",
         className,
       )}
       {...props}
     >
       <div className="flex min-w-0 items-center gap-2">
+        {inicio}
         {contexto && (
           <>
-            <span className="truncate text-base text-fg-muted">{contexto}</span>
-            <span aria-hidden className="text-fg-disabled">
+            <span className="hidden truncate text-base text-fg-muted sm:inline">{contexto}</span>
+            <span aria-hidden className="hidden text-fg-disabled sm:inline">
               /
             </span>
           </>

@@ -11,7 +11,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { AppShell, Sidebar, Topbar, rutas, todosLosDestinos, type Ruta } from "@strappy/ui";
+import { AppShell, MenuMovil, Sidebar, Topbar, rutas, todosLosDestinos, type Ruta } from "@strappy/ui";
 
 export interface MarcoAppProps {
   usuario: { nombre: string; correo: string; avatar?: string };
@@ -48,21 +48,38 @@ export function MarcoApp({
 }: MarcoAppProps) {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
+  const [menuAbierto, setMenuAbierto] = React.useState(false);
+  const [rutaVista, setRutaVista] = React.useState(pathname);
+
+  // Al navegar desde el menú móvil, el menú se cierra solo. Se ajusta durante el
+  // render para no pintar un fotograma con el menú abierto sobre la pantalla nueva.
+  if (rutaVista !== pathname) {
+    setRutaVista(pathname);
+    setMenuAbierto(false);
+  }
+
+  const menu = (ancho?: string) => (
+    <Sidebar
+      rutaActiva={rutaActivaDe(pathname)}
+      usuario={usuario}
+      creditos={{ ...creditos, onClick: () => router.push("/ajustes/facturacion") }}
+      {...(pendientes ? { pendientes } : {})}
+      linkComponent={Link}
+      onUsuarioClick={() => router.push("/ajustes/cuenta")}
+      {...(ancho ? { className: ancho } : {})}
+    />
+  );
 
   return (
     <AppShell
-      nav={
-        <Sidebar
-          rutaActiva={rutaActivaDe(pathname)}
-          usuario={usuario}
-          creditos={creditos}
-          {...(pendientes ? { pendientes } : {})}
-          linkComponent={Link}
-          onUsuarioClick={() => router.push("/ajustes/cuenta")}
-        />
-      }
+      nav={menu()}
       topbar={
         <Topbar
+          inicio={
+            <MenuMovil abierto={menuAbierto} onAbiertoCambia={setMenuAbierto}>
+              {menu("w-full")}
+            </MenuMovil>
+          }
           titulo={titulo}
           {...(contexto ? { contexto } : {})}
           {...(acciones ? { acciones } : {})}

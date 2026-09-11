@@ -1,7 +1,9 @@
-import { Badge, Card, CardBody, CardDescription, CardHeader, CardTitle } from "@strappy/ui";
+import { ExternalLink, Globe, KeyRound } from "lucide-react";
+import { Badge } from "@strappy/ui";
 import { MarcoApp } from "@/components/marco-app";
-import { NavAjustes } from "@/components/nav-ajustes";
+import { DisposicionAjustes } from "@/components/nav-ajustes";
 import { FormularioSitio } from "@/components/negocio/formulario-sitio";
+import { AvisoSoloLectura, SeccionAjustes } from "@/components/negocio/seccion-ajustes";
 import { datosDelMarco } from "@/lib/marco";
 import { accionConectarSitio } from "@/lib/sitio/acciones";
 import { sitioDelEspacio } from "@/lib/sitio/sitio";
@@ -19,46 +21,60 @@ export default async function PaginaSitio() {
       usuario={marco.usuario}
       creditos={marco.creditos}
       pendientes={marco.pendientes}
+      contexto="Ajustes"
       titulo="Sitio web"
     >
-      <NavAjustes />
-      <div className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
-        <Card>
-          <CardHeader className="flex-row items-start justify-between gap-3">
-            <div>
-              <CardTitle>Tu sitio web</CardTitle>
-              <CardDescription>
-                El Webmaster entra a tu WordPress con una contraseña de aplicación. Probamos la conexión antes de
-                guardarla, y la contraseña se guarda cifrada.
-              </CardDescription>
+      <DisposicionAjustes
+        titulo="Sitio web"
+        descripcion="Conecta tu WordPress para que el Webmaster haga él mismo los cambios que le pidas."
+      >
+        {sitio && (
+          <section className="strappy-slide-up flex flex-col gap-4 rounded-xl border border-border bg-raised p-5 shadow-e1 sm:flex-row sm:items-center">
+            <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary-fg">
+              <Globe size={22} strokeWidth={1.75} aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="truncate text-lg font-semibold tracking-tight text-fg">{sitio.nombre}</p>
+                {sitio.estado === "active" ? (
+                  <Badge tone="exito">
+                    <span aria-hidden className="size-1.5 rounded-full bg-success" />
+                    Conectado
+                  </Badge>
+                ) : (
+                  <Badge tone="aviso">Necesita reconectar</Badge>
+                )}
+              </div>
+              <a
+                href={sitio.url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-0.5 inline-flex max-w-full items-center gap-1 truncate text-sm text-fg-secondary transition-colors hover:text-primary-fg"
+              >
+                {sitio.url}
+                <ExternalLink size={13} strokeWidth={2} aria-hidden />
+              </a>
             </div>
-            {sitio &&
-              (sitio.estado === "active" ? (
-                <Badge>Conectado</Badge>
-              ) : (
-                <Badge tone="aviso">Necesita reconectar</Badge>
-              ))}
-          </CardHeader>
-          <CardBody className="flex flex-col gap-4">
-            {sitio && (
-              <p className="text-sm text-fg-secondary">
-                <span className="font-medium text-fg">{sitio.nombre}</span> · {sitio.url}
-              </p>
-            )}
-            {!puedeEditar && (
-              <p className="rounded-lg bg-inset px-3 py-2 text-2xs text-fg-muted">
-                Solo el propietario o un administrador pueden conectar el sitio.
-              </p>
-            )}
-            <FormularioSitio
-              accion={accionConectarSitio}
-              url={sitio?.url ?? ""}
-              usuario={sitio?.usuario ?? ""}
-              puedeEditar={puedeEditar}
-            />
-          </CardBody>
-        </Card>
-      </div>
+          </section>
+        )}
+
+        {!puedeEditar && (
+          <AvisoSoloLectura>Solo el propietario o un administrador pueden conectar el sitio.</AvisoSoloLectura>
+        )}
+
+        <SeccionAjustes
+          titulo={sitio ? "Actualizar la conexión" : "Conectar tu WordPress"}
+          descripcion="Tres datos. No se instala nada en tu sitio."
+          icono={<KeyRound size={18} strokeWidth={1.75} aria-hidden />}
+        >
+          <FormularioSitio
+            accion={accionConectarSitio}
+            url={sitio?.url ?? ""}
+            usuario={sitio?.usuario ?? ""}
+            puedeEditar={puedeEditar}
+          />
+        </SeccionAjustes>
+      </DisposicionAjustes>
     </MarcoApp>
   );
 }

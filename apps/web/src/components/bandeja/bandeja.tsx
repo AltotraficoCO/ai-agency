@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import {
   AppShell,
+  Avatar,
   Badge,
   Button,
   Drawer,
@@ -361,6 +362,7 @@ export function Bandeja({ inicial }: { inicial: DatosIniciales }) {
       }
       topbar={
         <Topbar
+          contexto="WhatsApp"
           titulo="Bandeja"
           acciones={
             <>
@@ -471,7 +473,18 @@ export function Bandeja({ inicial }: { inicial: DatosIniciales }) {
             ) : cargandoHilo ? (
               <Hilo hilo={null} cargando alGuardarRespuesta={() => undefined} />
             ) : (
-              <SinHiloSeleccionado />
+              <SinHiloSeleccionado
+                sinLeer={contadores["sin-leer"]}
+                alAbrirSiguiente={
+                  conversaciones.length > 0
+                    ? () => {
+                        // La que más lo necesita: la primera sin leer; si no hay, la más reciente.
+                        const destino = conversaciones.find((c) => c.sinLeer > 0) ?? conversaciones[0];
+                        if (destino) void abrir(destino.id);
+                      }
+                    : null
+                }
+              />
             )}
           </div>
 
@@ -590,18 +603,27 @@ function CabeceraHilo({
 }) {
   const cerrada = hilo.conversacion.estado === "closed";
   return (
-    <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+    <header className="flex shrink-0 items-center gap-2.5 border-b border-border px-3 py-2.5">
       <IconButton label="Volver a la lista" size="sm" className="lg:hidden" onClick={alVolver}>
         <ArrowLeft size={16} strokeWidth={1.75} aria-hidden />
       </IconButton>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-base font-semibold text-fg">{hilo.contacto.nombre}</p>
-        <p className="truncate text-xs text-fg-muted">
-          {hilo.conversacion.canal.nombre}
-          {hilo.conversacion.estado === "snoozed" && hilo.conversacion.pospuestaHasta && " · pospuesta"}
-          {cerrada && " · cerrada"}
-        </p>
-      </div>
+      {/* Pulsar en la persona abre su ficha: es lo que se busca al mirar su nombre. */}
+      <button
+        type="button"
+        onClick={alAbrirFicha}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-md px-1 py-0.5 text-left transition-colors hover:bg-hover min-[1440px]:pointer-events-none"
+      >
+        <Avatar size="md" tone="cliente" name={hilo.contacto.nombre} />
+        <span className="min-w-0">
+          <span className="block truncate text-base font-semibold text-fg">{hilo.contacto.nombre}</span>
+          <span className="block truncate text-xs text-fg-muted">
+            {hilo.contacto.telefono ? `${hilo.contacto.telefono} · ` : ""}
+            {hilo.conversacion.canal.nombre}
+            {hilo.conversacion.estado === "snoozed" && hilo.conversacion.pospuestaHasta && " · pospuesta"}
+            {cerrada && " · cerrada"}
+          </span>
+        </span>
+      </button>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

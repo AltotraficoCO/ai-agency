@@ -60,50 +60,59 @@ export function BarraControl({
 
   return (
     <>
+      {/* Una tarjeta sobria con una franja de color a la izquierda: rellenar
+          toda la barra de verde competía con el botón, que es lo importante. */}
       <div
         data-mando={mando}
         aria-live="polite"
         className={cn(
-          "flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5",
-          "border-b border-border transition-colors duration-[var(--dur-slow)]",
-          mando === "ia" && "bg-primary-soft",
-          mando === "tuyo" && "border-t-2 border-t-[var(--human)] bg-human-soft",
-          (mando === "otro" || mando === "pausado") && "bg-raised",
+          "relative flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 overflow-hidden px-4 py-3",
+          "border-b border-border bg-raised transition-colors duration-[var(--dur-slow)]",
+          "before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:transition-colors",
+          mando === "ia" && "before:bg-[var(--brand)]",
+          mando === "tuyo" && "bg-human-soft before:bg-[var(--human)]",
+          mando === "otro" && "before:bg-[var(--border-strong)]",
+          mando === "pausado" && "before:bg-transparent",
         )}
       >
         {mando === "ia" && (
           <>
             <PuntoLatiendo />
-            <p className="min-w-0 flex-1 text-base text-fg">
-              <span className="font-medium">La IA está atendiendo esta conversación</span>
-              {hilo.conversacion.agente && (
-                <span className="text-fg-secondary"> · {hilo.conversacion.agente.nombre}</span>
-              )}
-            </p>
-            <Button variant="human" size="sm" onClick={acciones.tomar} loading={trabajando}>
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-medium text-fg">
+                La IA está atendiendo
+                {hilo.conversacion.agente && (
+                  <span className="font-normal text-fg-secondary"> · {hilo.conversacion.agente.nombre}</span>
+                )}
+              </p>
+              <p className="text-sm text-fg-muted">Responde sola. Toma el control si quieres escribir tú.</p>
+            </div>
+            <Button variant="human" onClick={acciones.tomar} loading={trabajando}>
               <Hand size={15} strokeWidth={1.75} aria-hidden />
               Tomar el control
-              <Kbd className="ml-1 border-white/30 bg-white/15 text-white">⌘.</Kbd>
+              <Kbd className="ml-1 hidden border-white/30 bg-white/15 text-white sm:inline-flex">⌘.</Kbd>
             </Button>
           </>
         )}
 
         {mando === "tuyo" && (
           <>
-            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-[var(--human)] text-white">
-              <UserCheck size={14} strokeWidth={2} aria-hidden />
+            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--human)] text-white">
+              <UserCheck size={16} strokeWidth={2} aria-hidden />
             </span>
-            <p className="min-w-0 flex-1 text-base text-fg">
-              <span className="font-medium">
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-medium text-fg">
                 Tienes el control{hilo.control.desde ? ` desde las ${hora(hilo.control.desde)}` : ""}
-              </span>
-              {hilo.control.quien && (
-                <span className="text-fg-secondary"> · {hilo.control.quien.nombre}</span>
-              )}
-            </p>
-            <Button variant="secondary" size="sm" onClick={() => setAbrirDevolucion(true)}>
+              </p>
+              <p className="text-sm text-fg-secondary">
+                La IA no contestará hasta que se la devuelvas
+                {hilo.control.quien ? ` · ${hilo.control.quien.nombre}` : ""}.
+              </p>
+            </div>
+            <Button variant="secondary" onClick={() => setAbrirDevolucion(true)} loading={trabajando}>
               <Bot size={15} strokeWidth={1.75} aria-hidden />
               Devolver a la IA
+              <Kbd className="ml-1 hidden sm:inline-flex">⌘.</Kbd>
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -127,20 +136,20 @@ export function BarraControl({
         {mando === "otro" && (
           <>
             <Avatar
-              size="sm"
+              size="md"
               tone="humano"
               name={hilo.control.quien?.nombre ?? "Compañero"}
               {...(hilo.control.quien?.avatar ? { src: hilo.control.quien.avatar } : {})}
             />
-            <p className="min-w-0 flex-1 text-base text-fg">
-              <span className="font-medium">
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-medium text-fg">
                 {hilo.control.quien?.nombre ?? "Otra persona"} tiene el control
-              </span>
-              {hilo.control.desde && (
-                <span className="text-fg-secondary"> · desde las {hora(hilo.control.desde)}</span>
-              )}
-            </p>
-            <Button variant="secondary" size="sm" onClick={acciones.solicitar} loading={trabajando}>
+              </p>
+              <p className="text-sm text-fg-muted">
+                {hilo.control.desde ? `Desde las ${hora(hilo.control.desde)}. ` : ""}Pídeselo antes de escribir.
+              </p>
+            </div>
+            <Button variant="secondary" onClick={acciones.solicitar} loading={trabajando}>
               Solicitar el control
             </Button>
           </>
@@ -148,14 +157,14 @@ export function BarraControl({
 
         {mando === "pausado" && (
           <>
-            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-hover text-fg-muted">
-              <Pause size={14} strokeWidth={2} aria-hidden />
+            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-hover text-fg-muted">
+              <Pause size={16} strokeWidth={2} aria-hidden />
             </span>
-            <p className="min-w-0 flex-1 text-base text-fg">
-              <span className="font-medium">Nadie está atendiendo esta conversación</span>
-              <span className="text-fg-secondary"> · la IA está en pausa</span>
-            </p>
-            <Button variant="human" size="sm" onClick={acciones.tomar} loading={trabajando}>
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-medium text-fg">Nadie está atendiendo</p>
+              <p className="text-sm text-fg-muted">La IA está en pausa. Toma el control para contestar.</p>
+            </div>
+            <Button variant="human" onClick={acciones.tomar} loading={trabajando}>
               <Hand size={15} strokeWidth={1.75} aria-hidden />
               Tomar el control
             </Button>
@@ -175,9 +184,15 @@ export function BarraControl({
 /** El punto que late: la IA está despierta ahora mismo, no «hace un rato». */
 function PuntoLatiendo() {
   return (
-    <span className="relative grid size-6 shrink-0 place-items-center" aria-hidden>
-      <span className="absolute size-2.5 animate-ping rounded-full bg-[var(--brand)] opacity-60 motion-reduce:animate-none" />
-      <span className="relative size-2.5 rounded-full bg-[var(--brand)]" />
+    <span
+      className="relative grid size-8 shrink-0 place-items-center rounded-full bg-primary-soft text-primary-fg"
+      aria-hidden
+    >
+      <Bot size={16} strokeWidth={2} />
+      <span className="absolute -right-0.5 -top-0.5 grid size-3 place-items-center">
+        <span className="absolute size-3 animate-ping rounded-full bg-[var(--brand)] opacity-50 motion-reduce:animate-none" />
+        <span className="relative size-2 rounded-full border border-[var(--s-raised)] bg-[var(--brand)]" />
+      </span>
     </span>
   );
 }

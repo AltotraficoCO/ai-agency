@@ -1,3 +1,4 @@
+import { ChartPie } from "lucide-react";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@strappy/ui";
 import { GraficoAtencion, GraficoDesenlaces } from "@/components/negocio/graficos";
 import { VerComoTabla } from "@/components/negocio/tabla-equivalente";
@@ -6,9 +7,10 @@ import type { AnaliticaStrappy } from "@/lib/negocio/analitica";
 /**
  * La pestaña que responde a «¿cuánto resuelve la IA sola?».
  *
- * El área apilada índigo/fucsia no es decoración: el porcentaje índigo ES la
- * propuesta de valor del producto. Por eso va antes que cualquier otra cosa y
- * lleva escrito el dato en una frase, no solo dibujado.
+ * El área apilada verde/azul no es decoración: el porcentaje verde ES la
+ * propuesta de valor del producto. Por eso va antes que cualquier otra cosa,
+ * con la cifra en grande al lado del título y escrita en una frase, no solo
+ * dibujada.
  */
 export function PestanaConversaciones({ analitica }: { analitica: AnaliticaStrappy }) {
   const totalIa = analitica.atencion.reduce((s, p) => s + p.ia, 0);
@@ -18,16 +20,36 @@ export function PestanaConversaciones({ analitica }: { analitica: AnaliticaStrap
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle>Quién atendió</CardTitle>
-          <CardDescription>
-            {total > 0
-              ? `Tu agente resolvió el ${porcentajeIa}% de las conversaciones sin ayuda de nadie. El resto pasó a una persona de tu equipo.`
-              : "Cuando entren conversaciones verás qué parte resolvió la IA sola y qué parte pasó a una persona."}
-          </CardDescription>
+      <Card className="strappy-slide-up lg:col-span-2">
+        <CardHeader className="flex-row flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <CardTitle>Quién atendió</CardTitle>
+            <CardDescription>
+              {total > 0
+                ? `De ${total.toLocaleString("es-CO")} conversaciones, tu agente cerró ${totalIa.toLocaleString("es-CO")} sin ayuda. El resto pasó a tu equipo.`
+                : "Cuando entren conversaciones verás qué parte resolvió la IA sola y qué parte pasó a una persona."}
+            </CardDescription>
+          </div>
+          {total > 0 && (
+            <div className="text-right">
+              <p className="text-3xl font-semibold tracking-tight text-primary-fg tabular-nums">{porcentajeIa}%</p>
+              <p className="text-2xs text-fg-muted">resuelto por la IA</p>
+            </div>
+          )}
         </CardHeader>
         <CardBody>
+          <ul className="mb-3 flex flex-wrap gap-2 text-2xs" aria-label="Leyenda de la gráfica">
+            <li className="inline-flex items-center gap-1.5 rounded-full bg-hover px-2.5 py-1 text-fg-secondary">
+              <span aria-hidden className="size-2 rounded-full bg-primary" />
+              Resueltas por la IA
+              <span className="tabular-nums text-fg">{totalIa.toLocaleString("es-CO")}</span>
+            </li>
+            <li className="inline-flex items-center gap-1.5 rounded-full bg-hover px-2.5 py-1 text-fg-secondary">
+              <span aria-hidden className="size-2 rounded-full bg-human" />
+              Pasadas a tu equipo
+              <span className="tabular-nums text-fg">{totalHumano.toLocaleString("es-CO")}</span>
+            </li>
+          </ul>
           <GraficoAtencion datos={analitica.atencion.map((p) => ({ ...p }))} />
           <VerComoTabla
             titulo="Conversaciones atendidas por la IA y por personas, día a día"
@@ -41,16 +63,22 @@ export function PestanaConversaciones({ analitica }: { analitica: AnaliticaStrap
         </CardBody>
       </Card>
 
-      <Card>
+      <Card className="strappy-slide-up">
         <CardHeader>
           <CardTitle>Cómo terminaron</CardTitle>
-          <CardDescription>Desenlace de las conversaciones analizadas en el periodo.</CardDescription>
+          <CardDescription>El desenlace de las conversaciones analizadas en el periodo.</CardDescription>
         </CardHeader>
         <CardBody>
           {analitica.desenlaces.length === 0 ? (
-            <p className="text-sm text-fg-muted">
-              Todavía no hay conversaciones analizadas en este periodo.
-            </p>
+            <div className="flex flex-col items-center gap-2 py-8 text-center">
+              <span className="grid size-11 place-items-center rounded-full bg-hover text-fg-muted">
+                <ChartPie size={20} strokeWidth={1.75} aria-hidden />
+              </span>
+              <p className="text-base font-medium text-fg">Aún no hay desenlaces</p>
+              <p className="max-w-[30ch] text-sm text-fg-muted">
+                Cuando se analice una conversación verás si acabó en venta, en una duda resuelta o con tu equipo.
+              </p>
+            </div>
           ) : (
             <>
               <GraficoDesenlaces

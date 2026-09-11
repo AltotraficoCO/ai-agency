@@ -12,7 +12,8 @@ export interface AppShellProps extends React.HTMLAttributes<HTMLDivElement> {
 export function AppShell({ nav, topbar, className, children, ...props }: AppShellProps) {
   return (
     <div className={cn("flex h-dvh w-full overflow-hidden bg-page", className)} {...props}>
-      {nav}
+      {/* En pantallas estrechas el menú vive en `MenuMovil`, dentro de la barra superior. */}
+      <div className="hidden h-full md:flex">{nav}</div>
       <div className="flex min-w-0 flex-1 flex-col">
         {topbar}
         <main className="min-h-0 flex-1 overflow-auto">{children}</main>

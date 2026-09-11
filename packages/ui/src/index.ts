@@ -100,6 +100,12 @@ export {
   type UsuarioSidebar,
 } from "./layout/sidebar";
 export { CreditsWidget, type CreditsWidgetProps } from "./layout/credits-widget";
+export { EncabezadoPagina, type EncabezadoPaginaProps } from "./layout/encabezado-pagina";
+export { MenuMovil, type MenuMovilProps } from "./layout/menu-movil";
+export {
+  IndicadorEscribiendo,
+  type IndicadorEscribiendoProps,
+} from "./components/indicador-escribiendo";
 export {
   destinoAjustes,
   destinoContratar,

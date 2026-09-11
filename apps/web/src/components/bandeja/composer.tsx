@@ -205,7 +205,7 @@ export function Composer({
         />
 
         <div className="mt-2 flex items-center gap-2">
-          <p className="flex items-center gap-1.5 text-xs text-fg-muted">
+          <p className="hidden items-center gap-1.5 text-xs text-fg-muted sm:flex">
             <Kbd>Enter</Kbd> envía · <Kbd>Mayús</Kbd>+<Kbd>Enter</Kbd> salto de línea
             {esNota ? (
               <>
@@ -221,7 +221,6 @@ export function Composer({
           </p>
           <Button
             className="ml-auto"
-            size="sm"
             variant={esNota ? "secondary" : "human"}
             onClick={enviar}
             loading={enviando}
@@ -274,7 +273,7 @@ function PestanaComposer({
       onClick={onClick}
       aria-pressed={activa}
       className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors",
+        "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors duration-[var(--dur-fast)]",
         "focus-visible:outline-2 focus-visible:outline-offset-2",
         activa && tono === "mensaje" && "bg-human-soft text-human-fg",
         activa && tono === "nota" && "bg-[var(--warning)] text-[var(--fg-inverse)]",
