@@ -3,49 +3,46 @@
 /**
  * Las tarjetas de la pantalla de Agentes.
  *
- * Cada agente tiene una cara reconocible —un avatar por su papel— y un punto
- * que dice la verdad: verde si atiende o trabaja ahora mismo, gris si todavía
- * no hace nada. Toda la tarjeta abre el agente; el menú guarda lo secundario.
- * La de contratar va siempre primera: añadir un agente es la acción de esta
- * pantalla, no un botón escondido en la barra.
+ * Cada agente del catálogo tiene su personaje, y un punto que dice la verdad:
+ * verde si atiende o trabaja ahora mismo, gris si todavía no hace nada. Toda la
+ * tarjeta abre el agente; el menú guarda lo secundario. La de contratar va
+ * siempre primera: añadir un agente es la acción de esta pantalla, no un botón
+ * escondido en la barra.
+ *
+ * Los personajes vienen con fondo transparente y de cuerpo entero: se muestran
+ * enteros sobre un halo, sin recortarlos en círculo, que les cortaría la gorra
+ * y las manos.
  */
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Bot,
-  EllipsisVertical,
-  Globe,
-  Megaphone,
-  MessageCircle,
-  Plus,
-  type LucideIcon,
-} from "lucide-react";
+import { Bot, EllipsisVertical, Plus } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@strappy/ui";
 
-type Papel = { nombre: string; icono: LucideIcon; fondo: string };
+type Papel = { nombre: string; imagen?: string; halo: string };
 
 const PAPELES: Record<string, Papel> = {
   webmaster: {
     nombre: "Webmaster",
-    icono: Globe,
-    fondo: "linear-gradient(135deg, #38bdf8 0%, #6366f1 100%)",
+    imagen: "/agentes/webmaster.webp",
+    halo: "radial-gradient(circle, rgba(59,130,246,0.35) 0%, rgba(59,130,246,0) 70%)",
   },
   recepcionista: {
     nombre: "Recepcionista",
-    icono: MessageCircle,
-    fondo: "linear-gradient(135deg, #34d399 0%, #0d9488 100%)",
+    imagen: "/agentes/recepcionista.webp",
+    halo: "radial-gradient(circle, rgba(56,189,248,0.32) 0%, rgba(56,189,248,0) 70%)",
   },
   marketing: {
     nombre: "Marketing",
-    icono: Megaphone,
-    fondo: "linear-gradient(135deg, #fbbf24 0%, #f43f5e 100%)",
+    imagen: "/agentes/marketing.webp",
+    halo: "radial-gradient(circle, rgba(99,102,241,0.35) 0%, rgba(99,102,241,0) 70%)",
   },
 };
 
+/** Los agentes propios no tienen personaje todavía: un robot sobre un degradado. */
 const PROPIO: Papel = {
   nombre: "Agente propio",
-  icono: Bot,
-  fondo: "linear-gradient(135deg, #a78bfa 0%, #d946ef 100%)",
+  halo: "radial-gradient(circle, rgba(167,139,250,0.3) 0%, rgba(167,139,250,0) 70%)",
 };
 
 export type DatosTarjetaAgente = {
@@ -60,7 +57,6 @@ export type DatosTarjetaAgente = {
 export function TarjetaAgente({ agente, destino }: { agente: DatosTarjetaAgente; destino: string }) {
   const router = useRouter();
   const papel = (agente.catalogo ? PAPELES[agente.catalogo] : undefined) ?? PROPIO;
-  const Icono = papel.icono;
   const estado = agente.activo ? "Activo" : agente.estado === "paused" ? "En pausa" : "Borrador";
 
   return (
@@ -93,16 +89,25 @@ export function TarjetaAgente({ agente, destino }: { agente: DatosTarjetaAgente;
       </div>
 
       <div className="pointer-events-none flex flex-1 items-center justify-center">
-        <span className="relative">
-          <span
-            className="grid size-20 place-items-center rounded-full text-white shadow-lg ring-1 ring-white/10"
-            style={{ background: papel.fondo }}
-          >
-            <Icono size={34} strokeWidth={1.75} aria-hidden />
-          </span>
+        <span className="relative grid size-32 place-items-center">
+          <span aria-hidden className="absolute inset-0 rounded-full" style={{ background: papel.halo }} />
+          {papel.imagen ? (
+            <Image
+              src={papel.imagen}
+              alt=""
+              width={160}
+              height={160}
+              sizes="160px"
+              className="relative size-36 object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.45)] transition-transform duration-[var(--dur-base)] group-hover:-translate-y-1 motion-reduce:transition-none"
+            />
+          ) : (
+            <span className="relative grid size-20 place-items-center rounded-full bg-[linear-gradient(135deg,#a78bfa_0%,#d946ef_100%)] text-white shadow-lg ring-1 ring-white/10">
+              <Bot size={34} strokeWidth={1.75} aria-hidden />
+            </span>
+          )}
           <span
             title={estado}
-            className={`absolute bottom-0.5 right-0.5 size-4 rounded-full border-[3px] border-black/40 ${
+            className={`absolute bottom-2 right-2 size-4 rounded-full border-[3px] border-black/40 ${
               agente.activo ? "bg-success" : "bg-[var(--border-strong)]"
             }`}
           >
