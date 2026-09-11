@@ -4,7 +4,8 @@
  * El motor usa `generateText`, no `streamText`: la respuesta llega entera. Lo
  * que se transmite entonces no son fragmentos de texto sino ETAPAS —recibido,
  * pensando, respuesta, cobro—, que es lo que de verdad quiere ver quien está
- * probando su agente: si está pensando, cuánto tardó y cuánto costó.
+ * probando su agente: si está pensando, qué herramientas va usando (`paso`),
+ * cuánto tardó y cuánto costó.
  */
 import { exigirUsuarioActual } from "@/lib/identidad";
 import { enviarMensaje } from "@/lib/motor/simulador";
@@ -44,6 +45,7 @@ export async function POST(peticion: Request, ctx: { params: Promise<{ id: strin
           agentId,
           conversationId,
           texto,
+          alPaso: (paso) => emitir("paso", paso),
         });
         emitir("resultado", { ...resultado, milisegundos: Date.now() - inicio });
       } catch (error) {

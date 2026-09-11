@@ -17,6 +17,7 @@ import {
   toAiToolSet,
   toPromptContracts,
   type ToolContext,
+  type ToolInvocationLog,
   type ToolPorts,
 } from "@strappy/tools";
 
@@ -24,28 +25,34 @@ export type EntradaHerramientas = {
   scope: TenantScope;
   ports: ToolPorts;
   agentRunId?: string;
+  /** Avisa de cada invocación en el acto. El simulador lo usa para enseñar el trabajo en vivo. */
+  alInvocar?: (log: ToolInvocationLog) => void;
 };
 
 export function crearToolsFor(entrada: EntradaHerramientas) {
-  return async (_input: {
+  return async (input: {
     workspaceId: string;
     agentId: string;
     conversationId: string;
   }): Promise<{ tools: ToolSet; contracts: readonly ToolContract[] }> => {
     const tools = toAiToolSet(SYSTEM_TOOLS, {
       onInvocation: (log) => {
+        entrada.alInvocar?.(log);
         // Sin await: registrar no debe retrasar la respuesta al cliente, y si
-        // el registro falla el turno sigue siendo válido.
+        // el registro falla el turno sigue siendo válido. `started_at` queda en
+        // `now()` —el inicio de la transacción del turno, igual que sus
+        // mensajes— y `finished_at` en la hora real, para poder colgar cada
+        // paso de su respuesta y medir cuánto tardó.
         void entrada.scope
           .query(
             `insert into public.tool_runs
                (workspace_id, agent_run_id, conversation_id, tool_slug,
                 input, output, status, latency_ms, error_detail, finished_at)
-             values ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, now())`,
+             values ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, clock_timestamp())`,
             [
               entrada.scope.workspaceId,
               entrada.agentRunId ?? null,
-              null,
+              input.conversationId || null,
               log.slug,
               JSON.stringify(log.input ?? {}),
               log.output === undefined ? null : JSON.stringify(log.output),

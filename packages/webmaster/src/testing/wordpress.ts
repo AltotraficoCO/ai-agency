@@ -261,12 +261,13 @@ export function crearDobleWordPress(
       if (!estado.conectorInstalado) return error("rest_no_route", "No existe la ruta.", 404);
       const b = cuerpo();
       const paginaId = typeof b.pagina_id === "number" ? b.pagina_id : undefined;
+      const tipoPedido = b.tipo === "post" || b.tipo === "page" ? b.tipo : undefined;
       const destino = paginaId
-        ? estado.contenido.find((c) => c.id === paginaId)
+        ? estado.contenido.find((c) => c.id === paginaId && (!tipoPedido || c.tipo === tipoPedido))
         : (() => {
             const nueva: PaginaDoble = {
               id: ++siguienteId,
-              tipo: "page",
+              tipo: tipoPedido ?? "page",
               titulo: String(b.titulo ?? ""),
               contenido: "",
               slug: String(b.titulo ?? "pagina").toLowerCase().replace(/\s+/g, "-"),

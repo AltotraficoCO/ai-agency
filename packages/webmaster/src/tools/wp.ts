@@ -805,16 +805,27 @@ export const wpCrearPaginaElementor = defineTool({
   slug: "wp_crear_pagina_elementor",
   label: "Crear página con Elementor",
   description:
-    "Crea (o reescribe, pasando pagina_id) una página construida CON ELEMENTOR componiendo secciones: hero, beneficios, stats, testimonios, precios, faq, cta y texto. Para una landing decente usa 5-8 secciones variadas con copy concreto del negocio: una página de tres bloques es inaceptable. Es la herramienta obligatoria cuando piden algo 'con Elementor', 'de diseño' o 'atractivo'.",
-  whenToUse: "para cualquier landing, página de ventas o rediseño con aspecto profesional",
+    "Crea (o reescribe, pasando su id) una página o una entrada de blog (tipo=\"post\") construida CON ELEMENTOR componiendo secciones: hero, beneficios, stats, testimonios, precios, faq, cta y texto. Para una landing decente usa 5-8 secciones variadas con copy concreto del negocio: una página de tres bloques es inaceptable. Es la herramienta obligatoria cuando piden algo 'con Elementor', 'de diseño' o 'atractivo', también para una entrada.",
+  whenToUse: "para cualquier landing, página de ventas, rediseño o entrada de blog con aspecto profesional",
   inputSchema: z.object({
     titulo: z.string().min(1).max(300),
+    tipo: tipoContenido
+      .optional()
+      .describe(
+        '"post" para una entrada o artículo de blog, "page" para una página. Sin id, por defecto crea una página. Con id y sin tipo, se detecta.',
+      ),
     pagina_id: z
       .number()
       .int()
       .positive()
       .optional()
-      .describe("Si se pasa, escribe el diseño SOBRE esa página existente y conserva su URL."),
+      .describe("Si se pasa, escribe el diseño SOBRE ese contenido existente (página o entrada) y conserva su URL."),
+    contenido_id: z
+      .number()
+      .int()
+      .positive()
+      .optional()
+      .describe("Lo mismo que pagina_id, con un nombre que vale también para entradas."),
     secciones: z.array(seccionSpec).min(1).max(10),
     paleta: z
       .object({
@@ -835,7 +846,23 @@ export const wpCrearPaginaElementor = defineTool({
     const creds = requireWp(sitio, "wp_crear_pagina_elementor");
     const pal: Paleta = input.paleta ?? PALETA_POR_DEFECTO;
 
-    const portadaId = input.pagina_id ? await portadaDe(creds, opciones) : undefined;
+    if (
+      input.pagina_id !== undefined &&
+      input.contenido_id !== undefined &&
+      input.pagina_id !== input.contenido_id
+    ) {
+      throw new Error(
+        `pagina_id (${input.pagina_id}) y contenido_id (${input.contenido_id}) no coinciden: pasa solo uno de los dos.`,
+      );
+    }
+    const id = input.contenido_id ?? input.pagina_id;
+    // Con un id, el tipo no se adivina: se lee. Así una entrada recién creada
+    // no acaba pidiéndose por /pages/ hasta agotar el tope de acciones.
+    const tipo =
+      id === undefined ? (input.tipo ?? "page") : (input.tipo ?? (await wp.detectarTipoContenido(creds, id, opciones)));
+    const antes = id !== undefined ? await wp.leerContenido(creds, tipo, id, opciones) : undefined;
+
+    const portadaId = id !== undefined && tipo === "page" ? await portadaDe(creds, opciones) : undefined;
     const bloqueo = await puertaDeAprobacion(
       ctx,
       sitio,
@@ -844,7 +871,7 @@ export const wpCrearPaginaElementor = defineTool({
       evaluarSensibilidad({
         toolSlug: "wp_crear_pagina_elementor",
         titulo: input.titulo,
-        ...(input.pagina_id !== undefined ? { contenidoId: input.pagina_id } : {}),
+        ...(id !== undefined ? { contenidoId: id } : {}),
         ...(portadaId !== undefined ? { portadaId } : {}),
         tiposSeccion: input.secciones.map((s) => s.tipo),
       }),
@@ -852,11 +879,10 @@ export const wpCrearPaginaElementor = defineTool({
     if (bloqueo) return bloqueo;
 
     let backupId: string | null = null;
-    if (input.pagina_id) {
-      const antes = await wp.leerContenido(creds, "page", input.pagina_id, opciones);
-      backupId = await hacerBackup(ctx, sitio, `page:${input.pagina_id}`, {
-        tipo: "page",
-        id: input.pagina_id,
+    if (id !== undefined && antes) {
+      backupId = await hacerBackup(ctx, sitio, `${tipo}:${id}`, {
+        tipo,
+        id,
         titulo: antes.titulo,
         contenido: antes.contenido,
         status: antes.status,
@@ -864,13 +890,9 @@ export const wpCrearPaginaElementor = defineTool({
     }
 
     const data = construirSecciones(input.secciones as SeccionSpec[], pal);
-    const r = await wp.escribirPaginaElementor(
+    const r = await wp.escribirContenidoElementor(
       creds,
-      {
-        ...(input.pagina_id !== undefined ? { paginaId: input.pagina_id } : {}),
-        titulo: input.titulo,
-        data,
-      },
+      { tipo, ...(id !== undefined ? { id } : {}), titulo: input.titulo, data },
       opciones,
     );
     if (!r.elementorOk) {
@@ -880,6 +902,7 @@ export const wpCrearPaginaElementor = defineTool({
     }
     return {
       ok: true,
+      tipo,
       id: r.id,
       link: r.link,
       secciones: input.secciones.length,

@@ -16,7 +16,7 @@ export function crearCerebro(scope: TenantScope, puertos: PuertosDeBase): Cerebr
   const embeddings = crearEmbeddingsSiHayProveedor({ modelTiers: puertos.modelTiers });
 
   return new Cerebro({
-    db: puertos.conocimiento,
+    db: conPuntoDeGuardado(scope, puertos.conocimiento),
     // Sin proveedor de embeddings el cerebro entra en modo "solo texto" en vez
     // de fallar: encuentra por coincidencia de palabras, que es gratis y sirve
     // para nombres de producto, precios y referencias exactas. Con la clave de
@@ -43,6 +43,45 @@ export function crearCerebro(scope: TenantScope, puertos: PuertosDeBase): Cerebr
       aviso(evento, datos) {
         console.warn(`[conocimiento] ${evento}`, datos ?? {});
       },
+    },
+  });
+}
+
+/**
+ * Cada consulta al conocimiento, dentro de su propio punto de guardado.
+ *
+ * El turno entero vive en una transacción. Si una búsqueda falla en SQL, el
+ * Cerebro la captura y sigue degradado —como debe—, pero Postgres ya ha
+ * abortado la transacción y todo lo que viene después (la respuesta, el cobro)
+ * falla con «current transaction is aborted». Volver al punto de guardado deja
+ * el fallo en la búsqueda, que es donde tiene que quedarse.
+ *
+ * Van en fila: con dos puntos de guardado abiertos a la vez, liberar el primero
+ * se llevaría también el segundo.
+ */
+function conPuntoDeGuardado<T extends object>(scope: TenantScope, puerto: T): T {
+  let cola: Promise<unknown> = Promise.resolve();
+  let cuenta = 0;
+  return new Proxy(puerto, {
+    get(objetivo, clave, receptor) {
+      const valor: unknown = Reflect.get(objetivo, clave, receptor);
+      if (typeof valor !== "function") return valor;
+      return (...argumentos: unknown[]) => {
+        const turno = cola.then(async () => {
+          const nombre = `conocimiento_${++cuenta}`;
+          await scope.query(`savepoint ${nombre}`);
+          try {
+            const resultado: unknown = await valor.apply(objetivo, argumentos);
+            await scope.query(`release savepoint ${nombre}`);
+            return resultado;
+          } catch (error) {
+            await scope.query(`rollback to savepoint ${nombre}`);
+            throw error;
+          }
+        });
+        cola = turno.catch(() => undefined);
+        return turno;
+      };
     },
   });
 }

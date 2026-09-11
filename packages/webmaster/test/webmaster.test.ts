@@ -495,6 +495,84 @@ describe("límites duros", () => {
 
 // ---------------------------------------------------------------------------
 
+describe("freno de repeticiones", () => {
+  const SECCION = [{ tipo: "texto", titulo: "Por qué importa", html: "<p>La IA.</p>" }];
+
+  function ejecutar(m: Montaje, modelo: ReturnType<typeof modeloGuionizado>["modelo"], vistos: PasoTrabajo[]) {
+    return ejecutarTareaWebmaster({
+      agent: webmaster,
+      model: modelo,
+      modelId: "prueba/modelo",
+      rates: TARIFAS,
+      workspaceId: "ws_1",
+      agentName: "Max",
+      sitio: m.sitio,
+      tarea: { id: "task_1", titulo: "Diseña el post sobre IA con Elementor", detalle: null },
+      alAvanzar: (paso) => vistos.push(paso),
+    });
+  }
+
+  it("el mismo fallo tres veces termina la tarea como fallida, con el motivo y sin más llamadas", async () => {
+    const m = montar();
+    const vistos: PasoTrabajo[] = [];
+    const { modelo, llamadas } = modeloGuionizado(
+      [{ llama: "wp_crear_pagina_elementor", con: { titulo: "La IA", pagina_id: 999, secciones: SECCION } }],
+      true,
+    );
+
+    const resultado = await ejecutar(m, modelo, vistos);
+
+    expect(resultado.estado).toBe("fallida");
+    if (resultado.estado !== "fallida") return;
+    expect(resultado.error).toMatch(/^Me detuve porque «Diseñando con Elementor» falló 3 veces/);
+    expect(resultado.error).toContain("no existe como página ni como entrada");
+    // Tres intentos y ni uno más: sin el freno llegaba al tope de 25.
+    expect(llamadas).toHaveLength(3);
+    expect(modelo.doGenerateCalls).toHaveLength(3);
+    expect(resultado.evidencia.acciones).toHaveLength(3);
+    expect(m.wp.llamadas.filter((l) => l.metodo !== "GET")).toHaveLength(0);
+
+    // Al segundo fallo el modelo ya leyó que no debía repetirlo.
+    expect(JSON.stringify(modelo.doGenerateCalls[1]?.prompt)).not.toContain("Ya intentaste exactamente esto");
+    expect(JSON.stringify(modelo.doGenerateCalls[2]?.prompt)).toContain(
+      "Ya intentaste exactamente esto y falló 2 veces con: El id 999 no existe",
+    );
+
+    // El registro cuenta los tres intentos, cada uno con el error real de WordPress.
+    const errores = vistos.filter((p) => p.estado === "error");
+    expect(errores).toHaveLength(3);
+    expect(new Set(errores.map((p) => p.id)).size).toBe(3);
+    for (const p of errores) expect(p.detalle).toMatch(/^El id 999 no existe/);
+  });
+
+  it("cambiar de enfoque tras el aviso no frena: la tarea termina bien", async () => {
+    const m = montar();
+    const vistos: PasoTrabajo[] = [];
+    const comoPagina = { titulo: "La IA", tipo: "page", pagina_id: 21, secciones: SECCION };
+    const { modelo } = modeloGuionizado([
+      { llama: "wp_crear_pagina_elementor", con: comoPagina },
+      { llama: "wp_crear_pagina_elementor", con: comoPagina },
+      { llama: "wp_crear_pagina_elementor", con: { ...comoPagina, tipo: "post" } },
+      { dice: "RESUMEN: diseñé la entrada con Elementor." },
+    ]);
+
+    const resultado = await ejecutar(m, modelo, vistos);
+
+    expect(resultado.estado).toBe("completada");
+    const [primero, segundo, tercero] = resultado.evidencia.acciones;
+    expect(primero?.error).toBe('El id 21 es una entrada (post), no una página: vuelve a llamar con tipo="post".');
+    expect(segundo?.error).toBeDefined();
+    expect(tercero?.error).toBeUndefined();
+    const entrada = m.wp.estado.contenido.find((c) => c.id === 21);
+    expect(JSON.parse(String(entrada?.meta._elementor_data))).toHaveLength(1);
+    expect(vistos.filter((p) => p.estado === "hecho").at(-1)?.etiqueta).toBe(
+      "Diseñando una entrada con Elementor",
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+
 describe("seguridad", () => {
   it("la contraseña de aplicación nunca sale en el resumen", async () => {
     const m = montar();

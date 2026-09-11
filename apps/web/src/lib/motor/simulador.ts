@@ -18,11 +18,37 @@ import { crearResumidor } from "./resumidor";
 import { crearToolContext, crearToolsFor } from "./herramientas";
 import { crearCerebro } from "./conocimiento";
 
+/**
+ * Un paso del trabajo del agente, contado como lo diría una persona.
+ *
+ * Nunca lleva la entrada ni la salida en crudo: solo una etiqueta y un detalle
+ * corto que no enseñe nada que no se haya dicho ya en la conversación.
+ */
+export type PasoSimulado = {
+  id: string;
+  etiqueta: string;
+  estado: "hecho" | "error";
+  detalle: string | null;
+  /** ISO 8601. */
+  en: string | null;
+};
+
 export type MensajeSimulado = {
   id: string;
   autor: "contacto" | "agente" | "sistema";
   texto: string;
   fecha: string;
+  /** Lo que hizo el agente antes de escribir este mensaje. */
+  pasos?: PasoSimulado[];
+};
+
+export type SesionSimulada = {
+  id: string;
+  /** El primer mensaje del cliente, recortado. */
+  titulo: string;
+  /** ISO 8601 del último movimiento. */
+  fecha: string;
+  mensajes: number;
 };
 
 export type ResultadoSimulacion = {
@@ -31,17 +57,20 @@ export type ResultadoSimulacion = {
   respuesta?: string;
   creditos: number;
   pasos: number;
+  /** Las herramientas que usó en este turno, en orden. */
+  trabajo: PasoSimulado[];
   saldo: number;
   agentRunId?: string;
 };
 
 const CONTACTO_SIMULADO = "simulador:visitante";
+const SIN_MENSAJES = "Prueba sin mensajes";
 
 /**
- * Abre (o recupera) la sesión de prueba de un agente.
+ * Abre (o recupera) la sesión de prueba fija de un agente.
  *
- * Una por agente: quien prueba quiere retomar la conversación donde la dejó, no
- * empezar de cero cada vez que recarga la página.
+ * La usa el autojuego, que la vacía antes de cada partida. Las pruebas de la
+ * persona van cada una en su propia sesión: ver `abrirSesion`.
  */
 export async function asegurarSesion(input: {
   workspaceId: string;
@@ -65,6 +94,92 @@ export async function asegurarSesion(input: {
     const id = rows[0]?.id;
     if (!id) throw new Error("No se pudo abrir la conversación de prueba.");
     return id;
+  });
+}
+
+/**
+ * Empieza una prueba nueva sin borrar las anteriores.
+ *
+ * Si ya hay una vacía se reutiliza: pulsar «Nueva prueba» tres veces seguidas
+ * no debería dejar tres «Prueba sin mensajes» en el historial.
+ */
+export async function abrirSesion(input: {
+  workspaceId: string;
+  agentId: string;
+}): Promise<string> {
+  return conEspacio(input.workspaceId, async (scope) => {
+    const canalId = await asegurarCanal(scope);
+
+    const { rows: vacias } = await scope.query<{ id: string }>(
+      `select c.id
+         from public.conversations c
+        where c.workspace_id = $1 and c.agent_id = $2 and c.channel_id = $3
+          and c.external_key like 'simulador:%'
+          and c.external_key <> 'simulador:' || $2::text
+          and not exists (
+            select 1 from public.messages m
+             where m.workspace_id = c.workspace_id and m.conversation_id = c.id
+          )
+        order by c.created_at desc
+        limit 1`,
+      [scope.workspaceId, input.agentId, canalId],
+    );
+    if (vacias[0]) return vacias[0].id;
+
+    const contactoId = await asegurarContacto(scope);
+    const { rows } = await scope.query<{ id: string }>(
+      `insert into public.conversations
+         (workspace_id, contact_id, channel_id, agent_id, external_key, status, handover_state)
+       values ($1, $2, $3, $4, $5, 'open', 'bot')
+       returning id`,
+      [scope.workspaceId, contactoId, canalId, input.agentId, `simulador:${input.agentId}:${crypto.randomUUID()}`],
+    );
+    const id = rows[0]?.id;
+    if (!id) throw new Error("No se pudo empezar otra prueba.");
+    return id;
+  });
+}
+
+/** Las pruebas de un agente, la más reciente primero. */
+export async function listarSesiones(input: {
+  workspaceId: string;
+  agentId: string;
+}): Promise<SesionSimulada[]> {
+  return conEspacio(input.workspaceId, async (scope) => {
+    const { rows } = await scope.query<{
+      id: string;
+      creada: string;
+      primero: string | null;
+      total: string;
+      ultimo: string | null;
+    }>(
+      `select c.id, c.created_at as creada, primero.texto as primero, cuenta.total, cuenta.ultimo
+         from public.conversations c
+         join public.channels ch on ch.id = c.channel_id and ch.workspace_id = c.workspace_id
+         left join lateral (
+           select m.content->>'text' as texto
+             from public.messages m
+            where m.workspace_id = c.workspace_id and m.conversation_id = c.id and m.direction = 'inbound'
+            order by m.created_at asc, m.id asc
+            limit 1
+         ) primero on true
+         left join lateral (
+           select count(*) as total, max(m.created_at) as ultimo
+             from public.messages m
+            where m.workspace_id = c.workspace_id and m.conversation_id = c.id
+         ) cuenta on true
+        where c.workspace_id = $1 and c.agent_id = $2 and ch.kind = $3
+          and c.external_key like 'simulador:%'
+        order by coalesce(cuenta.ultimo, c.created_at) desc
+        limit 50`,
+      [scope.workspaceId, input.agentId, CANAL_SIMULADOR],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      titulo: tituloDeSesion(r.primero),
+      fecha: new Date(r.ultimo ?? r.creada).toISOString(),
+      mensajes: Number(r.total),
+    }));
   });
 }
 
@@ -108,17 +223,67 @@ export async function leerHistorial(input: {
         limit 200`,
       [scope.workspaceId, input.conversationId],
     );
-    return rows.map((r) => ({
-      id: r.id,
-      autor:
+
+    // Cada turno es una transacción: sus herramientas y sus mensajes comparten
+    // `now()`. Un paso cuelga de la primera respuesta que sale a partir de su
+    // inicio, y solo si su mensaje de entrada sigue ahí —tras un reinicio, los
+    // pasos viejos no deben colarse en la conversación nueva—.
+    const { rows: herramientas } = await scope.query<{
+      id: string;
+      tool_slug: string;
+      input: unknown;
+      output: unknown;
+      status: string;
+      finished_at: string | null;
+      mensaje_id: string | null;
+    }>(
+      `select t.id, t.tool_slug, t.input, t.output, t.status, t.finished_at,
+              (select m.id from public.messages m
+                where m.workspace_id = t.workspace_id and m.conversation_id = t.conversation_id
+                  and m.direction = 'outbound' and m.created_at >= t.started_at
+                order by m.created_at asc, m.id asc
+                limit 1) as mensaje_id
+         from public.tool_runs t
+        where t.workspace_id = $1 and t.conversation_id = $2
+          and exists (
+            select 1 from public.messages i
+             where i.workspace_id = t.workspace_id and i.conversation_id = t.conversation_id
+               and i.direction = 'inbound' and i.created_at <= t.started_at
+          )
+        order by t.started_at asc, t.finished_at asc nulls last
+        limit 400`,
+      [scope.workspaceId, input.conversationId],
+    );
+
+    const pasosPorMensaje = new Map<string, PasoSimulado[]>();
+    for (const h of herramientas) {
+      if (!h.mensaje_id) continue;
+      const paso = describirPaso({
+        id: h.id,
+        slug: h.tool_slug,
+        entrada: h.input,
+        salida: h.output,
+        fallo: h.status !== "succeeded",
+        en: h.finished_at ? new Date(h.finished_at).toISOString() : null,
+      });
+      pasosPorMensaje.set(h.mensaje_id, [...(pasosPorMensaje.get(h.mensaje_id) ?? []), paso]);
+    }
+
+    return rows.map((r) => {
+      const autor =
         r.direction === "inbound"
           ? ("contacto" as const)
           : r.author_type === "system"
             ? ("sistema" as const)
-            : ("agente" as const),
-      texto: r.content?.text ?? "",
-      fecha: new Date(r.created_at).toISOString(),
-    }));
+            : ("agente" as const);
+      return {
+        id: r.id,
+        autor,
+        texto: r.content?.text ?? "",
+        fecha: new Date(r.created_at).toISOString(),
+        ...(autor === "agente" ? { pasos: pasosPorMensaje.get(r.id) ?? [] } : {}),
+      };
+    });
   });
 }
 
@@ -132,6 +297,8 @@ export async function enviarMensaje(input: {
   agentId: string;
   conversationId: string;
   texto: string;
+  /** Avisa de cada herramienta en cuanto termina, para enseñar el trabajo en vivo. */
+  alPaso?: (paso: PasoSimulado) => void;
 }): Promise<ResultadoSimulacion> {
   asegurarRegistros();
 
@@ -164,6 +331,8 @@ export async function enviarMensaje(input: {
       timezone: conversacion.timezone ?? "America/Bogota",
     });
 
+    const trabajo: PasoSimulado[] = [];
+
     const resultado = await runConversationTurn(
       {
         conversations: puertos.conversations,
@@ -176,7 +345,22 @@ export async function enviarMensaje(input: {
         modelTable: puertos.modelTable,
         resolveLanguageModel,
         promptSpecFor: puertos.promptSpecFor,
-        toolsFor: crearToolsFor({ scope, ports: contexto.ports }),
+        toolsFor: crearToolsFor({
+          scope,
+          ports: contexto.ports,
+          alInvocar: (log) => {
+            const paso = describirPaso({
+              id: `paso-${trabajo.length + 1}`,
+              slug: log.slug,
+              entrada: log.input,
+              salida: log.output,
+              fallo: Boolean(log.error),
+              en: new Date().toISOString(),
+            });
+            trabajo.push(paso);
+            input.alPaso?.(paso);
+          },
+        }),
         knowledge: cerebro,
         summarizer: crearResumidor(puertos.modelTable, modo),
         estimatedCredits: 1,
@@ -205,6 +389,7 @@ export async function enviarMensaje(input: {
         respuesta: resultado.text,
         creditos: resultado.credits,
         pasos: resultado.steps,
+        trabajo,
         saldo,
         agentRunId: resultado.agentRunId,
       };
@@ -216,6 +401,7 @@ export async function enviarMensaje(input: {
         motivo: explicarMotivo(resultado.reason),
         creditos: 0,
         pasos: 0,
+        trabajo,
         saldo,
         ...(resultado.agentRunId ? { agentRunId: resultado.agentRunId } : {}),
       };
@@ -238,6 +424,96 @@ const EXPLICACIONES: Record<string, string> = {
 
 function explicarMotivo(reason: string): string {
   return EXPLICACIONES[reason] ?? `El motor omitió la respuesta (${reason}).`;
+}
+
+const RESULTADOS_CIERRE: Record<string, string> = {
+  resuelto: "Quedó resuelta",
+  sin_interes: "Sin interés",
+  duplicado: "Duplicada",
+  spam: "Spam",
+  sin_respuesta: "Sin respuesta",
+};
+
+/**
+ * Traduce una invocación a lo que vería el dueño del negocio.
+ *
+ * El detalle se queda en lo que ya se habló —la búsqueda con las palabras del
+ * cliente, qué dato guardó— y nunca copia valores ni errores internos.
+ */
+export function describirPaso(p: {
+  id: string;
+  slug: string;
+  entrada: unknown;
+  salida: unknown;
+  fallo: boolean;
+  en: string | null;
+}): PasoSimulado {
+  const entrada = comoObjeto(p.entrada);
+  const salida = comoObjeto(p.salida);
+  const paso = (etiqueta: string, detalle: string | null): PasoSimulado => ({
+    id: p.id,
+    etiqueta,
+    estado: p.fallo ? "error" : "hecho",
+    detalle: p.fallo ? "No salió bien; siguió sin este paso." : detalle,
+    en: p.en,
+  });
+
+  switch (p.slug) {
+    case "buscar_conocimiento": {
+      const consulta = recortar(comoTexto(entrada.consulta), 60);
+      const n = Number(salida.encontrados ?? 0);
+      const hallazgo = n === 0 ? "no encontró nada" : n === 1 ? "1 fragmento" : `${n} fragmentos`;
+      return paso("Buscó en tu conocimiento", consulta ? `«${consulta}» · ${hallazgo}` : hallazgo);
+    }
+    case "guardar_dato_contacto": {
+      const clave = comoTexto(entrada.clave);
+      if (/^(nombre|nombre_completo|nombres|name)$/.test(clave)) return paso("Guardó el nombre del cliente", null);
+      return paso("Guardó un dato del cliente", clave ? humanizar(clave) : null);
+    }
+    case "etiquetar": {
+      const etiquetas = Array.isArray(entrada.etiquetas) ? entrada.etiquetas.map(comoTexto).filter(Boolean) : [];
+      return paso("Etiquetó la conversación", etiquetas.length ? recortar(etiquetas.join(", "), 80) : null);
+    }
+    case "escalar_a_humano": {
+      const motivo = recortar(comoTexto(entrada.motivo), 80);
+      const nota = salida.simulado ? "en prueba no se avisa a nadie" : null;
+      return paso("Pasó la conversación a tu equipo", [motivo, nota].filter(Boolean).join(" · ") || null);
+    }
+    case "cerrar_conversacion":
+      return paso("Cerró la conversación", RESULTADOS_CIERRE[comoTexto(entrada.resultado)] ?? null);
+    case "agendar": {
+      if (entrada.accion === "reservar") {
+        return paso("Reservó una cita", salida.simulado ? "De prueba: no se creó en tu agenda" : null);
+      }
+      const huecos = Array.isArray(salida.huecos) ? salida.huecos.length : 0;
+      return paso("Miró huecos libres en la agenda", `${huecos} ${huecos === 1 ? "hueco" : "huecos"}`);
+    }
+    default:
+      return paso(`Usó «${humanizar(p.slug)}»`, null);
+  }
+}
+
+function tituloDeSesion(primero: string | null): string {
+  const limpio = (primero ?? "").replace(/\s+/g, " ").trim();
+  return limpio ? recortar(limpio, 60) : SIN_MENSAJES;
+}
+
+function recortar(texto: string, maximo: number): string {
+  const limpio = texto.replace(/\s+/g, " ").trim();
+  return limpio.length > maximo ? `${limpio.slice(0, maximo - 1).trimEnd()}…` : limpio;
+}
+
+function humanizar(clave: string): string {
+  const texto = clave.replace(/_/g, " ").trim();
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+function comoObjeto(valor: unknown): Record<string, unknown> {
+  return valor && typeof valor === "object" && !Array.isArray(valor) ? (valor as Record<string, unknown>) : {};
+}
+
+function comoTexto(valor: unknown): string {
+  return typeof valor === "string" ? valor : "";
 }
 
 async function registrarEntrante(

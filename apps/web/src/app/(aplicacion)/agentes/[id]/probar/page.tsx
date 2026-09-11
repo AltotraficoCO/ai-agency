@@ -15,15 +15,23 @@ import {
   accionVaciarEncargos,
 } from "@/lib/encargos/acciones";
 import { encargosDelAgente, esWebmaster } from "@/lib/encargos/encargos";
-import { asegurarSesion, leerHistorial } from "@/lib/motor/simulador";
+import { abrirSesion, leerHistorial, listarSesiones } from "@/lib/motor/simulador";
 import { hayModeloReal } from "@/lib/motor/modelo";
 import { sitioDelEspacio } from "@/lib/sitio/sitio";
 
 export const metadata = { title: "Probar el agente" };
 export const dynamic = "force-dynamic";
 
-export default async function PaginaProbar({ params }: { params: Promise<{ id: string }> }) {
+export default async function PaginaProbar({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ conversacion?: string | string[] }>;
+}) {
   const { id } = await params;
+  const { conversacion: pedida } = await searchParams;
+  const conversacion = typeof pedida === "string" ? pedida : null;
   const marco = await datosDelMarco();
   const agente = await leerAgente(marco.actual.workspaceId, id);
   if (!agente) notFound();
@@ -61,14 +69,10 @@ export default async function PaginaProbar({ params }: { params: Promise<{ id: s
     );
   }
 
-  const conversationId = await asegurarSesion({
-    workspaceId: marco.actual.workspaceId,
-    agentId: id,
-  });
-  const historial = await leerHistorial({
-    workspaceId: marco.actual.workspaceId,
-    conversationId,
-  });
+  // Cada prueba es su propia conversación. Se abre la que pide la dirección
+  // (`?conversacion=`) si es de este agente; si no, la más reciente; y si no
+  // hay ninguna, una nueva.
+  const sesion = agente.publicado ? await abrirPrueba(marco.actual.workspaceId, id, conversacion) : null;
 
   const saldo = Math.max(0, marco.creditos.total - marco.creditos.consumidos);
 
@@ -78,7 +82,7 @@ export default async function PaginaProbar({ params }: { params: Promise<{ id: s
       creditos={marco.creditos}
       pendientes={marco.pendientes}
       contexto={<Link href={seccion.href}>{seccion.etiqueta}</Link>}
-        rutaActiva={seccion.ruta}
+      rutaActiva={seccion.ruta}
       titulo={`Probar · ${agente.nombre}`}
       acciones={
         <EnlaceBoton size="sm" variant="ghost" href={`/agentes/${id}/instrucciones`}>
@@ -86,11 +90,13 @@ export default async function PaginaProbar({ params }: { params: Promise<{ id: s
         </EnlaceBoton>
       }
     >
-      {agente.publicado ? (
+      {sesion ? (
         <SimuladorChat
+          key={sesion.conversationId}
           agentId={id}
-          conversationId={conversationId}
-          historial={historial}
+          conversationId={sesion.conversationId}
+          historial={sesion.historial}
+          sesiones={sesion.sesiones}
           nombreAgente={nombreAgente}
           fotoAgente={agente.avatar}
           saldoInicial={saldo}
@@ -112,6 +118,17 @@ export default async function PaginaProbar({ params }: { params: Promise<{ id: s
       )}
     </MarcoApp>
   );
+}
+
+async function abrirPrueba(workspaceId: string, agentId: string, pedida: string | null) {
+  let sesiones = await listarSesiones({ workspaceId, agentId });
+  let conversationId = sesiones.find((s) => s.id === pedida)?.id ?? sesiones[0]?.id ?? null;
+  if (!conversationId) {
+    conversationId = await abrirSesion({ workspaceId, agentId });
+    sesiones = await listarSesiones({ workspaceId, agentId });
+  }
+  const historial = await leerHistorial({ workspaceId, conversationId });
+  return { conversationId, sesiones, historial };
 }
 
 /** Un agente de WhatsApp vuelve a su módulo; uno por encargo, a los del negocio. */

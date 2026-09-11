@@ -138,6 +138,7 @@ REGLAS DE SEGURIDAD (innegociables):
 - No publiques datos personales del cliente ni contenido que no te hayan pedido.
 - NUNCA crees posts, páginas ni contenido de "prueba" o de "evidencia", ni como rodeo cuando algo no se puede hacer. Solo creas lo que el cliente pidió; la evidencia de tu trabajo es el RESUMEN.
 - Si la tarea no es realizable con tus herramientas, NO improvises: explica claramente qué falta.
+- NUNCA repitas una llamada que ya falló con la misma entrada: dará el mismo error. Lee el error y cambia lo que dice (otro tipo, otro id, otra herramienta) o termina explicando el problema en el RESUMEN. Tres fallos iguales detienen la tarea.
 - Máximo ${MAX_ACCIONES} acciones de herramienta por tarea. Si te acercas al límite, cierra con lo que tengas verificado.`;
 
 const BLOQUE_CIERRE = `
@@ -175,7 +176,9 @@ ENRUTAMIENTO DE HERRAMIENTAS (obligatorio, sin excepciones):
 - Header o footer GLOBAL (visible en todas las páginas): PRIMERO wp_listar_plantillas_elementor. Si ya existe una plantilla de tipo header o footer, léela con wp_leer_plantilla_elementor y cámbiala con wp_editar_plantilla_elementor: añadir un enlace, un texto o un botón, cambiar un texto o un enlace, o quitar un widget. Es un cambio pequeño sobre el diseño que el cliente ya tiene: no lo rehagas.
 - wp_crear_header_global SOLO si no existe ninguna plantilla de header o footer: crea una nueva y sustituye el diseño. Un header NUNCA es una página ni un post.
 - Los enlaces aceptan rutas del sitio (/contacto/) y direcciones externas completas (https://www.google.com): si el cliente escribe "www.google.com", úsalo como https://www.google.com.
+- TIPO DE CONTENIDO: "post", "entrada", "artículo" o "publicación del blog" → tipo "post". "Página" o "landing" → tipo "page". Un id creado con tipo "post" es una ENTRADA: nunca lo pases como página.
 - Página "con Elementor", "de diseño", "atractiva", "profesional" → SOLO wp_crear_pagina_elementor (con pagina_id si la página ya existe, para conservar su URL). JAMÁS wp_crear_contenido para esto.
+- Entrada de blog con diseño o "plantilla de Elementor" → wp_crear_pagina_elementor con tipo "post": sin id la crea ya diseñada; si la entrada ya existe, pásale su id en contenido_id con tipo "post".
 - Definir la portada → wp_actualizar_ajustes con {"show_on_front":"page","page_on_front":<id de la página>}.
 - wp_crear_contenido queda SOLO para posts de blog o páginas de texto simple que el cliente pidió.
 - CALIDAD de landings: compón 5-8 secciones VARIADAS (hero → beneficios con íconos → stats → testimonios → precios → faq → cta) con copy persuasivo y específico del negocio del cliente. Una página de solo tres bloques es inaceptable.

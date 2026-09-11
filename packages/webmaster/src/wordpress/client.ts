@@ -198,14 +198,72 @@ export async function listarContenido(c: WpCreds, o: WpClientOptions = {}): Prom
   return [...map(pages, "page"), ...map(posts, "post")];
 }
 
+export type TipoContenido = "page" | "post";
+
+const NOMBRE_TIPO: Readonly<Record<TipoContenido, string>> = {
+  page: "una página",
+  post: "una entrada (post)",
+};
+
+/**
+ * WordPress responde `404 rest_post_invalid_id` cuando el id no existe COMO ESE
+ * TIPO: una entrada pedida por `/pages/` da el mismo 404 que un id inventado.
+ */
+export function esIdInexistente(error: unknown): error is WpError {
+  return error instanceof WpError && error.status === 404 && error.cuerpo.includes("rest_post_invalid_id");
+}
+
+function mensajeIdInexistente(id: number): string {
+  return `El id ${id} no existe como página ni como entrada (WordPress respondió 404 rest_post_invalid_id): busca el id correcto con wp_listar_contenido.`;
+}
+
+async function existeComo(c: WpCreds, tipo: TipoContenido, id: number, o: WpClientOptions): Promise<boolean> {
+  const res = await wp(c, o, `/wp/v2/${tipo}s/${id}?context=edit&_fields=id`);
+  try {
+    await exigirOk(res, `No pude comprobar si ${id} es ${NOMBRE_TIPO[tipo]}`);
+    return true;
+  } catch (error) {
+    if (esIdInexistente(error)) return false;
+    throw error;
+  }
+}
+
+/** Página primero y, si ahí no existe, entrada. Si no es ninguna, un error que dice qué hacer. */
+export async function detectarTipoContenido(
+  c: WpCreds,
+  id: number,
+  o: WpClientOptions = {},
+): Promise<TipoContenido> {
+  if (await existeComo(c, "page", id, o)) return "page";
+  if (await existeComo(c, "post", id, o)) return "post";
+  throw new WpError(404, "rest_post_invalid_id", mensajeIdInexistente(id));
+}
+
 export async function leerContenido(
   c: WpCreds,
-  tipo: "page" | "post",
+  tipo: TipoContenido,
   id: number,
   o: WpClientOptions = {},
 ): Promise<WpContentDetalle> {
   const res = await wp(c, o, `/wp/v2/${tipo}s/${id}?context=edit`);
-  const p = (await exigirOk(res, `No pude leer ${tipo} ${id}`)) as WpPostRaw;
+  let p: WpPostRaw;
+  try {
+    p = (await exigirOk(res, `No pude leer ${tipo} ${id}`)) as WpPostRaw;
+  } catch (error) {
+    if (!esIdInexistente(error)) throw error;
+    // "Invalid post ID" no le dice al modelo qué cambiar, y lo repetía igual
+    // doce veces. Se mira si es del otro tipo para decírselo con todas las letras.
+    const otro: TipoContenido = tipo === "page" ? "post" : "page";
+    const esDelOtro = await existeComo(c, otro, id, o).catch(() => null);
+    if (esDelOtro === null) throw error;
+    throw new WpError(
+      404,
+      error.cuerpo,
+      esDelOtro
+        ? `El id ${id} es ${NOMBRE_TIPO[otro]}, no ${NOMBRE_TIPO[tipo]}: vuelve a llamar con tipo="${otro}".`
+        : mensajeIdInexistente(id),
+    );
+  }
   return {
     id: p.id,
     titulo: p.title?.raw ?? p.title?.rendered ?? "",
@@ -499,54 +557,117 @@ export async function cambiarRolUsuario(
 // Elementor: requiere el plugin conector, que expone los metas en la REST API
 // ---------------------------------------------------------------------------
 
-const META_ELEMENTOR = {
-  _elementor_edit_mode: "builder",
-  _elementor_template_type: "wp-page",
-  _elementor_version: "3.25.0",
-  _wp_page_template: "elementor_header_footer",
-} as const;
+/**
+ * Metas de Elementor según el tipo de contenido.
+ *
+ * `_elementor_template_type` es el tipo de documento de Elementor: `wp-page`
+ * para páginas y `wp-post` para entradas. Con `wp-page` en una entrada,
+ * Elementor la abre y le aplica condiciones como si fuera una página.
+ *
+ * `_wp_page_template` es `elementor_header_footer` (ancho completo) en los dos
+ * casos: conserva el header y el footer globales del sitio —el diseño que el
+ * cliente ya tiene— y da todo el ancho a las secciones. La plantilla `single`
+ * del tema metería el diseño en la columna estrecha del blog con el título
+ * repetido, y `elementor_canvas` quitaría el header y el footer.
+ */
+function metaElementor(tipo: TipoContenido) {
+  return {
+    _elementor_edit_mode: "builder",
+    _elementor_template_type: tipo === "post" ? "wp-post" : "wp-page",
+    _elementor_version: "3.25.0",
+    _wp_page_template: "elementor_header_footer",
+  } as const;
+}
 
 async function metaElementorGuardado(
   c: WpCreds,
   o: WpClientOptions,
+  tipo: TipoContenido,
   id: number,
 ): Promise<boolean> {
-  const check = await wp(c, o, `/wp/v2/pages/${id}?context=edit&_fields=meta`);
+  const check = await wp(c, o, `/wp/v2/${tipo}s/${id}?context=edit&_fields=meta`);
   if (!check.ok) return false;
   const meta = ((await check.json()) as WpPostRaw).meta;
   const data = meta?._elementor_data;
   return typeof data === "string" && data.length > 10;
 }
 
-export async function escribirPaginaElementor(
+export async function escribirContenidoElementor(
+  c: WpCreds,
+  entrada: { tipo: TipoContenido; id?: number; titulo: string; data: readonly unknown[] },
+  o: WpClientOptions = {},
+): Promise<{ id: number; link: string; elementorOk: boolean }> {
+  const { tipo, id } = entrada;
+  const nombre = NOMBRE_TIPO[tipo];
+
+  const porRest = async (destino: number | undefined, status: "publish" | "draft") => {
+    const res = await wp(c, o, destino ? `/wp/v2/${tipo}s/${destino}` : `/wp/v2/${tipo}s`, {
+      method: "POST",
+      body: JSON.stringify({
+        title: entrada.titulo,
+        status,
+        content: "",
+        meta: { _elementor_data: JSON.stringify(entrada.data), ...metaElementor(tipo) },
+      }),
+    });
+    const p = (await exigirOk(res, `Fallo al escribir ${nombre} con Elementor`)) as WpPostRaw;
+    return { id: p.id, link: p.link ?? "", elementorOk: await metaElementorGuardado(c, o, tipo, p.id) };
+  };
+
+  // Vía preferida: la API del plugin conector. Actualiza en sitio y purga la
+  // caché de Elementor — por REST cruda el render viejo se queda cacheado.
+  // `pagina_id` se mantiene porque es lo que lee un conector ya instalado.
+  const porConector = (destino?: number) =>
+    conectorApi(c, o, "/elementor/pagina", {
+      titulo: entrada.titulo,
+      data: entrada.data,
+      status: "publish",
+      tipo,
+      ...(destino ? { pagina_id: destino, post_id: destino } : {}),
+    });
+
+  if (tipo === "post" && id === undefined) {
+    // Una entrada nueva nace por la REST de posts: un conector que solo sabe
+    // de páginas crearía una página. Nace en borrador para que, si Elementor
+    // no se puede guardar, no quede publicada una entrada vacía.
+    const creada = await porRest(undefined, "draft");
+    if (creada.elementorOk) {
+      const res = await wp(c, o, `/wp/v2/posts/${creada.id}`, {
+        method: "POST",
+        body: JSON.stringify({ status: "publish" }),
+      });
+      const p = (await exigirOk(res, `Fallo al publicar la entrada ${creada.id}`)) as WpPostRaw;
+      return { ...creada, link: p.link ?? creada.link };
+    }
+    const v2 = await porConector(creada.id);
+    return v2?.id === creada.id
+      ? { id: creada.id, link: String(v2.link ?? creada.link), elementorOk: true }
+      : creada;
+  }
+
+  const v2 = await porConector(id);
+  // Sobre un contenido existente solo vale si el conector escribió ESE id.
+  if (typeof v2?.id === "number" && (id === undefined || v2.id === id)) {
+    return { id: v2.id, link: String(v2.link ?? ""), elementorOk: true };
+  }
+  return porRest(id, "publish");
+}
+
+export function escribirPaginaElementor(
   c: WpCreds,
   entrada: { paginaId?: number; titulo: string; data: readonly unknown[] },
   o: WpClientOptions = {},
 ): Promise<{ id: number; link: string; elementorOk: boolean }> {
-  // Vía preferida: la API del plugin conector. Actualiza en sitio y purga la
-  // caché de Elementor — por REST cruda el render viejo se queda cacheado.
-  const v2 = await conectorApi(c, o, "/elementor/pagina", {
-    titulo: entrada.titulo,
-    data: entrada.data,
-    status: "publish",
-    ...(entrada.paginaId ? { pagina_id: entrada.paginaId } : {}),
-  });
-  if (typeof v2?.id === "number") {
-    return { id: v2.id, link: String(v2.link ?? ""), elementorOk: true };
-  }
-
-  const ruta = entrada.paginaId ? `/wp/v2/pages/${entrada.paginaId}` : "/wp/v2/pages";
-  const res = await wp(c, o, ruta, {
-    method: "POST",
-    body: JSON.stringify({
-      title: entrada.titulo,
-      status: "publish",
-      content: "",
-      meta: { _elementor_data: JSON.stringify(entrada.data), ...META_ELEMENTOR },
-    }),
-  });
-  const p = (await exigirOk(res, "Fallo al escribir la página Elementor")) as WpPostRaw;
-  return { id: p.id, link: p.link ?? "", elementorOk: await metaElementorGuardado(c, o, p.id) };
+  return escribirContenidoElementor(
+    c,
+    {
+      tipo: "page",
+      ...(entrada.paginaId ? { id: entrada.paginaId } : {}),
+      titulo: entrada.titulo,
+      data: entrada.data,
+    },
+    o,
+  );
 }
 
 export async function crearHeaderElementor(

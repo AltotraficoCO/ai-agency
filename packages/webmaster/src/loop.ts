@@ -176,7 +176,7 @@ function conRegistroDePasos(tools: ToolSet, avisar: (paso: Omit<PasoTrabajo, "en
         const base = {
           id: opciones.toolCallId,
           herramienta: nombre,
-          etiqueta: etiquetaDePaso(nombre),
+          etiqueta: etiquetaDePaso(nombre, entrada),
           detalle: detalleDePaso(entrada),
         };
         avisar({ ...base, estado: "en_curso" });
@@ -194,6 +194,66 @@ function conRegistroDePasos(tools: ToolSet, avisar: (paso: Omit<PasoTrabajo, "en
     envuelto[nombre] = conRegistro;
   }
   return envuelto;
+}
+
+/** Veces que la misma llamada puede fallar antes de parar la tarea. */
+const MAX_FALLOS_IGUALES = 3;
+
+type Freno = { readonly herramienta: string; readonly veces: number; readonly error: string };
+
+/**
+ * Freno de repeticiones: cuenta los fallos por huella exacta (herramienta +
+ * entrada normalizada). Sin él, un modelo que no entiende un error repetía la
+ * misma llamada hasta el tope de acciones —doce «Invalid post ID» seguidos— y
+ * el cliente pagaba cada una.
+ *
+ * Al segundo fallo igual el error que ve el modelo le prohíbe repetir; al
+ * tercero, `alFrenar` marca la tarea para que `stopWhen` la corte. Un acierto
+ * con esa misma huella pone su cuenta a cero.
+ */
+function conFrenoDeRepeticiones(
+  tools: ToolSet,
+  huella: (nombre: string, entrada: unknown) => string,
+  alFrenar: (freno: Freno) => void,
+): ToolSet {
+  const fallos = new Map<string, number>();
+  const envuelto: ToolSet = {};
+  for (const [nombre, herramienta] of Object.entries(tools)) {
+    const ejecutar = herramienta.execute as
+      | ((entrada: unknown, opciones: ToolExecutionOptions) => Promise<unknown>)
+      | undefined;
+    if (!ejecutar) {
+      envuelto[nombre] = herramienta;
+      continue;
+    }
+    envuelto[nombre] = {
+      ...herramienta,
+      execute: async (entrada: unknown, opciones: ToolExecutionOptions) => {
+        const clave = huella(nombre, entrada);
+        try {
+          const salida = await ejecutar(entrada, opciones);
+          fallos.delete(clave);
+          return salida;
+        } catch (error) {
+          const veces = (fallos.get(clave) ?? 0) + 1;
+          fallos.set(clave, veces);
+          if (veces < 2) throw error;
+          const mensaje = error instanceof Error ? error.message : String(error);
+          if (veces >= MAX_FALLOS_IGUALES) alFrenar({ herramienta: nombre, veces, error: mensaje });
+          throw new Error(
+            `Ya intentaste exactamente esto y falló ${veces} veces con: ${mensaje}. No lo repitas: cambia de enfoque (otra herramienta, otro id, otro tipo) o termina explicando el problema.`,
+          );
+        }
+      },
+    } satisfies Tool;
+  }
+  return envuelto;
+}
+
+/** Lo que lee el cliente cuando el freno para la tarea. */
+function resumenDeFreno(freno: Freno): string {
+  const etiqueta = etiquetaDePaso(freno.herramienta);
+  return `Me detuve porque «${etiqueta}» falló ${freno.veces} veces con exactamente la misma petición: ${recortar(freno.error, 300)}. Repetirla no iba a cambiar el resultado y solo gastaba saldo.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -275,9 +335,16 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
     }
   };
 
-  const tools: ToolSet = conRegistroDePasos(
-    toAiToolSet(herramientasDe(agent), { onInvocation: anotar }),
-    avisar,
+  let freno: Freno | null = null;
+
+  // El freno va por fuera del registro: el paso muestra el error real de
+  // WordPress y solo el modelo lee el aviso de «no lo repitas».
+  const tools: ToolSet = conFrenoDeRepeticiones(
+    conRegistroDePasos(toAiToolSet(herramientasDe(agent), { onInvocation: anotar }), avisar),
+    (nombre, entrada) => huellaAccion(tarea.id, nombre, entrada),
+    (f) => {
+      freno ??= f;
+    },
   );
 
   // Timeout duro: el `timeout` del AI SDK acota cada llamada al proveedor, no
@@ -357,7 +424,8 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
         // El tope de acciones del catálogo. No es una sugerencia: es lo que
         // impide que una tarea mal entendida se coma el saldo del cliente. Y
         // tras una pregunta al cliente se para: la respuesta decide lo demás.
-        stopWhen: [stepCountIs(agent.maxAcciones), () => hayPregunta],
+        // Y tras el mismo fallo tres veces, también: insistir no lo arregla.
+        stopWhen: [stepCountIs(agent.maxAcciones), () => hayPregunta, () => freno !== null],
         experimental_context: contexto,
         abortSignal: señal,
         timeout: agent.timeoutMs,
@@ -376,6 +444,7 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
       }
       mensajes.push(...resultado.response.messages);
       textoFinal = resultado.text;
+      if (freno) break;
 
       // ¿El AI SDK cortó alguna herramienta sensible antes de ejecutarla?
       const solicitudes = resultado.content.filter(
@@ -405,7 +474,7 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
         avisar({
           id: s.toolCall.toolCallId,
           herramienta: s.toolCall.toolName,
-          etiqueta: etiquetaDePaso(s.toolCall.toolName),
+          etiqueta: etiquetaDePaso(s.toolCall.toolName, s.toolCall.input),
           // Aprobada de antes: se ejecutará enseguida y el envoltorio la marcará en curso.
           estado: registro.decision === "rechazada" ? "error" : "esperando",
           detalle:
@@ -442,6 +511,15 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
     for (const a of acciones) {
       const def = HERRAMIENTAS_WEBMASTER.find((t) => t.slug === a.herramienta);
       creditos += input.rates.tools?.[a.herramienta] ?? def?.creditCost ?? 0;
+    }
+
+    if (freno) {
+      return {
+        estado: "fallida",
+        motivo: "tope_acciones",
+        error: limpiarSecretos(resumenDeFreno(freno), sitio),
+        evidencia: evidencia(),
+      };
     }
 
     const texto = limpiarSecretos(quitarRazonamiento(textoFinal), sitio);

@@ -252,7 +252,12 @@ export class ConsumidorDeTareas implements Consumidor {
             error: resultado.error,
             motivo: resultado.motivo,
             evidencia: resultado.evidencia,
-            reintentable: resultado.motivo !== "timeout" && !esDefinitivo(resultado.error),
+            // Un freno por fallo repetido volvería a tropezar igual, y empezar
+            // de cero podría duplicar lo que ya se creó.
+            reintentable:
+              resultado.motivo !== "timeout" &&
+              resultado.motivo !== "tope_acciones" &&
+              !esDefinitivo(resultado.error),
           });
           await puertos.notificaciones?.avisar({
             workspaceId: tarea.workspaceId,
@@ -261,7 +266,9 @@ export class ConsumidorDeTareas implements Consumidor {
             texto:
               resultado.motivo === "timeout"
                 ? `La tarea "${tarea.titulo}" se pasó del tiempo permitido. No dejé cambios sin backup.`
-                : `Algo falló ejecutando "${tarea.titulo}". No dejé cambios sin backup: puedes pedírmelo de nuevo.`,
+                : resultado.motivo === "tope_acciones"
+                  ? `Detuve "${tarea.titulo}" porque repetía el mismo fallo. No dejé cambios sin backup: revisa el registro de trabajo y pídemelo de nuevo.`
+                  : `Algo falló ejecutando "${tarea.titulo}". No dejé cambios sin backup: puedes pedírmelo de nuevo.`,
           });
           decir(`fallo (${resultado.motivo}): ${resultado.error}`);
           break;

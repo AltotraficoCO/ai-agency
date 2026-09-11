@@ -39,7 +39,7 @@ const ETIQUETAS: Readonly<Record<string, string>> = {
   wp_crear_contenido: "Creando una página",
   wp_borrar_contenido: "Enviando a la papelera",
   wp_restaurar_contenido: "Restaurando contenido",
-  wp_crear_pagina_elementor: "Creando una página con Elementor",
+  wp_crear_pagina_elementor: "Diseñando con Elementor",
   wp_listar_plugins: "Revisando los plugins",
   wp_instalar_plugin: "Instalando un plugin",
   wp_cambiar_plugin: "Activando o desactivando un plugin",
@@ -79,7 +79,21 @@ const ETIQUETAS: Readonly<Record<string, string>> = {
   preguntar_al_cliente: "Haciéndote una pregunta",
 };
 
-export function etiquetaDePaso(herramienta: string): string {
+/**
+ * Las herramientas que valen para páginas y para entradas. Llamar «página» a
+ * una entrada confunde justo a quien intenta entender qué salió mal.
+ */
+const ETIQUETAS_DE_ENTRADA: Readonly<Record<string, string>> = {
+  wp_leer_contenido: "Leyendo una entrada",
+  wp_editar_contenido: "Editando una entrada",
+  wp_crear_contenido: "Creando una entrada",
+  wp_crear_pagina_elementor: "Diseñando una entrada con Elementor",
+};
+
+export function etiquetaDePaso(herramienta: string, entrada?: unknown): string {
+  const tipo =
+    entrada !== null && typeof entrada === "object" ? (entrada as Record<string, unknown>)["tipo"] : undefined;
+  if (tipo === "post" && ETIQUETAS_DE_ENTRADA[herramienta]) return ETIQUETAS_DE_ENTRADA[herramienta];
   return ETIQUETAS[herramienta] ?? "Trabajando en tu sitio";
 }
 
@@ -171,6 +185,7 @@ export function pasosDesdeMensajes(mensajes: unknown, en: string): PasoTrabajo[]
   if (!Array.isArray(mensajes)) return [];
   let pasos: PasoTrabajo[] = [];
   const herramientaDe = new Map<string, string>();
+  const entradaDe = new Map<string, unknown>();
 
   for (const mensaje of mensajes) {
     const contenido = (mensaje as { content?: unknown } | null)?.content;
@@ -182,10 +197,11 @@ export function pasosDesdeMensajes(mensajes: unknown, en: string): PasoTrabajo[]
       if (tipo === "tool-call" && id && typeof parte["toolName"] === "string") {
         const herramienta = parte["toolName"] as string;
         herramientaDe.set(id, herramienta);
+        entradaDe.set(id, parte["input"]);
         pasos = fusionarPasos(pasos, {
           id,
           herramienta,
-          etiqueta: etiquetaDePaso(herramienta),
+          etiqueta: etiquetaDePaso(herramienta, parte["input"]),
           // Sin resultado todavía: si la conversación se guardó así, esperaba un clic.
           estado: "esperando",
           detalle: detalleDePaso(parte["input"]),
@@ -199,7 +215,7 @@ export function pasosDesdeMensajes(mensajes: unknown, en: string): PasoTrabajo[]
         pasos = fusionarPasos(pasos, {
           id,
           herramienta,
-          etiqueta: etiquetaDePaso(herramienta),
+          etiqueta: etiquetaDePaso(herramienta, entradaDe.get(id)),
           estado: esError ? "error" : valor?.requiere_aprobacion === true ? "esperando" : "hecho",
           detalle: esError && typeof salida?.value === "string" ? recortar(salida.value) : null,
           en,
