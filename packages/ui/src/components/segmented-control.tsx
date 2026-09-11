@@ -54,7 +54,7 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={label}
       className={cn(
-        "relative inline-flex w-fit self-start items-center gap-0.5 rounded-md border border-border bg-inset p-0.5",
+        "relative inline-flex w-fit self-start items-center gap-0.5 rounded-lg border-2 border-border bg-inset p-1 shadow-hundido",
         disabled && "pointer-events-none opacity-45",
         className,
       )}
@@ -63,8 +63,9 @@ export function SegmentedControl<T extends string>({
         <span
           aria-hidden
           className={cn(
-            "absolute rounded-[6px] bg-raised shadow-e1",
-            "transition-[left,width] duration-[var(--dur-fast)] ease-[var(--ease-out-quart)] motion-reduce:transition-none",
+            "absolute rounded-md bg-raised shadow-e1",
+            // La bolita se desliza con rebote, como plastilina que llega y se asienta.
+            "transition-[left,width] duration-[var(--dur-base)] ease-[var(--ease-spring)] motion-reduce:transition-none",
             size === "sm" ? "h-[24px]" : "h-[30px]",
           )}
           style={{ left: thumb.left, width: thumb.width }}

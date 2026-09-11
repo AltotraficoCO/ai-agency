@@ -69,17 +69,16 @@ function DestinoLink({ destino, activo, pendientes, estadoCanales, linkComponent
       href={destino.href}
       aria-current={activo ? "page" : undefined}
       className={cn(
-        "group relative flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-base font-medium",
-        "transition-colors duration-[var(--dur-fast)]",
+        "group relative flex h-10 cursor-pointer items-center gap-2.5 rounded-md px-3 text-base font-semibold",
+        "transition-[color,background-color,box-shadow,transform] duration-[var(--dur-base)] ease-[var(--ease-spring)]",
+        "active:scale-x-[1.02] active:scale-y-[0.94] motion-reduce:active:scale-100",
+        // Activo: una bolita de plastilina morada, con volumen, bajo el destino.
         activo
-          ? "bg-selected text-fg"
-          : "text-fg-secondary hover:bg-hover hover:text-fg",
-        // La barrita verde a la izquierda dice «estás aquí» sin depender solo del fondo.
-        activo &&
-          "before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r-full before:bg-primary",
+          ? "bg-selected text-primary-fg shadow-e1"
+          : "text-fg-secondary hover:translate-x-0.5 hover:bg-hover hover:text-fg",
         destino.destacado &&
           !activo &&
-          "border border-[color-mix(in_oklab,var(--brand),transparent_60%)] bg-primary-soft text-primary-fg hover:bg-primary hover:text-[var(--fg-on-brand)] hover:shadow-glow",
+          "bg-primary text-[var(--fg-on-brand)] shadow-marca [background-image:linear-gradient(180deg,rgb(255_255_255/0.18),transparent_65%)] hover:translate-x-0 hover:-translate-y-0.5 hover:bg-[var(--brand-hover)] hover:text-[var(--fg-on-brand)]",
         focusRing,
         className,
       )}

@@ -3,15 +3,17 @@
 /**
  * El constructor de agentes.
  *
- * Pensado para quien no sabe qué es un prompt, ni tiene por qué saberlo: lo
- * principal es un formulario en tarjetas con preguntas en su idioma —cómo se
- * llama, qué hace, qué no hace, cuándo te pasa la conversación—. Esas
- * respuestas escriben las instrucciones que el agente lee de verdad.
+ * Dos columnas en escritorio: a la izquierda un formulario en tarjetas con
+ * preguntas en el idioma de la persona —cómo se llama, qué hace, qué no hace,
+ * cuándo te pasa la conversación—; a la derecha, SIEMPRE a la vista, las
+ * instrucciones técnicas que esas respuestas van escribiendo en vivo. Ver cómo
+ * cada respuesta se convierte en instrucción es lo que da confianza (Victor lo
+ * pidió así: «a la izquierda iba poniendo y a la derecha se iba viendo»).
  *
- * Las instrucciones compiladas, con sus `##` y sus `**`, siguen ahí para quien
- * las quiera tocar, pero detrás de «Ver instrucciones técnicas». Si alguien las
- * edita a mano, sus palabras ganan sobre lo que compondría el formulario, y la
- * pantalla lo avisa arriba en vez de sobrescribirlas en silencio.
+ * En móvil no caben dos columnas: lo técnico queda plegado debajo del
+ * formulario. Si alguien edita las instrucciones a mano, sus palabras ganan
+ * sobre lo que compondría el formulario, y la pantalla lo avisa arriba en vez
+ * de sobrescribirlas en silencio.
  */
 import * as React from "react";
 import {
@@ -46,9 +48,11 @@ export interface ConstructorAgenteProps {
   agentId: string;
   inicial: EspecificacionAgente;
   publicado: boolean;
+  /** Lo que va entre el título y el formulario, p. ej. el selector de foto. */
+  cabecera?: React.ReactNode;
 }
 
-export function ConstructorAgente({ agentId, inicial, publicado }: ConstructorAgenteProps) {
+export function ConstructorAgente({ agentId, inicial, publicado, cabecera }: ConstructorAgenteProps) {
   const [spec, setSpec] = React.useState<EspecificacionAgente>(inicial);
   const [manual, setManual] = React.useState<string | null>(
     inicial.instruccionesManuales?.trim() ? inicial.instruccionesManuales : null,
@@ -59,6 +63,9 @@ export function ConstructorAgente({ agentId, inicial, publicado }: ConstructorAg
   const [tecnicas, setTecnicas] = React.useState(false);
   const [sucio, setSucio] = React.useState(false);
   const editor = React.useRef<ReactCodeMirrorRef>(null);
+  const escritorio = useEsEscritorio();
+  // En escritorio el panel técnico está siempre montado; en móvil, solo desplegado.
+  const tecnicasVisibles = escritorio || tecnicas;
 
   const compuesto = React.useMemo(() => componerInstrucciones(spec), [spec]);
   const prompt = manual ?? compuesto;
@@ -71,17 +78,17 @@ export function ConstructorAgente({ agentId, inicial, publicado }: ConstructorAg
     [rango],
   );
 
-  // Con las instrucciones técnicas abiertas, enfocar un campo lleva a la
+  // Con las instrucciones técnicas a la vista, enfocar un campo lleva a la
   // sección que ese campo escribe.
   React.useEffect(() => {
-    if (!rango || !tecnicas) return;
+    if (!rango || !tecnicasVisibles) return;
     const vista = editor.current?.view;
     if (!vista) return;
     const linea = Math.min(rango.desde, vista.state.doc.lines);
     vista.dispatch({
       effects: EditorView.scrollIntoView(vista.state.doc.line(linea).from, { y: "center" }),
     });
-  }, [rango, tecnicas]);
+  }, [rango, tecnicasVisibles]);
 
   const actualizar = React.useCallback((cambio: Partial<EspecificacionAgente>) => {
     setSpec((previo) => ({ ...previo, ...cambio }));
@@ -108,10 +115,46 @@ export function ConstructorAgente({ agentId, inicial, publicado }: ConstructorAg
     } else toast.error(resultado.error);
   }
 
+  /** Cabecera y editor de las instrucciones técnicas; se monta en la columna derecha o plegado en móvil. */
+  const panelTecnico = (alto: string) => (
+    <>
+      <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
+        {manual ? <Badge tone="aviso">Editado a mano</Badge> : <Badge tone="ia">Lo escribe el formulario</Badge>}
+        <span className="tnum ml-auto text-2xs text-fg-muted">{tokens.toLocaleString("es-CO")} tokens aprox.</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            toast.info("Mejorar con IA todavía no está conectado. Aparecerá cuando Strap entre en esta pantalla.")
+          }
+        >
+          <Sparkles size={16} aria-hidden />
+          Mejorar con IA
+        </Button>
+      </div>
+      <div className={cn("min-h-0 bg-inset", alto === "100%" ? "flex-1" : "")}>
+        <CodeMirror
+          ref={editor}
+          value={prompt}
+          height={alto}
+          className="h-full font-mono text-[13px] leading-relaxed [&_.cm-content]:font-mono [&_.cm-scroller]:font-mono"
+          theme="none"
+          extensions={extensiones}
+          basicSetup={{ lineNumbers: false, foldGutter: false, highlightActiveLine: false }}
+          onChange={(valor) => {
+            setManual(valor);
+            setSucio(true);
+          }}
+        />
+      </div>
+    </>
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 py-8">
+      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="min-h-0 overflow-y-auto">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-6 py-8">
           <div className="strappy-slide-up flex flex-col gap-1">
             <h2 className="text-2xl font-semibold tracking-tight text-fg">Cómo trabaja tu agente</h2>
             <p className="text-base text-fg-secondary">
@@ -119,6 +162,8 @@ export function ConstructorAgente({ agentId, inicial, publicado }: ConstructorAg
               conversación.
             </p>
           </div>
+
+          {cabecera}
 
           {manual ? (
             <div
@@ -266,79 +311,63 @@ export function ConstructorAgente({ agentId, inicial, publicado }: ConstructorAg
             />
           </Seccion>
 
-          {/* ── Lo técnico, plegado por defecto ──────────────────────────────── */}
-          <div className="overflow-hidden rounded-xl border border-border bg-raised">
-            <button
-              type="button"
-              aria-expanded={tecnicas}
-              onClick={() => setTecnicas((v) => !v)}
-              className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-hover"
-            >
-              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-hover text-fg-muted">
-                <Code2 size={16} aria-hidden />
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-base font-medium text-fg">Ver instrucciones técnicas</span>
-                <span className="text-sm text-fg-muted">
-                  El texto exacto que lee tu agente. Solo si quieres afinarlo a mano.
+          {/* ── Móvil: lo técnico, plegado debajo del formulario ─────────────── */}
+          {!escritorio ? (
+            <div className="overflow-hidden rounded-xl border border-border bg-raised">
+              <button
+                type="button"
+                aria-expanded={tecnicas}
+                onClick={() => setTecnicas((v) => !v)}
+                className="flex w-full cursor-pointer items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-hover"
+              >
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-hover text-fg-muted">
+                  <Code2 size={16} aria-hidden />
                 </span>
-              </span>
-              {manual ? <Badge tone="aviso">Editado a mano</Badge> : null}
-              <ChevronDown
-                size={16}
-                aria-hidden
-                className={cn("shrink-0 text-fg-muted transition-transform duration-[var(--dur-base)]", tecnicas && "rotate-180")}
-              />
-            </button>
-
-            {tecnicas ? (
-              <div className="strappy-fade-in border-t border-border">
-                <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
-                  {manual ? (
-                    <Badge tone="aviso">Editado a mano</Badge>
-                  ) : (
-                    <Badge tone="ia">Lo escribe el formulario</Badge>
-                  )}
-                  <span className="tnum ml-auto text-2xs text-fg-muted">
-                    {tokens.toLocaleString("es-CO")} tokens aprox.
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-base font-medium text-fg">Ver instrucciones técnicas</span>
+                  <span className="text-sm text-fg-muted">
+                    El texto exacto que lee tu agente. Solo si quieres afinarlo a mano.
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      toast.info(
-                        "Mejorar con IA todavía no está conectado. Aparecerá cuando Strap entre en esta pantalla.",
-                      )
-                    }
-                  >
-                    <Sparkles size={16} aria-hidden />
-                    Mejorar con IA
-                  </Button>
-                </div>
-                <div className="h-[420px] border-t border-border bg-inset">
-                  <CodeMirror
-                    ref={editor}
-                    value={prompt}
-                    height="420px"
-                    className="h-full text-sm"
-                    theme="none"
-                    extensions={extensiones}
-                    basicSetup={{ lineNumbers: false, foldGutter: false, highlightActiveLine: false }}
-                    onChange={(valor) => {
-                      setManual(valor);
-                      setSucio(true);
-                    }}
-                  />
-                </div>
-              </div>
-            ) : null}
-          </div>
+                </span>
+                {manual ? <Badge tone="aviso">Editado a mano</Badge> : null}
+                <ChevronDown
+                  size={16}
+                  aria-hidden
+                  className={cn(
+                    "shrink-0 text-fg-muted transition-transform duration-[var(--dur-base)]",
+                    tecnicas && "rotate-180",
+                  )}
+                />
+              </button>
+              {tecnicas ? <div className="strappy-fade-in border-t border-border">{panelTecnico("420px")}</div> : null}
+            </div>
+          ) : null}
         </div>
+      </div>
+
+      {/* ── Escritorio: lo técnico, siempre a la vista y en vivo ───────────── */}
+      {escritorio ? (
+        <aside
+          aria-label="Instrucciones técnicas"
+          className="flex min-h-0 flex-col border-l border-border bg-raised"
+        >
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-hover text-fg-muted">
+              <Code2 size={16} aria-hidden />
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="text-base font-semibold text-fg">Instrucciones del agente</span>
+              <span className="text-sm text-fg-muted">Se escriben solas mientras respondes a la izquierda.</span>
+            </span>
+          </div>
+          {panelTecnico("100%")}
+        </aside>
+      ) : null}
       </div>
 
       {/* ── Acciones, siempre a la vista ─────────────────────────────────── */}
       <div className="shrink-0 border-t border-border bg-page/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 px-6 py-3 sm:flex-row sm:items-center">
+        <div className="flex w-full flex-col gap-3 px-6 py-3 sm:flex-row sm:items-center">
           <p className="flex items-center gap-2 text-sm text-fg-muted">
             {sucio ? (
               <>
@@ -530,4 +559,17 @@ function resaltado(rango: Rango | null) {
     }
     return Decoration.set(marcas);
   });
+}
+
+/** Escritorio a partir de 1024 px: ahí caben las dos columnas. */
+function useEsEscritorio(): boolean {
+  return React.useSyncExternalStore(
+    (avisar) => {
+      const consulta = window.matchMedia("(min-width: 1024px)");
+      consulta.addEventListener("change", avisar);
+      return () => consulta.removeEventListener("change", avisar);
+    },
+    () => window.matchMedia("(min-width: 1024px)").matches,
+    () => false,
+  );
 }

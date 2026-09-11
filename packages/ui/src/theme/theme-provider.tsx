@@ -7,14 +7,15 @@ export interface ThemeProviderProps {
 }
 
 /**
- * El tema oscuro es la base (`:root`); el claro se activa con la clase `.light`.
- * En la primera visita se respeta la preferencia del sistema.
+ * El tema claro de plastilina es la base (`:root`); el de noche se activa con la
+ * clase `.dark`. Se arranca en claro: es el que eligió el producto, y quien
+ * prefiera la noche la tiene a un clic en el menú.
  */
 export function ThemeProvider({ children }: ThemeProviderProps) {
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="system"
+      defaultTheme="light"
       enableSystem
       disableTransitionOnChange
       value={{ light: "light", dark: "dark" }}

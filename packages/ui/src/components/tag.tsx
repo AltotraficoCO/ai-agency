@@ -12,7 +12,7 @@ export function Tag({ className, children, onRemove, removeLabel = "Quitar", ...
   return (
     <span
       className={cn(
-        "inline-flex h-6 items-center gap-1 rounded-sm border border-border bg-raised pl-2 text-sm text-fg-secondary",
+        "inline-flex h-7 items-center gap-1 rounded-full border-2 border-border bg-raised pl-2.5 text-sm font-medium text-fg-secondary shadow-e1",
         onRemove ? "pr-1" : "pr-2",
         className,
       )}

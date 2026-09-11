@@ -20,11 +20,13 @@ export type ResumenAgente = {
   descripcion: string | null;
   estado: "draft" | "published" | "paused" | "archived";
   tipo: string;
+  /** Foto del agente (`/avatares/whatsapp/NN.webp`); null si no tiene. */
+  avatar: string | null;
   modo: "lite" | "max";
   publicado: boolean;
   conversaciones: number;
   actualizado: string;
-  /** Agente del catálogo del que viene (webmaster, recepcionista…); null si es propio. */
+  /** Agente del catálogo del que viene (webmaster, marketing…); null si es propio. */
   catalogo: string | null;
   /**
    * Atiende o trabaja ahora mismo. Un conversacional, cuando está publicado; uno
@@ -41,13 +43,14 @@ export async function listarAgentes(workspaceId: string): Promise<ResumenAgente[
       description: string | null;
       status: ResumenAgente["estado"];
       agent_type: string;
+      avatar_url: string | null;
       mode: "lite" | "max";
       active_version_id: string | null;
       updated_at: string;
       conversaciones: string;
       catalogo: string | null;
     }>(
-      `select a.id, a.name, a.description, a.status, a.agent_type, a.mode,
+      `select a.id, a.name, a.description, a.status, a.agent_type, a.avatar_url, a.mode,
               a.active_version_id, a.updated_at,
               (select count(*) from public.conversations c
                 where c.workspace_id = a.workspace_id and c.agent_id = a.id) as conversaciones,
@@ -68,6 +71,7 @@ export async function listarAgentes(workspaceId: string): Promise<ResumenAgente[
         descripcion: r.description,
         estado: r.status,
         tipo: r.agent_type,
+        avatar: r.avatar_url,
         modo: r.mode,
         publicado,
         conversaciones: Number(r.conversaciones),
@@ -88,6 +92,8 @@ export type FichaAgente = {
   estado: ResumenAgente["estado"];
   /** `conversational` atiende por WhatsApp; `task` trabaja por encargo para el negocio. */
   tipo: string;
+  /** Foto del agente (`/avatares/whatsapp/NN.webp`); null si no tiene. */
+  avatar: string | null;
   modo: "lite" | "max";
   publicado: boolean;
   spec: EspecificacionAgente;
@@ -110,6 +116,7 @@ export async function leerAgente(
       description: string | null;
       status: FichaAgente["estado"];
       agent_type: string;
+      avatar_url: string | null;
       mode: "lite" | "max";
       active_version_id: string | null;
       spec: unknown;
@@ -118,7 +125,7 @@ export async function leerAgente(
       // El borrador gana sobre la version publicada: es lo que la persona
       // estaba escribiendo la ultima vez, y perderlo al recargar seria
       // imperdonable. La version publicada es lo que ejecuta el motor.
-      `select a.id, a.name, a.description, a.status, a.agent_type, a.mode, a.active_version_id,
+      `select a.id, a.name, a.description, a.status, a.agent_type, a.avatar_url, a.mode, a.active_version_id,
               coalesce(b.spec, v.spec, ultima.spec, '{}'::jsonb) as spec,
               (b.spec is not null) as hay_borrador
          from public.agents a
@@ -144,6 +151,7 @@ export async function leerAgente(
       descripcion: fila.description,
       estado: fila.status,
       tipo: fila.agent_type,
+      avatar: fila.avatar_url,
       modo: fila.mode,
       publicado: Boolean(fila.active_version_id) && fila.status === "published",
       spec,

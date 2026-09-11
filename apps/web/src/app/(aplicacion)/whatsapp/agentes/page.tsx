@@ -1,6 +1,6 @@
 /**
- * Los agentes de WhatsApp: los que contestan a los clientes. Los crea Strap
- * desde Inicio, o se contrata la Recepcionista del catálogo.
+ * Los agentes de WhatsApp: los que contestan a los clientes. No se contratan:
+ * los crea la persona con Strap desde Inicio.
  */
 import { ListaAgentes } from "@/components/agentes/lista-agentes";
 

@@ -18,6 +18,7 @@
  *  4. Progreso — pasos en vivo que al terminar colapsan a una línea.
  */
 import * as React from "react";
+import Image from "next/image";
 import { Check, ChevronDown, CircleAlert, ExternalLink, Loader2, Minus } from "lucide-react";
 import { Badge, Button, Card, CardBody, Input, cn } from "@strappy/ui";
 import type {
@@ -385,7 +386,16 @@ export function BloqueTarjeta({ salida }: { salida: SalidaTarjeta }) {
     <div className="strap-muelle w-full overflow-hidden rounded-xl border border-border border-l-2 border-l-primary bg-raised shadow-e2">
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-col gap-0.5">
+          {salida.foto ? (
+            <Image
+              src={salida.foto}
+              alt=""
+              width={72}
+              height={72}
+              className="-my-1 size-[72px] shrink-0 object-contain drop-shadow-[0_6px_12px_rgba(0,0,0,0.35)]"
+            />
+          ) : null}
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <p className="text-lg font-semibold tracking-tight text-fg">{salida.nombre}</p>
             <p className="text-base text-fg-secondary">{salida.descripcion}</p>
           </div>

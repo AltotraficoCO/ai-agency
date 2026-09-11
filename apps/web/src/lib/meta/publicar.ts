@@ -21,6 +21,7 @@ import {
   type EspecificacionAgente,
 } from "@strappy/db/spec";
 import { conEspacio } from "../db/pool";
+import { elegirAvatar } from "../avatares";
 
 export type EjecutorSql = {
   readonly workspaceId: string;
@@ -56,6 +57,8 @@ export type ResultadoPublicacion = {
   readonly version: number;
   readonly huellaPrompt: string;
   readonly nombre: string;
+  /** Foto de plastilina del agente (`/avatares/whatsapp/NN.webp`). */
+  readonly foto: string;
 };
 
 export class PublicacionInvalidaError extends Error {
@@ -85,6 +88,7 @@ export async function publicarDesdeBorrador(
   );
 
   const agenteId = entrada.agenteId ?? (await crearAgente(scope, entrada, nombre));
+  const foto = await asegurarFoto(scope, agenteId);
 
   const { rows: filasVersion } = await scope.query<{ id: string; version: number }>(
     `insert into public.agent_versions
@@ -168,7 +172,34 @@ export async function publicarDesdeBorrador(
     version: Number(version.version),
     huellaPrompt: compilado.hash,
     nombre,
+    foto,
   };
+}
+
+/**
+ * Cada agente de WhatsApp tiene su foto de plastilina. Se elige al publicar por
+ * primera vez —prefiriendo una que el espacio no use— y no se pisa la que ya
+ * tenga, ni la que la persona haya escogido después.
+ */
+async function asegurarFoto(scope: EjecutorSql, agenteId: string): Promise<string> {
+  const actual = await scope.query<{ avatar_url: string | null }>(
+    `select avatar_url from public.agents where workspace_id = $1 and id = $2`,
+    [scope.workspaceId, agenteId],
+  );
+  const tiene = actual.rows[0]?.avatar_url;
+  if (tiene) return tiene;
+
+  const usados = await scope.query<{ avatar_url: string | null }>(
+    `select avatar_url from public.agents
+      where workspace_id = $1 and agent_type = 'conversational' and avatar_url is not null`,
+    [scope.workspaceId],
+  );
+  const foto = elegirAvatar(usados.rows.map((r) => r.avatar_url));
+  await scope.query(
+    `update public.agents set avatar_url = $3 where workspace_id = $1 and id = $2 and avatar_url is null`,
+    [scope.workspaceId, agenteId, foto],
+  );
+  return foto;
 }
 
 async function crearAgente(

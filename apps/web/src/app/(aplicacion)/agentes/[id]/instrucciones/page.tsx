@@ -4,6 +4,7 @@ import { Badge, rutas } from "@strappy/ui";
 import { EnlaceBoton } from "@/components/enlace-boton";
 import { MarcoApp } from "@/components/marco-app";
 import { ConstructorAgente } from "@/components/constructor-agente";
+import { SelectorFoto } from "@/components/agentes/selector-foto";
 import { datosDelMarco } from "@/lib/marco";
 import { leerAgente } from "@/lib/agentes";
 
@@ -38,7 +39,14 @@ export default async function PaginaInstrucciones({
         </>
       }
     >
-      <ConstructorAgente agentId={id} inicial={agente.spec} publicado={agente.publicado} />
+      <ConstructorAgente
+        agentId={id}
+        inicial={agente.spec}
+        publicado={agente.publicado}
+        {...(agente.tipo === "conversational"
+          ? { cabecera: <SelectorFoto agentId={id} actual={agente.avatar} nombre={agente.nombre} /> }
+          : {})}
+      />
     </MarcoApp>
   );
 }

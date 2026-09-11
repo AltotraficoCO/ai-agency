@@ -2,7 +2,8 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../lib/cn";
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-medium whitespace-nowrap [&_svg]:size-3",
+  // Una bolita de plastilina: redonda, con un canto oscuro abajo que le da volumen.
+  "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-2xs font-bold whitespace-nowrap shadow-[inset_0_-1.5px_0_rgb(0_0_0/0.07),inset_0_1px_0_rgb(255_255_255/0.6)] [&_svg]:size-3",
   {
     variants: {
       /* Los tonos `ia` y `humano` sostienen la tesis: el color dice quién habla. */

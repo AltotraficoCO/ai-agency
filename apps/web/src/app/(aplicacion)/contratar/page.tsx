@@ -24,8 +24,10 @@ const COMO_FUNCIONA = [
  *
  * Cada ficha dice tres cosas y en este orden: QUÉ HACE, QUÉ CUESTA y QUÉ
  * NECESITA CONECTADO. Ese tercer punto es el que evita la decepción: contratar
- * un recepcionista sin WhatsApp conectado deja al cliente con un agente que no
- * atiende a nadie y con la sensación de que el producto no funciona.
+ * un Webmaster sin el sitio conectado deja al cliente con un agente que no
+ * puede hacer nada y con la sensación de que el producto no funciona.
+ *
+ * Solo hay agentes del negocio: los de WhatsApp no se contratan, se crean.
  */
 export default async function PaginaContratar() {
   const marco = await datosDelMarco();

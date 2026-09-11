@@ -20,7 +20,7 @@ export const PopoverContent = React.forwardRef<
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "strappy-pop-in z-50 w-72 rounded-lg border border-border bg-overlay p-3 shadow-e3",
+          "strappy-pop-in textura z-50 w-72 rounded-lg border-2 border-[var(--border-subtle)] bg-overlay p-3.5 shadow-e3",
           className,
         )}
         {...props}

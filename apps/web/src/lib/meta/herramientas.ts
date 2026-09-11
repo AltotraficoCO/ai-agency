@@ -41,6 +41,7 @@ import { actualizarHilo, leerHilo, type ContextoEmpresa } from "./borradores";
 import { analizarSitio, resumirSitio } from "./sitio";
 import { crearCerebroConFuentes } from "./cerebro";
 import { publicarAgenteDeStrap } from "./publicar";
+import { conEspacio } from "../db/pool";
 import { jugarSolo } from "./autojuego";
 import type {
   SalidaAutojuego,
@@ -641,7 +642,7 @@ export function crearHerramientasDeStrap(entorno: EntornoStrap): ToolDef<never, 
         },
       });
 
-      return tarjetaDe(borrador, resultado.agenteId, resultado.nombre, resultado.version);
+      return tarjetaDe(borrador, resultado.agenteId, resultado.nombre, resultado.version, resultado.foto);
     },
   });
 
@@ -709,7 +710,14 @@ export function crearHerramientasDeStrap(entorno: EntornoStrap): ToolDef<never, 
       const id = agenteId ?? borrador.agenteId;
       if (!id) throw new Error("Todavía no hay ningún agente publicado en este hilo.");
       await actualizarHilo(entorno.workspaceId, entorno.hiloId, { fase: "entrega" });
-      return tarjetaDe(borrador, id, borrador.agente?.nombre ?? "Tu agente");
+      const foto = await conEspacio(entorno.workspaceId, async (scope) => {
+        const { rows } = await scope.query<{ avatar_url: string | null }>(
+          `select avatar_url from public.agents where workspace_id = $1 and id = $2`,
+          [scope.workspaceId, id],
+        );
+        return rows[0]?.avatar_url ?? null;
+      });
+      return tarjetaDe(borrador, id, borrador.agente?.nombre ?? "Tu agente", undefined, foto);
     },
   });
 
@@ -734,6 +742,7 @@ function tarjetaDe(
   agenteId: string,
   nombre: string,
   version?: number,
+  foto?: string | null,
 ): SalidaTarjeta {
   const detalles: { etiqueta: string; valor: string }[] = [];
   if (borrador.canal) detalles.push({ etiqueta: "Canal", valor: etiquetaCanal(borrador.canal) });
@@ -755,6 +764,7 @@ function tarjetaDe(
     enlace: `/agentes/${agenteId}`,
     textoEnlace: "Abrir el agente",
     ...(version ? { version } : {}),
+    ...(foto ? { foto } : {}),
   };
 }
 

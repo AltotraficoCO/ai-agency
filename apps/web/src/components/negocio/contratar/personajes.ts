@@ -29,22 +29,19 @@ export type Personaje = {
 };
 
 const PERSONAJES: Readonly<Record<string, Personaje>> = {
+  // Los halos siguen el color de cada personaje de plastilina.
   webmaster: {
-    imagen: "/agentes/webmaster.webp",
-    halo: "radial-gradient(circle, rgba(57,255,20,0.26) 0%, rgba(57,255,20,0) 70%)",
-  },
-  recepcionista: {
-    imagen: "/agentes/recepcionista.webp",
-    halo: "radial-gradient(circle, rgba(0,128,255,0.30) 0%, rgba(0,128,255,0) 70%)",
+    imagen: "/agentes/webmaster-plastilina.webp",
+    halo: "radial-gradient(circle, rgba(45,212,191,0.30) 0%, rgba(45,212,191,0) 70%)",
   },
   marketing: {
-    imagen: "/agentes/marketing.webp",
-    halo: "radial-gradient(circle, rgba(34,211,238,0.28) 0%, rgba(34,211,238,0) 70%)",
+    imagen: "/agentes/marketing-plastilina.webp",
+    halo: "radial-gradient(circle, rgba(251,113,133,0.30) 0%, rgba(251,113,133,0) 70%)",
   },
 };
 
 const SIN_PERSONAJE: Personaje = {
-  halo: "radial-gradient(circle, rgba(57,255,20,0.22) 0%, rgba(57,255,20,0) 70%)",
+  halo: "radial-gradient(circle, rgba(115,87,232,0.22) 0%, rgba(115,87,232,0) 70%)",
 };
 
 export function personajeDe(slug: string): Personaje {

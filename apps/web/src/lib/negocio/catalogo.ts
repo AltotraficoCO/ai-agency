@@ -85,20 +85,6 @@ export type FichaCatalogo = {
  */
 const CONEXIONES_POR_AGENTE: Record<string, readonly { clave: string; nombre: string; descripcion: string; ruta: string }[]> =
   {
-    recepcionista: [
-      {
-        clave: "whatsapp",
-        nombre: "WhatsApp",
-        descripcion: "Tu número de WhatsApp Business, para que pueda atender.",
-        ruta: "/ajustes/canales",
-      },
-      {
-        clave: "conocimiento",
-        nombre: "Conocimiento",
-        descripcion: "Lo que sabe de tu negocio: precios, horarios, preguntas frecuentes.",
-        ruta: "/conocimiento",
-      },
-    ],
     webmaster: [
       {
         clave: "sitio",
@@ -133,28 +119,6 @@ const CONEXIONES_POR_AGENTE: Record<string, readonly { clave: string; nombre: st
  * y se declara aquí, junto a lo que necesita conectado.
  */
 const CAPACIDADES_POR_AGENTE: Record<string, readonly CapacidadAgente[]> = {
-  recepcionista: [
-    {
-      icono: "mensaje",
-      titulo: "Responde a todo el que escribe",
-      detalle: "A cualquier hora, por WhatsApp, con el tono de tu negocio.",
-    },
-    {
-      icono: "conocimiento",
-      titulo: "Resuelve dudas con tu información",
-      detalle: "Precios, horarios y preguntas frecuentes, sin inventar.",
-    },
-    {
-      icono: "contacto",
-      titulo: "Toma los datos del interesado",
-      detalle: "Nombre, teléfono y lo que busca, guardado en Contactos.",
-    },
-    {
-      icono: "humano",
-      titulo: "Te pasa la conversación cuando toca",
-      detalle: "Si el cliente lo pide o hay una queja, avisa a tu equipo.",
-    },
-  ],
   webmaster: [
     {
       icono: "web",
@@ -204,41 +168,6 @@ const CAPACIDADES_POR_AGENTE: Record<string, readonly CapacidadAgente[]> = {
  * agente es lo que hace que nadie termine de configurar ninguno.
  */
 const CAMPOS_POR_AGENTE: Record<string, readonly CampoPersonalizable[]> = {
-  recepcionista: [
-    {
-      clave: "nombre_agente",
-      etiqueta: "Cómo se presenta",
-      ayuda: "El nombre con el que saluda a tus clientes.",
-      tipo: "texto",
-      valorPorDefecto: "Recepción",
-    },
-    {
-      clave: "saludo",
-      etiqueta: "Primer mensaje",
-      ayuda: "Lo primero que lee quien te escribe.",
-      tipo: "parrafo",
-      valorPorDefecto: "¡Hola! Soy el equipo de atención. ¿En qué te puedo ayudar?",
-    },
-    {
-      clave: "escalar_cuando",
-      etiqueta: "Cuándo pasar a una persona",
-      ayuda: "En qué casos deja de responder y avisa a tu equipo.",
-      tipo: "opcion",
-      opciones: [
-        { valor: "peticion", etiqueta: "Solo si el cliente lo pide" },
-        { valor: "peticion_o_queja", etiqueta: "Si lo pide o si es una queja" },
-        { valor: "siempre_venta", etiqueta: "Siempre que haya intención de compra" },
-      ],
-      valorPorDefecto: "peticion_o_queja",
-    },
-    {
-      clave: "dato_clave",
-      etiqueta: "Dato que siempre debe pedir",
-      ayuda: "Lo que necesitas de cada interesado antes de cerrar la conversación.",
-      tipo: "texto",
-      valorPorDefecto: "Nombre y teléfono",
-    },
-  ],
   webmaster: [
     {
       clave: "sitio",
@@ -320,6 +249,8 @@ export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCata
                 required_tools, monthly_credits, setup_credits
            from public.catalog_agents
           where is_published
+            -- En WhatsApp no se contratan agentes: los crea la persona con Strap.
+            and agent_type <> 'conversational'
           order by position asc, name asc`,
         [],
       ),

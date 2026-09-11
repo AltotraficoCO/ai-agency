@@ -62,7 +62,7 @@ export function CreditsWidget({
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 rounded-lg border bg-raised p-3",
+        "textura flex flex-col gap-2 rounded-lg border-2 bg-raised p-3 shadow-e1",
         avisando ? "border-[var(--warning)]" : "border-border",
         props.onClick &&
           "cursor-pointer transition-colors duration-[var(--dur-fast)] hover:border-border-strong hover:bg-hover",

@@ -7,10 +7,20 @@ import { cn } from "../lib/cn";
 import { focusRing } from "../lib/focus";
 import { Spinner } from "./spinner";
 
+/**
+ * Botones de plastilina.
+ *
+ * Tienen volumen (luz arriba, canto abajo) y al pulsarlos se APLASTAN: se
+ * ensanchan y bajan un poco, y al soltar rebotan con la curva elástica. Es el
+ * gesto que hace que la herramienta se sienta blandita en la mano.
+ */
 const buttonVariants = cva(
   cn(
-    "relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap",
-    "cursor-pointer rounded-md font-medium transition-[color,background-color,border-color,box-shadow,transform] duration-[var(--dur-fast)] active:scale-[0.98] motion-reduce:active:scale-100",
+    "relative inline-flex cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap",
+    "rounded-md font-semibold",
+    "transition-[color,background-color,border-color,box-shadow,transform] duration-[var(--dur-base)] ease-[var(--ease-spring)]",
+    "active:scale-x-[1.04] active:scale-y-[0.92] active:duration-[var(--dur-instant)]",
+    "motion-reduce:transition-none motion-reduce:active:scale-100",
     "disabled:pointer-events-none disabled:opacity-45",
     "[&_svg]:shrink-0",
     focusRing,
@@ -18,21 +28,34 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary:
-          "bg-primary font-semibold text-[var(--fg-on-brand)] shadow-e1 hover:bg-[var(--brand-hover)] hover:shadow-glow active:bg-[var(--brand-active)]",
-        secondary:
-          "bg-transparent text-fg border border-border hover:border-primary hover:text-primary-fg active:bg-active",
+        primary: cn(
+          "bg-primary text-[var(--fg-on-brand)] shadow-marca",
+          "[background-image:linear-gradient(180deg,rgb(255_255_255/0.18),transparent_65%)]",
+          "hover:-translate-y-0.5 hover:bg-[var(--brand-hover)]",
+          "active:translate-y-0 active:bg-[var(--brand-active)] active:shadow-marca-pulsado",
+        ),
+        secondary: cn(
+          "border-2 border-border bg-raised text-fg shadow-e1",
+          "hover:-translate-y-0.5 hover:border-[color-mix(in_oklab,var(--brand),transparent_55%)] hover:text-primary-fg",
+          "active:translate-y-0 active:shadow-hundido",
+        ),
         ghost: "bg-transparent text-fg-secondary hover:bg-hover hover:text-fg active:bg-active",
-        human:
-          "bg-human text-[var(--fg-on-human)] shadow-e1 hover:brightness-110 active:brightness-95",
-        danger:
-          "bg-danger text-white shadow-e1 hover:brightness-110 active:brightness-95",
-        link: "bg-transparent text-primary-fg underline-offset-4 hover:underline px-0",
+        human: cn(
+          "bg-human text-[var(--fg-on-human)]",
+          "[box-shadow:inset_0_2px_0_rgb(255_255_255/0.35),inset_0_-4px_0_rgb(120_30_20/0.25),0_8px_16px_-6px_rgb(255_107_87/0.5)]",
+          "hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:brightness-95",
+        ),
+        danger: cn(
+          "bg-danger text-white",
+          "[box-shadow:inset_0_2px_0_rgb(255_255_255/0.3),inset_0_-4px_0_rgb(110_20_25/0.3),0_8px_16px_-6px_rgb(229_72_77/0.45)]",
+          "hover:-translate-y-0.5 hover:brightness-105 active:translate-y-0 active:brightness-95",
+        ),
+        link: "bg-transparent px-0 text-primary-fg underline-offset-4 hover:underline active:scale-100",
       },
       size: {
-        sm: "h-[30px] px-2.5 text-sm",
-        md: "h-9 px-[14px] text-base",
-        lg: "h-11 px-[18px] text-md",
+        sm: "h-8 px-3 text-sm",
+        md: "h-10 px-4 text-base",
+        lg: "h-12 px-5 text-md",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },

@@ -92,6 +92,7 @@ export default async function PaginaProbar({ params }: { params: Promise<{ id: s
           conversationId={conversationId}
           historial={historial}
           nombreAgente={nombreAgente}
+          fotoAgente={agente.avatar}
           saldoInicial={saldo}
           modeloDeEnsayo={!hayModeloReal()}
         />

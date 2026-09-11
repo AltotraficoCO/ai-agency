@@ -23,8 +23,8 @@ export function Tooltip({ content, side = "top", shortcut, children }: TooltipPr
           side={side}
           sideOffset={6}
           className={cn(
-            "strappy-fade-in z-50 flex items-center gap-2 rounded-md border border-border",
-            "bg-overlay px-2 py-1 text-sm text-fg shadow-e2",
+            "strappy-pop-in z-50 flex items-center gap-2 rounded-md border-2 border-[var(--border-subtle)]",
+            "bg-overlay px-2.5 py-1 text-sm font-medium text-fg shadow-e2",
           )}
         >
           {content}

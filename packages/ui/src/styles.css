@@ -9,15 +9,29 @@
   to   { opacity: 1; }
 }
 
+/* Plastilina: lo que aparece se infla, se pasa un pelín y se asienta. */
 @keyframes strappy-pop-in {
-  from { opacity: 0; transform: scale(0.97) translateY(-2px); }
-  to   { opacity: 1; transform: none; }
+  0%   { opacity: 0; transform: scale(0.9); }
+  60%  { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 1; transform: none; }
 }
 
 @keyframes strappy-slide-up {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: none; }
+  0%   { opacity: 0; transform: translateY(12px) scale(0.96, 0.94); }
+  60%  { opacity: 1; transform: translateY(-2px) scale(1.01, 1.02); }
+  100% { opacity: 1; transform: none; }
 }
+
+/* Un apretón de plastilina: se aplasta, se estira y vuelve. Para celebrar. */
+@keyframes strappy-apreton {
+  0%   { transform: none; }
+  30%  { transform: scale(1.06, 0.9); }
+  55%  { transform: scale(0.96, 1.05); }
+  75%  { transform: scale(1.02, 0.98); }
+  100% { transform: none; }
+}
+
+.strappy-apreton { animation: strappy-apreton 520ms var(--ease-out-quart) both; }
 
 @keyframes strappy-slide-from-right {
   from { transform: translateX(100%); }
@@ -53,8 +67,8 @@
 }
 
 .strappy-fade-in   { animation: strappy-fade-in var(--dur-fast) var(--ease-out-quart) both; }
-.strappy-pop-in    { animation: strappy-pop-in var(--dur-fast) var(--ease-out-quart) both; }
-.strappy-slide-up  { animation: strappy-slide-up var(--dur-base) var(--ease-out-quart) both; }
+.strappy-pop-in    { animation: strappy-pop-in var(--dur-slow) var(--ease-out-quart) both; }
+.strappy-slide-up  { animation: strappy-slide-up var(--dur-slow) var(--ease-out-quart) both; }
 .strappy-slide-in-right { animation: strappy-slide-from-right var(--dur-base) var(--ease-out-quart) both; }
 
 .strappy-draw {
@@ -74,7 +88,8 @@
   .strappy-slide-in-right,
   .strappy-draw,
   .strappy-breathe,
-  .strappy-escribiendo {
+  .strappy-escribiendo,
+  .strappy-apreton {
     animation: none;
   }
   .strappy-draw { stroke-dasharray: none; stroke-dashoffset: 0; }

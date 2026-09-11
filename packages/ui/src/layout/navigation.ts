@@ -102,7 +102,7 @@ const agentesNegocio: DestinoNav = {
  * El menú, en el orden en que se lee.
  *
  * Dos módulos que no se mezclan. WhatsApp es la atención a clientes: los
- * agentes que contestan (los que crea Strap y la Recepcionista), la bandeja,
+ * agentes que contestan (los crea la persona con Strap), la bandeja,
  * los contactos, lo que saben y cómo les va. Negocio son los agentes que
  * trabajan por encargo para la empresa, como el Webmaster o Marketing.
  *

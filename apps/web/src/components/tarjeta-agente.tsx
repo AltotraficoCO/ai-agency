@@ -16,31 +16,31 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Bot, EllipsisVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, cn } from "@strappy/ui";
+import { AVATAR_POR_DEFECTO } from "@/lib/avatares";
 
 type Papel = { nombre: string; imagen?: string; halo: string };
 
 const PAPELES: Record<string, Papel> = {
   webmaster: {
     nombre: "Webmaster",
-    imagen: "/agentes/webmaster.webp",
-    halo: "radial-gradient(circle, rgba(57,255,20,0.26) 0%, rgba(57,255,20,0) 70%)",
-  },
-  recepcionista: {
-    nombre: "Recepcionista",
-    imagen: "/agentes/recepcionista.webp",
-    halo: "radial-gradient(circle, rgba(0,128,255,0.30) 0%, rgba(0,128,255,0) 70%)",
+    imagen: "/agentes/webmaster-plastilina.webp",
+    halo: "radial-gradient(circle, rgba(45,212,191,0.30) 0%, rgba(45,212,191,0) 70%)",
   },
   marketing: {
     nombre: "Marketing",
-    imagen: "/agentes/marketing.webp",
-    halo: "radial-gradient(circle, rgba(34,211,238,0.28) 0%, rgba(34,211,238,0) 70%)",
+    imagen: "/agentes/marketing-plastilina.webp",
+    halo: "radial-gradient(circle, rgba(251,113,133,0.30) 0%, rgba(251,113,133,0) 70%)",
   },
 };
 
-/** Los agentes propios no tienen personaje todavía: un robot sobre un degradado. */
+/**
+ * Los agentes de WhatsApp los crea la persona y cada uno tiene su foto de
+ * plastilina (`agents.avatar_url`). Sin foto todavía, la primera de la serie.
+ */
 const PROPIO: Papel = {
   nombre: "Agente de WhatsApp",
-  halo: "radial-gradient(circle, rgba(57,255,20,0.22) 0%, rgba(57,255,20,0) 70%)",
+  imagen: AVATAR_POR_DEFECTO,
+  halo: "radial-gradient(circle, rgba(115,87,232,0.22) 0%, rgba(115,87,232,0) 70%)",
 };
 
 /** Hover común: se eleva un poco y el borde se tiñe de marca. Sin mover el layout. */
@@ -54,11 +54,16 @@ export type DatosTarjetaAgente = {
   estado: string;
   modo: "lite" | "max";
   activo: boolean;
+  /** Foto del agente de WhatsApp; los del catálogo usan su personaje. */
+  avatar?: string | null;
 };
 
 export function TarjetaAgente({ agente, destino }: { agente: DatosTarjetaAgente; destino: string }) {
   const router = useRouter();
-  const papel = (agente.catalogo ? PAPELES[agente.catalogo] : undefined) ?? PROPIO;
+  const papel = (agente.catalogo ? PAPELES[agente.catalogo] : undefined) ?? {
+    ...PROPIO,
+    imagen: agente.avatar || AVATAR_POR_DEFECTO,
+  };
   const estado = agente.activo ? "Activo" : agente.estado === "paused" ? "En pausa" : "Borrador";
 
   return (
@@ -155,7 +160,7 @@ function Retrato({ papel, apagado = false }: { papel: Papel; apagado?: boolean }
             "relative grid size-20 place-items-center rounded-full",
             apagado
               ? "bg-hover text-fg-muted"
-              : "bg-[linear-gradient(135deg,#39ff14_0%,#0080ff_100%)] text-black shadow-lg ring-1 ring-white/10",
+              : "bg-[linear-gradient(135deg,#7357e8_0%,#ff6b57_100%)] text-white shadow-lg ring-1 ring-white/10",
           )}
         >
           <Bot size={34} strokeWidth={1.75} aria-hidden />

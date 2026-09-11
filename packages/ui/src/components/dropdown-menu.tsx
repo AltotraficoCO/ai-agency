@@ -12,7 +12,7 @@ export const DropdownMenuSub = DropdownPrimitive.Sub;
 export const DropdownMenuRadioGroup = DropdownPrimitive.RadioGroup;
 
 const itemBase = cn(
-  "relative flex h-8 cursor-default select-none items-center gap-2 rounded-sm px-2 text-base text-fg",
+  "relative flex h-9 cursor-pointer select-none items-center gap-2 rounded-sm px-2.5 text-base font-medium text-fg",
   "outline-none transition-colors duration-[var(--dur-instant)] data-[highlighted]:bg-hover",
   "data-[disabled]:opacity-45 data-[disabled]:pointer-events-none [&_svg]:size-[18px] [&_svg]:text-fg-muted",
 );
@@ -27,7 +27,7 @@ export const DropdownMenuContent = React.forwardRef<
         ref={ref}
         sideOffset={sideOffset}
         className={cn(
-          "strappy-pop-in z-50 min-w-52 rounded-lg border border-border bg-overlay p-1 shadow-e3",
+          "strappy-pop-in textura z-50 min-w-52 rounded-lg border-2 border-[var(--border-subtle)] bg-overlay p-1.5 shadow-e3",
           className,
         )}
         {...props}
@@ -137,7 +137,7 @@ export const DropdownMenuSubContent = React.forwardRef<
       <DropdownPrimitive.SubContent
         ref={ref}
         className={cn(
-          "strappy-pop-in z-50 min-w-44 rounded-lg border border-border bg-overlay p-1 shadow-e3",
+          "strappy-pop-in textura z-50 min-w-44 rounded-lg border-2 border-[var(--border-subtle)] bg-overlay p-1.5 shadow-e3",
           className,
         )}
         {...props}

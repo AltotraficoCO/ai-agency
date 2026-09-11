@@ -78,7 +78,8 @@ export function Inicio({ nombre, hilos, maxDisponible }: InicioProps) {
   return (
     <div className="mx-auto flex w-full max-w-[820px] flex-col gap-10 px-5 py-12 sm:py-16">
       <div className="strappy-slide-up flex flex-col items-center gap-5 text-center">
-        <Orbe size={60} pose="saludando" />
+        {/* Strap de cuerpo entero: es el protagonista de la pantalla, no un icono. */}
+        <Orbe size={132} pose="saludando" />
         <div className="flex flex-col items-center gap-2">
           <h1 className="text-balance text-4xl font-semibold tracking-tightest text-fg">
             Hola {nombre}, ¿qué construimos hoy?

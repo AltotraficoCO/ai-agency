@@ -14,7 +14,7 @@ export const Checkbox = React.forwardRef<
     <CheckboxPrimitive.Root
       ref={ref}
       className={cn(
-        "peer grid size-[18px] shrink-0 place-items-center rounded-xs border border-border-strong",
+        "peer grid size-5 shrink-0 cursor-pointer place-items-center rounded-[7px] border-2 border-border-strong shadow-hundido transition-transform duration-[var(--dur-base)] ease-[var(--ease-spring)] active:scale-90",
         "bg-inset transition-colors duration-[var(--dur-instant)] hover:border-[var(--brand)]",
         "data-[state=checked]:border-[var(--brand)] data-[state=checked]:bg-primary",
         "data-[state=indeterminate]:border-[var(--brand)] data-[state=indeterminate]:bg-primary",

@@ -2,9 +2,9 @@
  * Una lista de agentes: los que ya trabajan y los que se pueden contratar.
  *
  * La usan dos pantallas que no se mezclan. «Agentes de WhatsApp» son los que
- * atienden a clientes (los que crea Strap y la Recepcionista); «Agentes del
- * negocio» son los que trabajan por encargo para la empresa (Webmaster,
- * Marketing). Misma forma, distinto filtro y distintas palabras.
+ * atienden a clientes y los crea la persona con Strap (en WhatsApp no se
+ * contratan agentes); «Agentes del negocio» trabajan por encargo para la
+ * empresa (Webmaster, Marketing) y se contratan del catálogo.
  */
 import { Plus, Sparkles } from "lucide-react";
 import { EncabezadoPagina } from "@strappy/ui";
@@ -43,7 +43,7 @@ const TEXTOS: Record<
     titulo: "Agentes de WhatsApp",
     vacio: (activos, total) =>
       total === 0
-        ? "Los que contestan a tus clientes por WhatsApp. Crea uno con Strap o contrata la Recepcionista."
+        ? "Los que contestan a tus clientes por WhatsApp. Los creas tú con Strap, a la medida de tu negocio."
         : `${activos} de ${total} atendiendo ahora. Contestan a tus clientes por WhatsApp.`,
     tituloSinAgentes: "Todavía nadie atiende tu WhatsApp",
     textoSinAgentes:
@@ -72,22 +72,17 @@ export async function ListaAgentes({ clase }: { clase: ClaseDeAgentes }) {
   ]);
   const deEsta = (tipo: string) => (clase === "whatsapp" ? esDeWhatsapp(tipo) : !esDeWhatsapp(tipo));
   const agentes = todos.filter((a) => deEsta(a.tipo));
-  const disponibles = catalogo.filter((f) => !f.contratado && deEsta(f.tipo));
+  // Solo los agentes del negocio se contratan: en WhatsApp se crean con Strap.
+  const disponibles = clase === "negocio" ? catalogo.filter((f) => !f.contratado && !esDeWhatsapp(f.tipo)) : [];
   const activos = agentes.filter((a) => a.activo).length;
   const t = TEXTOS[clase];
 
   const acciones =
     clase === "whatsapp" ? (
-      <>
-        <EnlaceBoton variant="secondary" href="/contratar">
-          <Plus size={16} aria-hidden />
-          Contratar uno listo
-        </EnlaceBoton>
-        <EnlaceBoton href="/">
-          <Sparkles size={16} aria-hidden />
-          Crear con Strap
-        </EnlaceBoton>
-      </>
+      <EnlaceBoton href="/">
+        <Sparkles size={16} aria-hidden />
+        Crear con Strap
+      </EnlaceBoton>
     ) : (
       <EnlaceBoton href="/contratar">
         <Plus size={16} aria-hidden />
@@ -124,6 +119,7 @@ export async function ListaAgentes({ clase }: { clase: ClaseDeAgentes }) {
                     estado: agente.estado,
                     modo: agente.modo,
                     activo: agente.activo,
+                    avatar: agente.avatar,
                   }}
                   destino={destinoDe(agente)}
                 />

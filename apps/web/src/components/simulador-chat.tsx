@@ -13,7 +13,8 @@
  */
 import * as React from "react";
 import { FlaskConical, RotateCcw, Send } from "lucide-react";
-import { Avatar, Badge, Button, IndicadorEscribiendo, Input } from "@strappy/ui";
+import Image from "next/image";
+import { Avatar, Badge, Button, IndicadorEscribiendo, Input, cn } from "@strappy/ui";
 
 export type MensajeVista = {
   id: string;
@@ -27,6 +28,8 @@ export interface SimuladorChatProps {
   conversationId: string;
   historial: MensajeVista[];
   nombreAgente: string;
+  /** Foto de plastilina del agente; sin ella se enseñan sus iniciales. */
+  fotoAgente?: string | null;
   saldoInicial: number;
   modeloDeEnsayo: boolean;
 }
@@ -53,6 +56,7 @@ export function SimuladorChat({
   conversationId,
   historial,
   nombreAgente,
+  fotoAgente,
   saldoInicial,
   modeloDeEnsayo,
 }: SimuladorChatProps) {
@@ -143,7 +147,7 @@ export function SimuladorChat({
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col">
       {/* ── Con quién hablas ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-        <Avatar name={nombreAgente} size="lg" tone="ia" status="en-linea" />
+        <FotoAgente nombre={nombreAgente} src={fotoAgente} size="lg" tone="ia" status="en-linea" />
         <div className="flex min-w-0 flex-col">
           <p className="truncate text-base font-semibold text-fg">{nombreAgente}</p>
           <p className="flex items-center gap-1.5 truncate text-2xs text-fg-muted">
@@ -167,7 +171,7 @@ export function SimuladorChat({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {vacio && (
           <div className="strappy-slide-up mx-auto flex max-w-md flex-col items-center gap-4 py-16 text-center">
-            <Avatar name={nombreAgente} size="lg" tone="ia" className="size-14 text-lg" />
+            <FotoAgente nombre={nombreAgente} src={fotoAgente} size="lg" tone="ia" className="size-14 text-lg" />
             <div className="flex flex-col gap-1">
               <p className="text-xl font-semibold text-fg">Háblale como si fueras un cliente</p>
               <p className="text-base text-fg-secondary">
@@ -205,7 +209,7 @@ export function SimuladorChat({
                 </p>
               ) : (
                 <div className="flex max-w-[80%] items-end gap-2">
-                  {m.autor === "agente" && <Avatar name={nombreAgente} size="sm" tone="ia" />}
+                  {m.autor === "agente" && <FotoAgente nombre={nombreAgente} src={fotoAgente} size="sm" tone="ia" />}
                   {/* La IA habla en neutro con borde; el verde sobre verde cansaba la vista. */}
                   <p
                     className={
@@ -223,7 +227,7 @@ export function SimuladorChat({
         </ol>
         {pensando && (
           <div className="strappy-fade-in mt-3 flex items-end gap-2">
-            <Avatar name={nombreAgente} size="sm" tone="ia" />
+            <FotoAgente nombre={nombreAgente} src={fotoAgente} size="sm" tone="ia" />
             <span className="rounded-2xl rounded-bl-sm border border-border bg-raised px-3.5 py-3">
               <IndicadorEscribiendo etiqueta={`${nombreAgente} está escribiendo`} />
             </span>
@@ -298,4 +302,38 @@ async function* leerEventos(cuerpo: ReadableStream<Uint8Array>): AsyncGenerator<
       yield { tipo, datos: JSON.parse(datos) as unknown };
     }
   }
+}
+
+/**
+ * La cara del agente en el chat.
+ *
+ * Los personajes son de cuerpo entero: se enseñan enteros dentro del círculo
+ * (`object-contain`) en vez de recortarlos, que les cortaría la cabeza.
+ */
+function FotoAgente({
+  nombre,
+  src,
+  size = "md",
+  className,
+}: {
+  nombre: string;
+  src?: string | null | undefined;
+  size?: "sm" | "md" | "lg";
+  tone?: string;
+  status?: string;
+  className?: string;
+}) {
+  if (!src) return <Avatar name={nombre} size={size} tone="ia" {...(className ? { className } : {})} />;
+  const lado = size === "sm" ? "size-7" : size === "lg" ? "size-10" : "size-8";
+  return (
+    <span
+      className={cn(
+        "relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full bg-inset ring-1 ring-border",
+        lado,
+        className,
+      )}
+    >
+      <Image src={src} alt={nombre} width={64} height={64} className="size-[115%] max-w-none object-contain" />
+    </span>
+  );
 }

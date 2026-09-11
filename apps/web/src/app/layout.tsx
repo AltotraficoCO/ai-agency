@@ -1,13 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
+import { Fredoka, JetBrains_Mono, Nunito } from "next/font/google";
 import { ThemeProvider, Toaster, TooltipProvider } from "@strappy/ui";
 import "@strappy/ui/styles.css";
 import "./globals.css";
 
-const plexSans = IBM_Plex_Sans({
-  variable: "--font-plex-sans",
+// Plastilina: Nunito para leer y trabajar, Fredoka para los títulos. Las dos
+// son redondas como los personajes, sin llegar a ser de juguete.
+const nunito = Nunito({
+  variable: "--font-nunito",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+const fredoka = Fredoka({
+  variable: "--font-fredoka",
+  subsets: ["latin"],
   display: "swap",
 });
 
@@ -29,18 +36,18 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0D0D0D" },
-    { media: "(prefers-color-scheme: light)", color: "#FAFAFA" },
+    { media: "(prefers-color-scheme: dark)", color: "#1C1730" },
+    { media: "(prefers-color-scheme: light)", color: "#FBF6EE" },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    // Sin clase `.light`: el tema oscuro es la base y next-themes añade la clara.
+    // Sin clase `.dark`: el tema claro de plastilina es la base y next-themes añade el de noche.
     <html
       lang="es"
       suppressHydrationWarning
-      className={`${plexSans.variable} ${jetbrainsMono.variable} h-full overflow-hidden`}
+      className={`${nunito.variable} ${fredoka.variable} ${jetbrainsMono.variable} h-full overflow-hidden`}
     >
       {/* El shell gestiona su propio desplazamiento: si el documento también
           desplaza, aparecen dos barras y el contenido se corta al final. */}

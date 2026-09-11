@@ -18,6 +18,7 @@ import {
 } from "@strappy/db/spec";
 import { exigirUsuarioActual } from "./identidad";
 import { conEspacio } from "./db/pool";
+import { esAvatarWhatsapp } from "./avatares";
 
 export type ResultadoAccion = { ok: true } | { ok: false; error: string };
 
@@ -116,4 +117,34 @@ export async function contarTokens(spec: EspecificacionAgente): Promise<number> 
 
 function mensaje(error: unknown): string {
   return error instanceof Error ? error.message : "Algo salió mal al guardar.";
+}
+
+const PAPELES_QUE_EDITAN = new Set(["owner", "admin", "builder"]);
+
+/** Cambia la foto de un agente de WhatsApp por otra de la serie de plastilina. */
+export async function cambiarFotoAgente(agentId: string, foto: string): Promise<ResultadoAccion> {
+  try {
+    const usuario = await exigirUsuarioActual();
+    if (!PAPELES_QUE_EDITAN.has(usuario.rol)) {
+      return { ok: false, error: "Tu papel en este espacio no permite cambiar agentes." };
+    }
+    if (!esAvatarWhatsapp(foto)) return { ok: false, error: "Esa foto no está entre las disponibles." };
+
+    const cambiado = await conEspacio(usuario.workspaceId, async (scope) => {
+      const { rows } = await scope.query<{ id: string }>(
+        `update public.agents set avatar_url = $3, updated_at = now()
+          where workspace_id = $1 and id = $2 and agent_type = 'conversational'
+          returning id`,
+        [scope.workspaceId, agentId, foto],
+      );
+      return rows.length > 0;
+    });
+    if (!cambiado) return { ok: false, error: "Ese agente no existe en tu espacio." };
+
+    revalidatePath(`/agentes/${agentId}/instrucciones`);
+    revalidatePath("/whatsapp/agentes");
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: mensaje(error) };
+  }
 }

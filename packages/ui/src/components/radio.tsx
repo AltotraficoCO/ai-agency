@@ -20,7 +20,7 @@ export const Radio = React.forwardRef<
     <RadioGroupPrimitive.Item
       ref={ref}
       className={cn(
-        "grid size-[18px] shrink-0 place-items-center rounded-full border border-border-strong",
+        "grid size-5 shrink-0 cursor-pointer place-items-center rounded-full border-2 border-border-strong shadow-hundido transition-transform duration-[var(--dur-base)] ease-[var(--ease-spring)] active:scale-90",
         "bg-inset transition-colors duration-[var(--dur-instant)] hover:border-[var(--brand)]",
         "data-[state=checked]:border-[var(--brand)] data-[state=checked]:bg-primary",
         "data-[disabled]:opacity-45 data-[disabled]:pointer-events-none",

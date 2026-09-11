@@ -10,10 +10,11 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   trailingSlot?: React.ReactNode;
 }
 
+/** Campo de plastilina: un hueco hundido en la superficie, que se enciende al escribir. */
 export const inputBase = cn(
-  "h-9 w-full rounded-md border border-border bg-inset px-[14px] text-base text-fg",
-  "placeholder:text-fg-muted transition-colors duration-[var(--dur-instant)]",
-  "hover:border-border-strong",
+  "h-10 w-full rounded-md border-2 border-border bg-inset px-[14px] text-base text-fg shadow-hundido",
+  "placeholder:text-fg-muted transition-[border-color,background-color] duration-[var(--dur-fast)]",
+  "hover:border-border-strong focus-visible:border-[color-mix(in_oklab,var(--brand),transparent_40%)] focus-visible:bg-raised",
   "aria-[invalid=true]:border-danger aria-[invalid=true]:focus-visible:outline-[var(--danger)]",
   "disabled:opacity-45 disabled:cursor-not-allowed",
   focusRing,

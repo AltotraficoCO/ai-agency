@@ -5,257 +5,307 @@
 @source "../../../../packages/ui/src";
 
 /* ============================================================================
-   Strappy · sistema de diseño
-   Estética de herramienta de desarrollo: negro casi puro, grises neutros,
-   bordes finos y un único acento verde neón para lo que se puede hacer.
-   El color sigue codificando quién habla: verde = la IA, azul = el humano.
+   Strappy · sistema de diseño «plastilina»
+   Todo parece modelado a mano, como los personajes: superficies crema con
+   volumen, bordes gordos, esquinas muy redondas, doble sombra (luz arriba,
+   peso abajo) y un grano sutil de textura. Lo que se pulsa se aplasta y
+   rebota. El color sigue diciendo quién habla: morado = la IA (Strap), coral =
+   una persona del equipo.
    Esta es la única fuente de verdad visual del producto.
    ========================================================================= */
 
 @theme {
-  /* ── Marca: verde neón (la IA, acciones primarias) ─────────────────────── */
-  --color-brand-50:  #EDFFE8;
-  --color-brand-100: #D6FFCB;
-  --color-brand-200: #AEFF9A;
-  --color-brand-300: #7DFF5E;
-  --color-brand-400: #5BFF3A;
-  --color-brand-500: #39FF14;
-  --color-brand-600: #2ED10F;
-  --color-brand-700: #22A30B;
-  --color-brand-800: #1B7A0C;
-  --color-brand-900: #16600E;
-  --color-brand-950: #0A2A06;
+  /* ── Marca: morado Strap (la IA, acciones primarias) ───────────────────── */
+  --color-brand-50:  #F4F0FF;
+  --color-brand-100: #EDE6FF;
+  --color-brand-200: #D9CCFF;
+  --color-brand-300: #B9A3FF;
+  --color-brand-400: #9679F7;
+  --color-brand-500: #7357E8;
+  --color-brand-600: #6647DB;
+  --color-brand-700: #5738C8;
+  --color-brand-800: #452C9E;
+  --color-brand-900: #372579;
+  --color-brand-950: #211745;
 
-  /* ── Acento: azul eléctrico (el humano, control manual) ────────────────── */
-  --color-human-50:  #E6F2FF;
-  --color-human-100: #CCE5FF;
-  --color-human-200: #99CCFF;
-  --color-human-300: #66B3FF;
-  --color-human-400: #3399FF;
-  --color-human-500: #0080FF;
-  --color-human-600: #0066CC;
-  --color-human-700: #004D99;
-  --color-human-800: #003366;
-  --color-human-900: #001F3D;
+  /* ── Acento: coral (el humano, control manual) ─────────────────────────── */
+  --color-human-50:  #FFF3F0;
+  --color-human-100: #FFE6E1;
+  --color-human-200: #FFC9BF;
+  --color-human-300: #FFA395;
+  --color-human-400: #FF8472;
+  --color-human-500: #FF6B57;
+  --color-human-600: #EB5340;
+  --color-human-700: #D9412D;
+  --color-human-800: #A83322;
+  --color-human-900: #7A261A;
 
-  /* ── Neutros: zinc, sin matiz ──────────────────────────────────────────── */
+  /* ── Neutros cálidos, color plastilina crema ───────────────────────────── */
   --color-ink-0:   #FFFFFF;
-  --color-ink-25:  #FAFAFA;
-  --color-ink-50:  #F4F4F5;
-  --color-ink-100: #E4E4E7;
-  --color-ink-200: #D4D4D8;
-  --color-ink-300: #A1A1AA;
-  --color-ink-400: #8A8A93;
-  --color-ink-500: #71717A;
-  --color-ink-600: #52525B;
-  --color-ink-700: #3F3F46;
-  --color-ink-800: #27272A;
-  --color-ink-850: #1E1E1E;
-  --color-ink-900: #161616;
-  --color-ink-925: #111111;
-  --color-ink-950: #0D0D0D;
-  --color-ink-975: #080808;
+  --color-ink-25:  #FFFDF9;
+  --color-ink-50:  #FBF6EE;
+  --color-ink-100: #F5EDE2;
+  --color-ink-200: #E6D8C6;
+  --color-ink-300: #D5C2AB;
+  --color-ink-400: #A99BB8;
+  --color-ink-500: #7F7696;
+  --color-ink-600: #5E567A;
+  --color-ink-700: #463E63;
+  --color-ink-800: #2B2350;
+  --color-ink-850: #241D42;
+  --color-ink-900: #1E1934;
+  --color-ink-925: #1A1530;
+  --color-ink-950: #151127;
+  --color-ink-975: #0F0C1D;
 
-  /* ── Semánticos ────────────────────────────────────────────────────────── */
-  --color-success-50:  #E9FBF0;
-  --color-success-100: #CDF5DC;
-  --color-success-400: #4ADE80;
-  --color-success-500: #22C55E;
-  --color-success-600: #16A34A;
-  --color-success-700: #157F3C;
+  /* ── Semánticos (los colores de los personajes) ────────────────────────── */
+  --color-success-50:  #EAFBF2;
+  --color-success-100: #D2F4E3;
+  --color-success-400: #4FCB94;
+  --color-success-500: #1FA971;
+  --color-success-600: #178C5D;
+  --color-success-700: #147A51;
 
   --color-warning-50:  #FFF8E6;
-  --color-warning-100: #FDEEC2;
-  --color-warning-400: #FBBF24;
-  --color-warning-500: #F0A511;
-  --color-warning-600: #C4820A;
-  --color-warning-700: #96650B;
+  --color-warning-100: #FFF1D1;
+  --color-warning-400: #FFC43D;
+  --color-warning-500: #F2A516;
+  --color-warning-600: #C8850B;
+  --color-warning-700: #9A6405;
 
-  --color-danger-50:  #FEECEC;
-  --color-danger-100: #FCD5D5;
-  --color-danger-400: #F87171;
-  --color-danger-500: #EF4444;
-  --color-danger-600: #DC2626;
-  --color-danger-700: #B31B1B;
+  --color-danger-50:  #FFF1F1;
+  --color-danger-100: #FFE3E3;
+  --color-danger-400: #F47377;
+  --color-danger-500: #E5484D;
+  --color-danger-600: #CC3439;
+  --color-danger-700: #B42328;
 
-  --color-info-50:  #E6FBFF;
-  --color-info-100: #C8F4FC;
-  --color-info-400: #22D3EE;
-  --color-info-500: #06B6D4;
-  --color-info-600: #0891B2;
-  --color-info-700: #0E7490;
+  --color-info-50:  #EAFAFB;
+  --color-info-100: #D3F3F6;
+  --color-info-400: #3CC4D3;
+  --color-info-500: #17A5B8;
+  --color-info-600: #12899A;
+  --color-info-700: #0F7482;
 
   /* Color de terceros: solo en el logotipo del canal y su punto de estado. */
   --color-whatsapp: #25D366;
 
-  /* ── Tipografía ────────────────────────────────────────────────────────── */
-  --font-sans: var(--font-plex-sans), -apple-system, BlinkMacSystemFont,
+  /* ── Tipografía: redonda y amable, pero legible para trabajar ──────────── */
+  --font-sans: var(--font-nunito), ui-rounded, -apple-system, BlinkMacSystemFont,
                "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-fredoka), var(--font-nunito), ui-rounded, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular,
                "SF Mono", Menlo, Consolas, monospace;
 
   --text-2xs: 0.6875rem;  --text-2xs--line-height: 1rem;      /* 11/16 */
   --text-xs:  0.75rem;    --text-xs--line-height: 1rem;       /* 12/16 */
   --text-sm:  0.8125rem;  --text-sm--line-height: 1.125rem;   /* 13/18 */
-  --text-base:0.875rem;   --text-base--line-height: 1.25rem;  /* 14/20 — cuerpo de UI */
-  --text-md:  0.9375rem;  --text-md--line-height: 1.375rem;   /* 15/22 — burbujas de chat */
-  --text-lg:  1rem;       --text-lg--line-height: 1.375rem;   /* 16/22 */
-  --text-xl:  1.125rem;   --text-xl--line-height: 1.5rem;     /* 18/24 — título de página */
-  --text-2xl: 1.375rem;   --text-2xl--line-height: 1.75rem;   /* 22/28 */
-  --text-3xl: 1.75rem;    --text-3xl--line-height: 2rem;      /* 28/32 — cifra de KPI */
-  --text-4xl: 2rem;       --text-4xl--line-height: 2.375rem;  /* 32/38 — saludo del inicio */
+  --text-base:0.875rem;   --text-base--line-height: 1.3125rem;/* 14/21 — cuerpo de UI */
+  --text-md:  0.9375rem;  --text-md--line-height: 1.4375rem;  /* 15/23 — burbujas de chat */
+  --text-lg:  1.0625rem;  --text-lg--line-height: 1.5rem;     /* 17/24 */
+  --text-xl:  1.1875rem;  --text-xl--line-height: 1.625rem;   /* 19/26 — título de página */
+  --text-2xl: 1.5rem;     --text-2xl--line-height: 1.875rem;  /* 24/30 */
+  --text-3xl: 1.875rem;   --text-3xl--line-height: 2.25rem;   /* 30/36 — cifra de KPI */
+  --text-4xl: 2.25rem;    --text-4xl--line-height: 2.625rem;  /* 36/42 — saludo del inicio */
 
-  --tracking-tightest: -0.03em;
-  --tracking-tight:    -0.015em;
+  --tracking-tightest: -0.02em;
+  --tracking-tight:    -0.01em;
   --tracking-wide:      0.04em;
 
   --spacing: 0.25rem;
 
-  /* ── Radios: rectos, de herramienta ────────────────────────────────────── */
-  --radius-xs:   4px;
-  --radius-sm:   5px;
-  --radius-md:   6px;   /* botón, input, select */
-  --radius-lg:   8px;   /* popover, dropdown, toast */
-  --radius-xl:   12px;  /* card, panel, modal */
-  --radius-2xl:  16px;  /* burbuja de chat, composer */
+  /* ── Radios: plastilina, nada tiene esquinas ───────────────────────────── */
+  --radius-xs:   6px;
+  --radius-sm:   10px;
+  --radius-md:   14px;  /* botón, input, select */
+  --radius-lg:   18px;  /* popover, dropdown, toast */
+  --radius-xl:   24px;  /* card, panel, modal */
+  --radius-2xl:  30px;  /* burbuja de chat, composer */
   --radius-full: 9999px;
 
   /* ── Alturas de control ────────────────────────────────────────────────── */
-  --size-control-xs: 24px;
-  --size-control-sm: 30px;
-  --size-control-md: 36px;
-  --size-control-lg: 44px;
-  --size-row:        44px;
-  --size-row-head:   40px;
-  --size-topbar:     52px;
-  --size-sidebar:    248px;
-  --size-rail:       64px;
+  --size-control-xs: 26px;
+  --size-control-sm: 32px;
+  --size-control-md: 40px;
+  --size-control-lg: 48px;
+  --size-row:        48px;
+  --size-row-head:   42px;
+  --size-topbar:     56px;
+  --size-sidebar:    256px;
+  --size-rail:       68px;
 
-  /* ── Motion ────────────────────────────────────────────────────────────── */
+  /* ── Motion: todo rebota un poco, nunca de golpe ───────────────────────── */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
-  --ease-spring:    cubic-bezier(0.34, 1.4, 0.64, 1);
-  --dur-instant: 90ms;
-  --dur-fast:    140ms;
-  --dur-base:    200ms;
-  --dur-slow:    320ms;
+  --ease-spring:    cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-instant: 100ms;
+  --dur-fast:    160ms;
+  --dur-base:    240ms;
+  --dur-slow:    380ms;
 }
 
 /* ============================================================================
-   Semánticas por tema. Oscuro primero.
-   Regla de elevación: en oscuro cada nivel SUBE la superficie y añade borde;
-   en claro cada nivel añade SOMBRA real y mantiene el blanco.
+   Semánticas por tema. Claro primero: es el tema de la plastilina.
+   Regla de volumen: toda superficie lleva luz arriba (inset blanco) y peso
+   abajo (inset oscuro), además de su sombra proyectada. Eso es lo que la hace
+   parecer modelada y no plana.
    ========================================================================= */
 
 @layer base {
   :root {
-    color-scheme: dark;
-
-    --s-canvas:   #080808;
-    --s-page:     #0D0D0D;
-    --s-nav:      #111111;
-    --s-raised:   #161616;
-    --s-overlay:  #1E1E1E;
-    --s-inset:    #0A0A0A;
-    --s-hover:    #1C1C1C;
-    --s-active:   #242424;
-    --s-selected: #14200F;
-
-    --border-subtle:  #1F1F22;
-    --border-default: #27272A;
-    --border-strong:  #3F3F46;
-    --border-focus:   #39FF14;
-
-    --fg-default:   #E4E4E7;
-    --fg-secondary: #A1A1AA;
-    --fg-muted:     #71717A;
-    --fg-disabled:  #52525B;
-    --fg-on-brand:  #000000;
-    --fg-on-human:  #FFFFFF;
-    --fg-inverse:   #0D0D0D;
-
-    --brand:        #39FF14;
-    --brand-hover:  #2ED10F;
-    --brand-active: #22A30B;
-    --brand-fg:     #39FF14;
-    --brand-soft:   #0F2409;
-    --brand-ring:   #39FF14;
-    --brand-glow:   0 0 20px rgb(57 255 20 / 0.30);
-
-    --human:      #0080FF;
-    --human-fg:   #4DA6FF;
-    --human-soft: #06192E;
-
-    --success: #22C55E; --success-fg: #4ADE80; --success-soft: #0E2A1A;
-    --warning: #F0A511; --warning-fg: #FBBF24; --warning-soft: #2E2209;
-    --danger:  #EF4444; --danger-fg:  #F87171; --danger-soft:  #2E1213;
-    --info:    #06B6D4; --info-fg:    #22D3EE; --info-soft:    #06252B;
-
-    --shadow-1: 0 1px 2px 0 rgb(0 0 0 / 0.40);
-    --shadow-2: 0 4px 12px -2px rgb(0 0 0 / 0.50), 0 1px 2px 0 rgb(0 0 0 / 0.40);
-    --shadow-3: 0 16px 40px -8px rgb(0 0 0 / 0.62), 0 2px 6px 0 rgb(0 0 0 / 0.40);
-    --shadow-inner-top: inset 0 1px 0 0 rgb(255 255 255 / 0.03);
-
-    --scrim: rgb(0 0 0 / 0.72);
-    --skeleton-from: #161616;
-    --skeleton-to:   #242424;
-  }
-
-  .light {
     color-scheme: light;
 
-    --s-canvas:   #F4F4F5;
-    --s-page:     #FAFAFA;
-    --s-nav:      #FFFFFF;
-    --s-raised:   #FFFFFF;
+    --s-canvas:   #F4ECDF;
+    --s-page:     #FBF6EE;
+    --s-nav:      #FFF9F1;
+    --s-raised:   #FFFDF9;
     --s-overlay:  #FFFFFF;
-    --s-inset:    #F4F4F5;
-    --s-hover:    #F4F4F5;
-    --s-active:   #E4E4E7;
-    --s-selected: #ECFDE8;
+    --s-inset:    #F5EDE2;
+    --s-hover:    #F3EADF;
+    --s-active:   #EADFD1;
+    --s-selected: #EDE6FF;
 
-    --border-subtle:  #F0F0F2;
-    --border-default: #E4E4E7;
-    --border-strong:  #D4D4D8;
-    --border-focus:   #22A30B;
+    --border-subtle:  #F0E6D8;
+    --border-default: #E6D8C6;
+    --border-strong:  #D5C2AB;
+    --border-focus:   #7357E8;
 
-    --fg-default:   #09090B;
-    --fg-secondary: #52525B;
-    --fg-muted:     #71717A;
-    --fg-disabled:  #A1A1AA;
-    --fg-on-brand:  #000000;
+    --fg-default:   #2B2350;
+    --fg-secondary: #5E567A;
+    --fg-muted:     #7F7696;
+    --fg-disabled:  #B7AFC6;
+    --fg-on-brand:  #FFFFFF;
     --fg-on-human:  #FFFFFF;
-    --fg-inverse:   #FFFFFF;
+    --fg-inverse:   #FFFDF9;
 
-    /* El neón se queda en los botones, con texto negro; como texto sobre
-       blanco no se lee, así que ahí baja a un verde con contraste. */
-    --brand:        #39FF14;
-    --brand-hover:  #2ED10F;
-    --brand-active: #22A30B;
-    --brand-fg:     #15803D;
-    --brand-soft:   #ECFDE8;
-    --brand-ring:   #22A30B;
-    --brand-glow:   0 0 16px rgb(46 209 15 / 0.35);
+    --brand:        #7357E8;
+    --brand-hover:  #6647DB;
+    --brand-active: #5738C8;
+    --brand-fg:     #5B3FD6;
+    --brand-soft:   #EDE6FF;
+    --brand-ring:   #7357E8;
 
-    --human:      #0070E0;
-    --human-fg:   #0060C0;
-    --human-soft: #E6F2FF;
+    --human:      #FF6B57;
+    --human-fg:   #D9412D;
+    --human-soft: #FFE6E1;
 
-    --success: #16A34A; --success-fg: #157F3C; --success-soft: #E9FBF0;
-    --warning: #C4820A; --warning-fg: #96650B; --warning-soft: #FFF8E6;
-    --danger:  #DC2626; --danger-fg:  #B31B1B; --danger-soft:  #FEECEC;
-    --info:    #0891B2; --info-fg:    #0E7490; --info-soft:    #E6FBFF;
+    --success: #1FA971; --success-fg: #147A51; --success-soft: #DDF7EA;
+    --warning: #F2A516; --warning-fg: #9A6405; --warning-soft: #FFF1D1;
+    --danger:  #E5484D; --danger-fg:  #B42328; --danger-soft:  #FFE3E3;
+    --info:    #17A5B8; --info-fg:    #0F7482; --info-soft:    #DDF6F8;
 
-    --shadow-1: 0 1px 2px 0 rgb(9 9 11 / 0.06),
-                0 1px 1px -0.5px rgb(9 9 11 / 0.04);
-    --shadow-2: 0 2px 4px -1px rgb(9 9 11 / 0.07),
-                0 8px 16px -4px rgb(9 9 11 / 0.08);
-    --shadow-3: 0 4px 8px -2px rgb(9 9 11 / 0.08),
-                0 24px 48px -12px rgb(9 9 11 / 0.18);
-    --shadow-inner-top: none;
+    /* Plastilina: luz arriba, peso abajo, sombra blanda. */
+    --shadow-1:
+      inset 0 1.5px 0 rgb(255 255 255 / 0.9),
+      inset 0 -2px 0 rgb(59 42 110 / 0.06),
+      0 2px 4px rgb(59 42 110 / 0.06),
+      0 6px 14px -4px rgb(59 42 110 / 0.12);
+    --shadow-2:
+      inset 0 2px 1px rgb(255 255 255 / 0.85),
+      inset 0 -4px 6px rgb(59 42 110 / 0.07),
+      0 4px 8px -2px rgb(59 42 110 / 0.10),
+      0 14px 28px -10px rgb(59 42 110 / 0.22);
+    --shadow-3:
+      inset 0 2px 1px rgb(255 255 255 / 0.8),
+      inset 0 -6px 10px rgb(59 42 110 / 0.08),
+      0 10px 20px -6px rgb(59 42 110 / 0.16),
+      0 28px 48px -16px rgb(59 42 110 / 0.30);
+    --shadow-inner-top: inset 0 2px 0 rgb(255 255 255 / 0.85);
 
-    --scrim: rgb(9 9 11 / 0.40);
-    --skeleton-from: #F0F0F2;
-    --skeleton-to:   #FAFAFA;
+    /* Hundido: inputs y huecos, la plastilina apretada con el dedo. */
+    --clay-hundido: inset 0 3px 6px rgb(59 42 110 / 0.10), inset 0 -1px 0 rgb(255 255 255 / 0.9);
+    /* El botón principal: morado inflado con canto oscuro abajo. */
+    --clay-marca:
+      inset 0 2px 0 rgb(255 255 255 / 0.35),
+      inset 0 -4px 0 rgb(40 20 110 / 0.28),
+      0 8px 16px -6px rgb(115 87 232 / 0.55);
+    --clay-marca-pulsado:
+      inset 0 3px 6px rgb(40 20 110 / 0.35),
+      0 2px 6px -2px rgb(115 87 232 / 0.45);
+    --brand-glow: 0 10px 22px -6px rgb(115 87 232 / 0.55);
+
+    /* Grano de plastilina: ruido fractal muy suave, sin imagen externa. */
+    --textura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .17 0 0 0 0 .14 0 0 0 0 .31 0 0 0 .055 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+    --scrim: rgb(43 35 80 / 0.38);
+    --skeleton-from: #F3EADF;
+    --skeleton-to:   #FFFDF9;
+  }
+
+  /* Noche: la misma plastilina, en morado profundo. */
+  .dark {
+    color-scheme: dark;
+
+    --s-canvas:   #151127;
+    --s-page:     #1C1730;
+    --s-nav:      #211B38;
+    --s-raised:   #2A2446;
+    --s-overlay:  #332B52;
+    --s-inset:    #19142D;
+    --s-hover:    #342C55;
+    --s-active:   #3D3462;
+    --s-selected: #3A2E6E;
+
+    --border-subtle:  #2F2850;
+    --border-default: #3F3663;
+    --border-strong:  #574C82;
+    --border-focus:   #A18BFF;
+
+    --fg-default:   #F3EFFF;
+    --fg-secondary: #C9C0E8;
+    --fg-muted:     #9A90C2;
+    --fg-disabled:  #6A6192;
+    --fg-on-brand:  #FFFFFF;
+    --fg-on-human:  #FFFFFF;
+    --fg-inverse:   #1C1730;
+
+    --brand:        #8B6DFF;
+    --brand-hover:  #9A80FF;
+    --brand-active: #7357E8;
+    --brand-fg:     #BBA8FF;
+    --brand-soft:   #34295F;
+    --brand-ring:   #A18BFF;
+
+    --human:      #FF7A66;
+    --human-fg:   #FFA395;
+    --human-soft: #4A2530;
+
+    --success: #2FC285; --success-fg: #6FDDAE; --success-soft: #173A2E;
+    --warning: #F7B733; --warning-fg: #FFD27A; --warning-soft: #3F3016;
+    --danger:  #F25F63; --danger-fg:  #FF9A9D; --danger-soft:  #45202A;
+    --info:    #2DBFD1; --info-fg:    #7FDCE7; --info-soft:    #163843;
+
+    --shadow-1:
+      inset 0 1.5px 0 rgb(255 255 255 / 0.07),
+      inset 0 -2px 0 rgb(0 0 0 / 0.25),
+      0 2px 4px rgb(0 0 0 / 0.25),
+      0 6px 14px -4px rgb(0 0 0 / 0.35);
+    --shadow-2:
+      inset 0 2px 1px rgb(255 255 255 / 0.07),
+      inset 0 -4px 6px rgb(0 0 0 / 0.25),
+      0 4px 8px -2px rgb(0 0 0 / 0.3),
+      0 14px 28px -10px rgb(0 0 0 / 0.5);
+    --shadow-3:
+      inset 0 2px 1px rgb(255 255 255 / 0.08),
+      inset 0 -6px 10px rgb(0 0 0 / 0.28),
+      0 10px 20px -6px rgb(0 0 0 / 0.35),
+      0 28px 48px -16px rgb(0 0 0 / 0.6);
+    --shadow-inner-top: inset 0 2px 0 rgb(255 255 255 / 0.06);
+
+    --clay-hundido: inset 0 3px 6px rgb(0 0 0 / 0.35), inset 0 -1px 0 rgb(255 255 255 / 0.05);
+    --clay-marca:
+      inset 0 2px 0 rgb(255 255 255 / 0.3),
+      inset 0 -4px 0 rgb(20 10 60 / 0.4),
+      0 8px 18px -6px rgb(139 109 255 / 0.5);
+    --clay-marca-pulsado:
+      inset 0 3px 6px rgb(20 10 60 / 0.45),
+      0 2px 6px -2px rgb(139 109 255 / 0.4);
+    --brand-glow: 0 10px 22px -6px rgb(139 109 255 / 0.5);
+
+    --textura: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+
+    --scrim: rgb(8 6 18 / 0.7);
+    --skeleton-from: #2A2446;
+    --skeleton-to:   #342C55;
   }
 }
 
@@ -299,6 +349,15 @@
   --shadow-e2: var(--shadow-2);
   --shadow-e3: var(--shadow-3);
   --shadow-glow: var(--brand-glow);
+  --shadow-hundido: var(--clay-hundido);
+  --shadow-marca: var(--clay-marca);
+  --shadow-marca-pulsado: var(--clay-marca-pulsado);
+}
+
+/* Grano de plastilina sobre una superficie. Va aparte del color de fondo para
+   poder combinarse con cualquier `bg-*`. */
+@utility textura {
+  background-image: var(--textura);
 }
 
 @layer base {
@@ -307,16 +366,22 @@
   html { font-size: 16px; }
 
   body {
-    background: var(--s-page);
+    background-color: var(--s-page);
+    background-image: var(--textura);
     color: var(--fg-default);
     font-family: var(--font-sans);
     font-size: var(--text-base);
-    line-height: 1.4286;
+    line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
-  h1, h2, h3, h4 { font-weight: 600; }
+  /* Los títulos van en Fredoka: redonda como los personajes. */
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
 
   code, pre, kbd, samp { font-family: var(--font-mono); }
 
@@ -324,7 +389,7 @@
   table, .tnum, [data-numeric] { font-variant-numeric: tabular-nums; }
 
   :focus-visible {
-    outline: 2px solid var(--border-focus);
+    outline: 3px solid color-mix(in oklab, var(--border-focus), transparent 35%);
     outline-offset: 2px;
     border-radius: var(--radius-sm);
   }

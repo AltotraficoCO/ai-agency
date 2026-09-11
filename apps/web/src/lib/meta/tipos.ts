@@ -76,7 +76,8 @@ export type SalidaTarjeta = {
   readonly enlace: string;
   readonly textoEnlace: string;
   /** Versión publicada. Su presencia es lo que hace real la celebración. */
-  readonly version?: number;
+  readonly version?: number;  /** Foto de plastilina del agente, si la tiene. */
+  readonly foto?: string;
 };
 
 // ---------------------------------------------------------------------------
