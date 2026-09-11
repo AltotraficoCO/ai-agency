@@ -10,7 +10,9 @@ import {
   destinoAjustes,
   destinoContratar,
   destinosPrincipales,
+  esGrupoNav,
   etiquetaEstadoCanal,
+  menuPrincipal,
   type DestinoNav,
   type EstadoCanal,
   type Ruta,
@@ -117,16 +119,44 @@ export function Sidebar({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-2">
-        {destinosPrincipales.map((destino) => (
-          <DestinoLink
-            key={destino.id}
-            destino={destino}
-            activo={destino.href === rutaActiva}
-            pendientes={pendientes}
-            estadoCanales={estadoCanales}
-            linkComponent={linkComponent}
-          />
-        ))}
+        {menuPrincipal.map((entrada) =>
+          esGrupoNav(entrada) ? (
+            <div
+              key={entrada.id}
+              role="group"
+              aria-labelledby={`nav-grupo-${entrada.id}`}
+              className="flex flex-col gap-1 pt-2"
+            >
+              <span
+                id={`nav-grupo-${entrada.id}`}
+                className="flex items-center gap-1.5 px-2.5 pb-0.5 text-2xs font-medium uppercase tracking-wide text-fg-muted"
+              >
+                <entrada.icono size={12} strokeWidth={2} aria-hidden />
+                {entrada.etiqueta}
+              </span>
+              {entrada.destinos.map((destino) => (
+                <DestinoLink
+                  key={destino.id}
+                  destino={destino}
+                  activo={destino.href === rutaActiva}
+                  pendientes={pendientes}
+                  estadoCanales={estadoCanales}
+                  linkComponent={linkComponent}
+                />
+              ))}
+              <span aria-hidden className="h-1" />
+            </div>
+          ) : (
+            <DestinoLink
+              key={entrada.id}
+              destino={entrada}
+              activo={entrada.href === rutaActiva}
+              pendientes={pendientes}
+              estadoCanales={estadoCanales}
+              linkComponent={linkComponent}
+            />
+          ),
+        )}
 
         <hr className="my-2 border-0 border-t border-[var(--border-subtle)]" />
 

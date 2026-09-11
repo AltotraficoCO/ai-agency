@@ -11,7 +11,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { AppShell, Sidebar, Topbar, rutas, type Ruta } from "@strappy/ui";
+import { AppShell, Sidebar, Topbar, rutas, todosLosDestinos, type Ruta } from "@strappy/ui";
 
 export interface MarcoAppProps {
   usuario: { nombre: string; correo: string; avatar?: string };
@@ -23,9 +23,14 @@ export interface MarcoAppProps {
   children: React.ReactNode;
 }
 
-/** De la ruta real al destino del menú. `/agentes/x/probar` sigue siendo Agentes. */
+/**
+ * De la ruta real al destino del menú. `/agentes/x/probar` sigue siendo Agentes
+ * y `/ajustes/canales` sigue siendo Ajustes: solo cuentan las rutas que tienen
+ * sitio en el menú, o una subpantalla dejaría el menú sin nada marcado.
+ */
 function rutaActivaDe(pathname: string): Ruta {
-  const candidatas = Object.values(rutas)
+  const candidatas = todosLosDestinos
+    .map((d) => d.href as string)
     .filter((r) => r !== "/")
     .sort((a, b) => b.length - a.length);
   const encontrada = candidatas.find((r) => pathname === r || pathname.startsWith(`${r}/`));

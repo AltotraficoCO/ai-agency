@@ -20,7 +20,6 @@ import "server-only";
  */
 import {
   convertToModelMessages,
-  hasToolCall,
   stepCountIs,
   streamText,
   type LanguageModel,
@@ -109,11 +108,20 @@ export async function responderTurnoDeStrap(entrada: EntradaTurno): Promise<Resp
   const resultado = streamText({
     model: modelo,
     system: promptDe(hilo, entrada, empresa),
-    messages: await convertToModelMessages(mensajes),
+    // Un turno cortado a medias (pestaña cerrada, tiempo agotado) deja en el
+    // historial una llamada sin resultado; sin esto, el turno siguiente falla
+    // entero y el hilo queda muerto.
+    messages: await convertToModelMessages(mensajes, { ignoreIncompleteToolCalls: true }),
     tools: toAiToolSet(herramientas),
     experimental_context: contexto,
     // Cortar en `preguntar` es lo que convierte una herramienta en una pausa.
-    stopWhen: [stepCountIs(PASOS_POR_TURNO), hasToolCall("preguntar")],
+    // Solo si la pregunta SALIÓ: cortar en una llamada fallida dejaba a la
+    // persona mirando «Un momento…» sin opciones y al modelo sin ver el error
+    // que habría corregido en el paso siguiente.
+    stopWhen: [
+      stepCountIs(PASOS_POR_TURNO),
+      ({ steps }) => steps.at(-1)?.toolResults.some((r) => r.toolName === "preguntar") ?? false,
+    ],
     async prepareStep() {
       const fresco = await avanzarSiNoQuedaNada(
         workspaceId,

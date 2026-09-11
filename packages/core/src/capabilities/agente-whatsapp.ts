@@ -23,6 +23,19 @@ export const ETIQUETAS_RECOGER: Readonly<Record<string, string>> = {
 
 export const CAPACIDAD_AGENTE_MENSAJERIA = "agente_mensajeria";
 
+/**
+ * Lo que se guarda cuando la persona dice que no tiene web.
+ *
+ * Tiene que ser un valor y no un hueco: con la cadena vacía la pregunta se
+ * daba por no contestada y volvía a salir en cada ronda.
+ */
+export const SIN_SITIO_WEB = "sin sitio web";
+
+/** True si el valor parece una dirección que se puede leer, no una negativa. */
+export function esSitioWeb(valor: unknown): valor is string {
+  return typeof valor === "string" && valor !== SIN_SITIO_WEB && /\S+\.\S+/.test(valor.trim());
+}
+
 const campoARecoger = z.object({
   clave: z.string().min(1),
   etiqueta: z.string().min(1),
@@ -69,7 +82,9 @@ export const esquemaBorradorAgente = z
         idioma: z.string().optional(),
       })
       .default({}),
-    canal: z.enum(["whatsapp", "webchat", "simulador"]).optional(),
+    // Strap solo construye agentes de atención por WhatsApp: el canal ya no se
+    // pregunta, se da por hecho. El enum se conserva para los borradores viejos.
+    canal: z.enum(["whatsapp", "webchat", "simulador"]).default("whatsapp"),
     objetivo: z.string().optional(),
     hace: z.array(z.string()).default([]),
     noHace: z.array(z.string()).default([]),
@@ -100,21 +115,24 @@ export const BORRADOR_AGENTE_VACIO: BorradorAgente = esquemaBorradorAgente.parse
 
 export const capacidadAgenteMensajeria: CapabilityDef = {
   slug: CAPACIDAD_AGENTE_MENSAJERIA,
-  label: "Crear un agente para WhatsApp",
+  label: "Crear un agente de atención para WhatsApp",
   icon: "bot",
   description:
-    "Construye un agente que conversa con tus clientes por mensajería: sabe de tu negocio, recoge los datos que te importan y sabe cuándo pasarle la conversación a una persona.",
+    "Construye un agente que atiende a tus clientes por WhatsApp: sabe de tu negocio, recoge los datos que te importan y sabe cuándo pasarle la conversación a una persona.",
   produces: { kind: "agent", agentType: "conversational" },
   draftSchema: esquemaBorradorAgente,
   internalFields: ["fuentes", "cerebroId", "agenteId", "versionId", "huellaPrompt", "instrucciones"],
   phases: [
     {
       slug: "intencion",
-      goal: "Saber para qué es el agente, por dónde atiende y de dónde sacar el contexto.",
+      goal: "Saber para qué atiende el agente de WhatsApp y de dónde sacar el contexto del negocio.",
       questions: [
         {
           key: "agente.proposito",
-          prompt: "¿Qué quieres que haga tu agente?",
+          prompt: "¿Qué quieres que haga tu agente en WhatsApp?",
+          // Un mismo agente vende Y resuelve dudas: obligar a elegir una sola
+          // era lo primero que la persona sentía como un formulario mal hecho.
+          multiple: true,
           allowFreeText: true,
           options: [
             { value: "vender", label: "Atender ventas", hint: "Precios, catálogo y cierre" },
@@ -124,19 +142,12 @@ export const capacidadAgenteMensajeria: CapabilityDef = {
           ],
         },
         {
-          key: "canal",
-          prompt: "¿Por dónde va a atender?",
-          options: [
-            { value: "whatsapp", label: "WhatsApp" },
-            { value: "webchat", label: "Chat de mi web" },
-            { value: "simulador", label: "Todavía no lo sé", hint: "Lo pruebas en el simulador" },
-          ],
-        },
-        {
           key: "empresa.sitioWeb",
           prompt: "¿Tienes un sitio web para que lo lea y aprenda de tu negocio?",
           allowFreeText: true,
-          options: [{ value: "", label: "No tengo sitio web", hint: "Lo montamos con lo que me cuentes" }],
+          options: [
+            { value: SIN_SITIO_WEB, label: "No tengo sitio web", hint: "Lo montamos con lo que me cuentes" },
+          ],
         },
       ],
     },

@@ -13,11 +13,16 @@
  * la respuesta estructurada en `respuestas`, y el servidor la escribe en el
  * borrador antes de que el modelo abra la boca. Lo que el modelo ve es un
  * borrador ya actualizado, así que no puede volver a preguntarlo.
+ *
+ * Y nunca se deja a la persona mirando un spinner que no va a acabar: si el
+ * turno termina sin nada que enseñar —una herramienta falló, el stream se
+ * cortó—, se dice y se ofrece reintentar.
  */
 import * as React from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from "ai";
-import { Spinner } from "@strappy/ui";
+import { CircleAlert, RotateCcw } from "lucide-react";
+import { Button, Spinner } from "@strappy/ui";
 import type {
   ModoConstruccion,
   SalidaHerramientaStrap,
@@ -32,6 +37,7 @@ import {
   BloqueProgreso,
   BloqueTarjeta,
   EstilosDeStrap,
+  type RespuestaDeBloque,
 } from "./partes";
 
 export interface HiloProps {
@@ -57,7 +63,7 @@ export function Hilo({
   const [borrador, setBorrador] = React.useState(borradorInicial);
   const fondo = React.useRef<HTMLDivElement>(null);
 
-  const { messages, sendMessage, status, error } = useChat({
+  const { messages, sendMessage, regenerate, status, error, clearError } = useChat({
     id: hiloId,
     messages: mensajesIniciales,
     transport: new DefaultChatTransport({ api: "/api/meta/chat" }),
@@ -80,6 +86,11 @@ export function Hilo({
     [sendMessage, hiloId, modo],
   );
 
+  const reintentar = (): void => {
+    clearError();
+    void regenerate({ body: { hiloId, modo } });
+  };
+
   // El mensaje con el que se abrió el hilo se manda una sola vez, aunque React
   // monte el componente dos veces en desarrollo.
   const abierto = React.useRef(false);
@@ -91,12 +102,20 @@ export function Hilo({
 
   React.useEffect(() => {
     fondo.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages]);
+  }, [messages, status]);
 
-  const responder = (clave: string, valores: string[], etiquetas: string[]): void => {
-    // Optimista: el chip con check aparece antes de que vuelva el servidor.
-    setBorrador((previo) => escribirEnRutaLocal(previo, clave, etiquetas.join(", ")));
-    enviar(etiquetas.join(", "), [{ clave, valores }]);
+  const responder = (respuestas: RespuestaDeBloque[]): void => {
+    // Optimista: los chips con check aparecen antes de que vuelva el servidor.
+    setBorrador((previo) =>
+      respuestas.reduce(
+        (acumulado, r) => escribirEnRutaLocal(acumulado, r.clave, r.etiquetas.join(", ")),
+        previo,
+      ),
+    );
+    enviar(
+      respuestas.map((r) => r.etiquetas.join(", ")).join(" · "),
+      respuestas.map(({ clave, valores }) => ({ clave, valores })),
+    );
   };
 
   const editarLinea = (clave: string, valor: string): void => {
@@ -108,7 +127,8 @@ export function Hilo({
     });
   };
 
-  const ultimoId = messages[messages.length - 1]?.id;
+  const ultimo = messages[messages.length - 1];
+  const atascado = !ocupado && !error && ultimo !== undefined && !terminoBien(ultimo);
 
   return (
     <div className="flex h-full flex-col">
@@ -120,7 +140,7 @@ export function Hilo({
             <Mensaje
               key={mensaje.id}
               mensaje={mensaje}
-              esUltimo={mensaje.id === ultimoId}
+              esUltimo={mensaje.id === ultimo?.id}
               borrador={borrador}
               onResponder={responder}
               onEditar={editarLinea}
@@ -135,10 +155,11 @@ export function Hilo({
             </div>
           ) : null}
 
-          {error ? (
-            <p className="rounded-lg border border-danger bg-danger-soft px-3 py-2 text-base text-danger-fg">
-              {error.message}
-            </p>
+          {error || atascado ? (
+            <AvisoDeCorte
+              detalle={error ? error.message : ultimoError(ultimo)}
+              onReintentar={reintentar}
+            />
           ) : null}
 
           <div ref={fondo} />
@@ -154,6 +175,7 @@ export function Hilo({
               const limpio = texto.trim();
               if (limpio.length === 0) return;
               setTexto("");
+              clearError();
               enviar(limpio);
             }}
             modo={modo}
@@ -170,6 +192,35 @@ export function Hilo({
 
 // ---------------------------------------------------------------------------
 
+function AvisoDeCorte({
+  detalle,
+  onReintentar,
+}: {
+  detalle: string | null;
+  onReintentar: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      className="flex flex-col gap-3 rounded-lg border border-border bg-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="flex items-start gap-2.5">
+        <CircleAlert size={18} strokeWidth={2} className="mt-0.5 shrink-0 text-warning-fg" aria-hidden />
+        <div className="flex flex-col gap-0.5">
+          <p className="text-base text-fg">Me quedé a medias con esta respuesta.</p>
+          <p className="text-sm text-fg-muted">
+            {detalle ? `Detalle: ${recortar(detalle, 160)}` : "Vuelve a intentarlo y sigo donde íbamos."}
+          </p>
+        </div>
+      </div>
+      <Button size="sm" variant="secondary" className="w-fit shrink-0" onClick={onReintentar}>
+        <RotateCcw size={14} strokeWidth={2} aria-hidden />
+        Reintentar
+      </Button>
+    </div>
+  );
+}
+
 function Mensaje({
   mensaje,
   esUltimo,
@@ -181,7 +232,7 @@ function Mensaje({
   mensaje: UIMessage;
   esUltimo: boolean;
   borrador: Record<string, unknown>;
-  onResponder: (clave: string, valores: string[], etiquetas: string[]) => void;
+  onResponder: (respuestas: RespuestaDeBloque[]) => void;
   onEditar: (clave: string, valor: string) => void;
   ocupado: boolean;
 }) {
@@ -204,6 +255,7 @@ function Mensaje({
             key={`${mensaje.id}-${indice}`}
             parte={parte}
             esUltimo={esUltimo}
+            enCurso={esUltimo && ocupado}
             borrador={borrador}
             onResponder={onResponder}
             onEditar={onEditar}
@@ -217,14 +269,17 @@ function Mensaje({
 function ParteDelAgente({
   parte,
   esUltimo,
+  enCurso,
   borrador,
   onResponder,
   onEditar,
 }: {
   parte: UIMessage["parts"][number];
   esUltimo: boolean;
+  /** Este mensaje se está escribiendo ahora mismo. */
+  enCurso: boolean;
   borrador: Record<string, unknown>;
-  onResponder: (clave: string, valores: string[], etiquetas: string[]) => void;
+  onResponder: (respuestas: RespuestaDeBloque[]) => void;
   onEditar: (clave: string, valor: string) => void;
 }) {
   if (parte.type === "text") {
@@ -234,9 +289,12 @@ function ParteDelAgente({
 
   if (!isToolUIPart(parte)) return null;
 
-  if (parte.state !== "output-available") {
-    // Mientras la herramienta corre no se enseña un esqueleto genérico: se dice
-    // qué está haciendo. «Leyendo tu sitio web…» tranquiliza; un spinner no.
+  if (parte.state === "input-streaming" || parte.state === "input-available") {
+    // Mientras la herramienta corre se dice qué está haciendo. «Leyendo tu
+    // sitio web…» tranquiliza; un spinner no. Si el turno ya terminó y la
+    // herramienta sigue sin resultado, el stream se cortó: no se finge que
+    // sigue trabajando, lo cuenta el aviso de abajo.
+    if (!enCurso) return null;
     return (
       <p className="inline-flex items-center gap-2 text-base text-fg-muted">
         <Spinner size="sm" label="" />
@@ -244,6 +302,10 @@ function ParteDelAgente({
       </p>
     );
   }
+
+  // Un paso que falló no se pinta: o el modelo lo corrige en el paso siguiente,
+  // o el turno acaba sin nada visible y aparece el aviso con Reintentar.
+  if (parte.state !== "output-available") return null;
 
   const salida = parte.output as SalidaHerramientaStrap | undefined;
   if (!salida || typeof salida !== "object" || !("tipo" in salida)) return null;
@@ -254,7 +316,7 @@ function ParteDelAgente({
         <BloqueOpciones
           preguntas={(salida as SalidaPreguntar).preguntas}
           respondidas={respondidasDe(salida as SalidaPreguntar, borrador)}
-          interactivo={esUltimo}
+          interactivo={esUltimo && !enCurso}
           onResponder={onResponder}
         />
       );
@@ -263,7 +325,7 @@ function ParteDelAgente({
     case "tarjeta":
       return <BloqueTarjeta salida={salida} />;
     case "progreso":
-      return <BloqueProgreso salida={salida} enMarcha={esUltimo} />;
+      return <BloqueProgreso salida={salida} enMarcha={enCurso} />;
     case "autojuego":
       return <BloqueAutojuego salida={salida} />;
     default:
@@ -274,16 +336,53 @@ function ParteDelAgente({
 }
 
 const EN_MARCHA: Readonly<Record<string, string>> = {
+  "tool-leer_contexto_empresa": "Repasando lo que sé de tu negocio…",
   "tool-analizar_sitio_web": "Leyendo tu sitio web…",
+  "tool-preguntar": "Preparando las preguntas…",
+  "tool-draft_leer": "Repasando lo que ya me contaste…",
+  "tool-draft_actualizar": "Guardando lo que me dijiste…",
+  "tool-proponer_variables_extraccion": "Eligiendo qué datos pedirle a tus clientes…",
   "tool-crear_brain_desde_fuentes": "Preparando el conocimiento…",
   "tool-publicar_agente": "Publicando tu agente…",
   "tool-probar_agente": "Probándolo con un cliente de mentira…",
   "tool-generar_prompt_agente": "Escribiendo sus instrucciones…",
   "tool-confirmar_construccion": "Armando la ficha…",
+  "tool-mostrar_tarjeta_agente": "Preparando la tarjeta de tu agente…",
 };
 
 function enMarcha(tipo: string): string {
-  return EN_MARCHA[tipo] ?? "Un momento…";
+  return EN_MARCHA[tipo] ?? "Trabajando en ello…";
+}
+
+const SALIDAS_VISIBLES = new Set(["preguntas", "checklist", "tarjeta", "progreso", "autojuego"]);
+
+/**
+ * True si el último mensaje deja a la persona con algo que leer o que hacer.
+ *
+ * Un turno que acaba en una herramienta fallida, en una llamada sin resultado
+ * o en un mensaje de la persona sin respuesta es un turno cortado, aunque el
+ * chat diga que ya terminó.
+ */
+function terminoBien(mensaje: UIMessage): boolean {
+  if (mensaje.role !== "assistant") return false;
+  return mensaje.parts.some((parte) => {
+    if (parte.type === "text") return parte.text.trim().length > 0;
+    if (!isToolUIPart(parte) || parte.state !== "output-available") return false;
+    const salida = parte.output as { tipo?: unknown } | undefined;
+    return typeof salida?.tipo === "string" && SALIDAS_VISIBLES.has(salida.tipo);
+  });
+}
+
+function ultimoError(mensaje: UIMessage | undefined): string | null {
+  if (!mensaje) return null;
+  for (const parte of [...mensaje.parts].reverse()) {
+    if (isToolUIPart(parte) && parte.state === "output-error") return parte.errorText;
+  }
+  return null;
+}
+
+function recortar(texto: string, maximo: number): string {
+  return texto.length > maximo ? `${texto.slice(0, maximo - 1)}…` : texto;
 }
 
 function textoDe(mensaje: UIMessage): string {

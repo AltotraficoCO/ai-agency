@@ -25,6 +25,7 @@ import {
   capacidadDelBorrador,
   compilePrompt,
   esFaseMeta,
+  esSitioWeb,
   esquemaBorradorAgente,
   huecosDeLaFase,
   normalizarClave,
@@ -119,6 +120,12 @@ function exigirClave(clave: string): string {
     `La clave "${clave}" no existe en el borrador. Usa una de estas, con punto y tal cual: ` +
       `${rutasConocidas(capacidad).join(", ")}.`,
   );
+}
+
+function preguntaDelGuion(clave: string) {
+  return capacidadDelBorrador(undefined)
+    .phases.flatMap((fase) => fase.questions)
+    .find((pregunta) => pregunta.key === clave);
 }
 
 const ETIQUETAS_CHECKLIST: readonly { clave: string; etiqueta: string; editable: boolean }[] = [
@@ -260,7 +267,7 @@ export function crearHerramientasDeStrap(entorno: EntornoStrap): ToolDef<never, 
     slug: "preguntar",
     label: "Preguntar",
     description:
-      "Le hace a la persona hasta tres preguntas con opciones para elegir. Después de llamarla, el turno TERMINA: no escribas nada más.",
+      "Le hace a la persona hasta tres preguntas con opciones para elegir; las contesta todas de una vez. Después de llamarla, el turno TERMINA: no escribas nada más.",
     whenToUse: "cada vez que necesites un dato que no está en el borrador ni en la ficha de la empresa",
     inputSchema: z.object({
       preguntas: z
@@ -281,7 +288,10 @@ export function crearHerramientasDeStrap(entorno: EntornoStrap): ToolDef<never, 
               )
               .max(4)
               .default([]),
-            multiple: z.boolean().optional(),
+            multiple: z
+              .boolean()
+              .optional()
+              .describe("true si se puede elegir más de una opción"),
             abierta: z
               .boolean()
               .optional()
@@ -300,17 +310,32 @@ export function crearHerramientasDeStrap(entorno: EntornoStrap): ToolDef<never, 
       return {
         tipo: "preguntas",
         fase,
-        preguntas: entrada.preguntas.map((p) => ({
-          clave: exigirClave(p.clave),
-          enunciado: p.enunciado,
-          opciones: p.opciones.map((o) => ({
-            valor: o.valor,
-            etiqueta: o.etiqueta,
-            ...(o.pista ? { pista: o.pista } : {}),
-          })),
-          multiple: p.multiple === true,
-          abierta: p.abierta === true || p.opciones.length === 0,
-        })),
+        preguntas: entrada.preguntas.map((p) => {
+          const clave = exigirClave(p.clave);
+          // Si la pregunta es del guion, manda el guion: que admita varias
+          // respuestas o texto libre no puede depender de que el modelo se
+          // acuerde de pasar la bandera.
+          const guion = preguntaDelGuion(clave);
+          const opciones =
+            p.opciones.length > 0
+              ? p.opciones.map((o) => ({
+                  valor: o.valor,
+                  etiqueta: o.etiqueta,
+                  ...(o.pista ? { pista: o.pista } : {}),
+                }))
+              : (guion?.options ?? []).map((o) => ({
+                  valor: o.value,
+                  etiqueta: o.label,
+                  ...(o.hint ? { pista: o.hint } : {}),
+                }));
+          return {
+            clave,
+            enunciado: p.enunciado,
+            opciones,
+            multiple: guion?.multiple === true || p.multiple === true,
+            abierta: guion?.allowFreeText === true || p.abierta === true || opciones.length === 0,
+          };
+        }),
       };
     },
   });
@@ -580,7 +605,7 @@ export function crearHerramientasDeStrap(entorno: EntornoStrap): ToolDef<never, 
             name: borrador.empresa.nombre,
             ...(borrador.empresa.descripcion ? { description: borrador.empresa.descripcion } : {}),
             ...(borrador.empresa.sector ? { industry: borrador.empresa.sector } : {}),
-            ...(borrador.empresa.sitioWeb ? { website: borrador.empresa.sitioWeb } : {}),
+            ...(esSitioWeb(borrador.empresa.sitioWeb) ? { website: borrador.empresa.sitioWeb } : {}),
             ...(borrador.empresa.horario ? { hours: borrador.empresa.horario } : {}),
           }
         : undefined;

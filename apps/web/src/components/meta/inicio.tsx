@@ -63,9 +63,15 @@ export function Inicio({ nombre, hilos, maxDisponible }: InicioProps) {
     <div className="mx-auto flex w-full max-w-[760px] flex-col items-center gap-8 px-5 py-16">
       <Orbe size={56} pose="saludando" />
 
-      <h1 className="text-center text-4xl font-semibold tracking-tightest text-fg">
-        Hola {nombre}, ¿qué construimos hoy?
-      </h1>
+      <div className="flex flex-col items-center gap-2">
+        <h1 className="text-center text-4xl font-semibold tracking-tightest text-fg">
+          Hola {nombre}, ¿qué construimos hoy?
+        </h1>
+        <p className="max-w-[520px] text-center text-md text-fg-secondary">
+          Cuéntame de tu negocio y te armo un agente que atiende a tus clientes por WhatsApp: sabe lo
+          que vendes, toma sus datos y le pasa la conversación a tu equipo cuando hace falta.
+        </p>
+      </div>
 
       <div className="w-full">
         <Composer
@@ -90,7 +96,7 @@ export function Inicio({ nombre, hilos, maxDisponible }: InicioProps) {
               key={chip.id}
               type="button"
               disabled={abriendo}
-              onClick={() => void arrancar(chip.mensaje)}
+              onClick={() => (chip.href ? router.push(chip.href) : void arrancar(chip.mensaje))}
               className="inline-flex items-center gap-2 rounded-full border border-border bg-raised px-3.5 py-2 text-base text-fg-secondary transition-colors duration-[--dur-fast] hover:border-border-strong hover:bg-hover hover:text-fg disabled:opacity-60"
             >
               <Icono size={15} strokeWidth={1.75} aria-hidden />

@@ -127,6 +127,64 @@ export function TarjetaAgente({ agente, destino }: { agente: DatosTarjetaAgente;
   );
 }
 
+export type DatosTarjetaCatalogo = {
+  slug: string;
+  nombre: string;
+  tagline: string | null;
+  costeUsd: number;
+};
+
+const usd = new Intl.NumberFormat("es-CO", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+
+/**
+ * Un agente del catálogo que el espacio todavía no tiene. En gris: se ve qué
+ * se puede contratar sin confundirlo con lo que ya trabaja. Al pasar por
+ * encima recupera el color, y toda la tarjeta lleva a contratarlo.
+ */
+export function TarjetaCatalogo({ ficha }: { ficha: DatosTarjetaCatalogo }) {
+  const papel = PAPELES[ficha.slug] ?? PROPIO;
+
+  return (
+    <Link
+      href={`/contratar/${ficha.slug}`}
+      className="group relative flex aspect-[4/5] flex-col rounded-xl border border-dashed border-[var(--border-subtle)] p-4 transition-colors hover:border-[var(--border-strong)] hover:bg-hover"
+    >
+      <span className="absolute left-3 top-3 rounded-full bg-hover px-2 py-0.5 text-2xs text-fg-muted">
+        Sin contratar
+      </span>
+
+      <div className="flex flex-1 items-center justify-center">
+        <span className="relative grid size-32 place-items-center">
+          {papel.imagen ? (
+            <Image
+              src={papel.imagen}
+              alt=""
+              width={160}
+              height={160}
+              sizes="160px"
+              className="size-36 object-contain opacity-50 grayscale transition duration-[var(--dur-base)] group-hover:opacity-100 group-hover:grayscale-0 motion-reduce:transition-none"
+            />
+          ) : (
+            <span className="grid size-20 place-items-center rounded-full bg-hover text-fg-muted">
+              <Bot size={34} strokeWidth={1.75} aria-hidden />
+            </span>
+          )}
+        </span>
+      </div>
+
+      <div className="min-w-0">
+        <p className="truncate text-base font-semibold text-fg-secondary transition-colors group-hover:text-fg">
+          {ficha.nombre}
+        </p>
+        <p className="truncate text-2xs text-fg-muted">{ficha.tagline ?? papel.nombre}</p>
+        <p className="mt-2 text-2xs font-medium text-primary-fg">
+          Contratar{ficha.costeUsd > 0 ? ` · ${usd.format(ficha.costeUsd)}/mes` : ""}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
 export function TarjetaContratar() {
   return (
     <Link

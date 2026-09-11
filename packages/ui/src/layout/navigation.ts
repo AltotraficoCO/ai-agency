@@ -4,6 +4,7 @@ import {
   Bot,
   Inbox,
   House,
+  MessageCircle,
   Settings,
   Sparkles,
   Users,
@@ -42,20 +43,66 @@ export interface DestinoNav {
 }
 
 /**
- * Los seis destinos están siempre visibles: sin acordeones, sin submenús.
+ * Un módulo del producto: un título y sus destinos, siempre desplegados.
+ *
+ * No es un acordeón. Agrupa para que se entienda qué es de qué —la Bandeja y
+ * los Contactos son de WhatsApp—, no para esconder nada detrás de un clic.
+ */
+export interface GrupoNav {
+  id: string;
+  etiqueta: string;
+  icono: LucideIcon;
+  destinos: readonly DestinoNav[];
+}
+
+export type EntradaNav = DestinoNav | GrupoNav;
+
+export function esGrupoNav(entrada: EntradaNav): entrada is GrupoNav {
+  return "destinos" in entrada;
+}
+
+const inicio: DestinoNav = { id: "inicio", etiqueta: "Inicio", href: rutas.inicio, icono: House };
+const agentes: DestinoNav = { id: "agentes", etiqueta: "Agentes", href: rutas.agentes, icono: Bot };
+const bandeja: DestinoNav = {
+  id: "bandeja",
+  etiqueta: "Bandeja",
+  href: rutas.bandeja,
+  icono: Inbox,
+  indicador: "contador",
+};
+const contactos: DestinoNav = { id: "contactos", etiqueta: "Contactos", href: rutas.contactos, icono: Users };
+const conocimiento: DestinoNav = {
+  id: "conocimiento",
+  etiqueta: "Conocimiento",
+  href: rutas.conocimiento,
+  icono: BookOpen,
+};
+const analitica: DestinoNav = {
+  id: "analitica",
+  etiqueta: "Analítica",
+  href: rutas.analitica,
+  icono: ChartColumn,
+};
+
+/**
+ * El menú, en el orden en que se lee.
  *
  * Canales no está aquí a propósito: WhatsApp se conecta una vez y luego no se
  * vuelve a tocar, así que vive en Ajustes junto a la cuenta y la facturación en
  * vez de ocupar un sitio en el menú de todos los días.
  */
-export const destinosPrincipales: readonly DestinoNav[] = [
-  { id: "inicio", etiqueta: "Inicio", href: rutas.inicio, icono: House },
-  { id: "bandeja", etiqueta: "Bandeja", href: rutas.bandeja, icono: Inbox, indicador: "contador" },
-  { id: "agentes", etiqueta: "Agentes", href: rutas.agentes, icono: Bot },
-  { id: "contactos", etiqueta: "Contactos", href: rutas.contactos, icono: Users },
-  { id: "conocimiento", etiqueta: "Conocimiento", href: rutas.conocimiento, icono: BookOpen },
-  { id: "analitica", etiqueta: "Analítica", href: rutas.analitica, icono: ChartColumn },
+export const menuPrincipal: readonly EntradaNav[] = [
+  inicio,
+  agentes,
+  { id: "whatsapp", etiqueta: "WhatsApp", icono: MessageCircle, destinos: [bandeja, contactos] },
+  conocimiento,
+  analitica,
 ];
+
+/** Los mismos destinos del menú, sin agrupar. */
+export const destinosPrincipales: readonly DestinoNav[] = menuPrincipal.flatMap((entrada) =>
+  esGrupoNav(entrada) ? entrada.destinos : [entrada],
+);
 
 export const destinoContratar: DestinoNav = {
   id: "contratar",
@@ -71,6 +118,13 @@ export const destinoAjustes: DestinoNav = {
   href: rutas.ajustes,
   icono: Settings,
 };
+
+/** Todo lo que el menú puede marcar como activo. */
+export const todosLosDestinos: readonly DestinoNav[] = [
+  ...destinosPrincipales,
+  destinoContratar,
+  destinoAjustes,
+];
 
 export type EstadoCanal = "conectado" | "revisar" | "caido";
 

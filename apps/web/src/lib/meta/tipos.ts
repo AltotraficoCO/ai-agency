@@ -165,6 +165,11 @@ export type ChipIntencion = {
   readonly etiqueta: string;
   readonly mensaje: string;
   readonly icono: "bot" | "whatsapp" | "catalogo" | "catalogo-agentes";
+  /**
+   * Lo que Strap no construye no se le pide a Strap: el chip lleva directo a
+   * la pantalla donde se hace, en vez de abrir un hilo para decir «aquí no».
+   */
+  readonly href?: string;
 };
 
 export const CHIPS_INTENCION: readonly ChipIntencion[] = [
@@ -175,21 +180,23 @@ export const CHIPS_INTENCION: readonly ChipIntencion[] = [
     icono: "bot",
   },
   {
-    id: "conectar-whatsapp",
-    etiqueta: "Conectar mi WhatsApp",
-    mensaje: "Quiero conectar mi número de WhatsApp a Strappy.",
-    icono: "whatsapp",
-  },
-  {
     id: "subir-catalogo",
-    etiqueta: "Subir mi catálogo o mis precios",
-    mensaje: "Quiero que mi agente conozca mi catálogo y mis precios.",
+    etiqueta: "Que conozca mi catálogo y precios",
+    mensaje: "Quiero un agente de WhatsApp que conozca mi catálogo y mis precios.",
     icono: "catalogo",
   },
   {
+    id: "conectar-whatsapp",
+    etiqueta: "Conectar mi WhatsApp",
+    mensaje: "",
+    icono: "whatsapp",
+    href: "/ajustes/canales",
+  },
+  {
     id: "contratar",
-    etiqueta: "Contratar un agente listo",
-    mensaje: "Prefiero contratar un agente ya hecho en vez de construir uno.",
+    etiqueta: "Ver Webmaster, Marketing y más",
+    mensaje: "",
     icono: "catalogo-agentes",
+    href: "/agentes",
   },
 ];

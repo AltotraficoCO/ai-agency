@@ -22,6 +22,7 @@ import type {
   LanguageModelV3Prompt,
   LanguageModelV3StreamPart,
 } from "@ai-sdk/provider";
+import { esSitioWeb } from "@strappy/core";
 
 type PreguntaLeida = {
   clave: string;
@@ -245,7 +246,7 @@ function planificar(sistema: string, hechas: ReadonlySet<string>): Plan {
   const agente = (borrador["agente"] ?? {}) as Record<string, unknown>;
   const nombreAgente = texto(agente["nombre"]) || "Tu agente";
   const nombreEmpresa = texto(empresa["nombre"]) || "tu negocio";
-  const sitioWeb = texto(empresa["sitioWeb"]);
+  const sitioWeb = esSitioWeb(empresa["sitioWeb"]) ? empresa["sitioWeb"] : "";
   const cerebroId = texto(borrador["cerebroId"]);
   const yaHace = Array.isArray(borrador["hace"]) && borrador["hace"].length > 0;
   const yaRecoge = Array.isArray(borrador["recoger"]) && borrador["recoger"].length > 0;

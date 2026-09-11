@@ -46,6 +46,24 @@ export function EstilosDeStrap() {
 // 1 · Opciones
 // ---------------------------------------------------------------------------
 
+/** Lo que la persona contestó a una pregunta del bloque. */
+export type RespuestaDeBloque = {
+  readonly clave: string;
+  readonly valores: string[];
+  readonly etiquetas: string[];
+};
+
+/**
+ * Las preguntas de una ronda se contestan JUNTAS y se mandan de una vez.
+ *
+ * Antes cada clic mandaba su pregunta por separado: la primera respuesta abría
+ * un turno nuevo, el bloque dejaba de ser el último mensaje y las otras dos
+ * preguntas se quedaban congeladas en «sin responder». Ahora se marca todo y
+ * se pulsa Continuar.
+ *
+ * Una sola pregunta de opción única es la excepción: ahí el clic ya es la
+ * respuesta completa y pedir un segundo clic sería burocracia.
+ */
 export function BloqueOpciones({
   preguntas,
   respondidas,
@@ -56,124 +74,209 @@ export function BloqueOpciones({
   /** Lo ya guardado en el borrador, por clave. Es la fuente de verdad del chip. */
   respondidas: Readonly<Record<string, string>>;
   interactivo: boolean;
-  onResponder: (clave: string, valores: string[], etiquetas: string[]) => void;
+  onResponder: (respuestas: RespuestaDeBloque[]) => void;
+}) {
+  const [elegidas, setElegidas] = React.useState<Record<string, string[]>>({});
+  const [escritas, setEscritas] = React.useState<Record<string, string>>({});
+
+  const pendientes = interactivo
+    ? preguntas.filter((p) => (respondidas[p.clave] ?? "").length === 0)
+    : [];
+
+  const respuestaDe = (pregunta: PreguntaRenderizada): RespuestaDeBloque | null => {
+    const marcadas = elegidas[pregunta.clave] ?? [];
+    const escrito = (escritas[pregunta.clave] ?? "").trim();
+    const valores = [...marcadas, ...(escrito.length > 0 ? [escrito] : [])];
+    if (valores.length === 0) return null;
+    return {
+      clave: pregunta.clave,
+      valores,
+      etiquetas: valores.map((v) => pregunta.opciones.find((o) => o.valor === v)?.etiqueta ?? v),
+    };
+  };
+
+  const listas = pendientes.map(respuestaDe).filter((r): r is RespuestaDeBloque => r !== null);
+  const faltan = pendientes.length - listas.length;
+  const unClic =
+    pendientes.length === 1 && !pendientes[0]!.multiple && !pendientes[0]!.abierta;
+
+  const elegir = (pregunta: PreguntaRenderizada, valor: string): void => {
+    if (unClic) {
+      const etiqueta = pregunta.opciones.find((o) => o.valor === valor)?.etiqueta ?? valor;
+      onResponder([{ clave: pregunta.clave, valores: [valor], etiquetas: [etiqueta] }]);
+      return;
+    }
+    setElegidas((previas) => {
+      const actuales = previas[pregunta.clave] ?? [];
+      const siguientes = pregunta.multiple
+        ? actuales.includes(valor)
+          ? actuales.filter((v) => v !== valor)
+          : [...actuales, valor]
+        : actuales.includes(valor)
+          ? []
+          : [valor];
+      return { ...previas, [pregunta.clave]: siguientes };
+    });
+    // En opción única, elegir un botón sustituye lo escrito: son la misma respuesta.
+    if (!pregunta.multiple) setEscritas((previas) => ({ ...previas, [pregunta.clave]: "" }));
+  };
+
+  const escribir = (pregunta: PreguntaRenderizada, texto: string): void => {
+    setEscritas((previas) => ({ ...previas, [pregunta.clave]: texto }));
+    if (!pregunta.multiple && texto.trim().length > 0) {
+      setElegidas((previas) => ({ ...previas, [pregunta.clave]: [] }));
+    }
+  };
+
+  return (
+    <form
+      className="flex flex-col gap-5"
+      onSubmit={(evento) => {
+        evento.preventDefault();
+        if (faltan === 0 && listas.length > 0) onResponder(listas);
+      }}
+    >
+      {preguntas.map((pregunta) => {
+        const guardada = respondidas[pregunta.clave] ?? "";
+        if (guardada.length > 0 || !interactivo) {
+          return <PreguntaContestada key={pregunta.clave} pregunta={pregunta} respuesta={guardada} />;
+        }
+        return (
+          <Pregunta
+            key={pregunta.clave}
+            pregunta={pregunta}
+            marcadas={elegidas[pregunta.clave] ?? []}
+            escrito={escritas[pregunta.clave] ?? ""}
+            onElegir={(valor) => elegir(pregunta, valor)}
+            onEscribir={(texto) => escribir(pregunta, texto)}
+          />
+        );
+      })}
+
+      {pendientes.length > 0 && !unClic ? (
+        <div className="flex items-center gap-3">
+          <Button type="submit" size="sm" disabled={faltan > 0}>
+            Continuar
+          </Button>
+          {faltan > 0 && pendientes.length > 1 ? (
+            <span className="text-sm text-fg-muted">
+              {faltan === 1 ? "Te falta 1 pregunta" : `Te faltan ${faltan} preguntas`}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </form>
+  );
+}
+
+function PreguntaContestada({
+  pregunta,
+  respuesta,
+}: {
+  pregunta: PreguntaRenderizada;
+  respuesta: string;
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      {preguntas.map((pregunta) => (
-        <Pregunta
-          key={pregunta.clave}
-          pregunta={pregunta}
-          respuesta={respondidas[pregunta.clave] ?? ""}
-          interactivo={interactivo}
-          onResponder={onResponder}
-        />
-      ))}
+    <div className="flex flex-col gap-1.5">
+      <p className="text-md text-fg">{pregunta.enunciado}</p>
+      <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-sm text-primary-fg">
+        <Check size={14} strokeWidth={2.5} aria-hidden />
+        {respuesta.length > 0 ? respuesta : "sin responder"}
+      </span>
     </div>
   );
 }
 
 function Pregunta({
   pregunta,
-  respuesta,
-  interactivo,
-  onResponder,
+  marcadas,
+  escrito,
+  onElegir,
+  onEscribir,
 }: {
   pregunta: PreguntaRenderizada;
-  respuesta: string;
-  interactivo: boolean;
-  onResponder: (clave: string, valores: string[], etiquetas: string[]) => void;
+  marcadas: readonly string[];
+  escrito: string;
+  onElegir: (valor: string) => void;
+  onEscribir: (texto: string) => void;
 }) {
-  const [elegidas, setElegidas] = React.useState<string[]>([]);
-  const [escrito, setEscrito] = React.useState("");
-
-  if (respuesta.length > 0 || !interactivo) {
-    return (
-      <div className="flex flex-col gap-1.5">
-        <p className="text-md text-fg">{pregunta.enunciado}</p>
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-sm text-primary-fg">
-          <Check size={14} strokeWidth={2.5} aria-hidden />
-          {respuesta.length > 0 ? respuesta : "sin responder"}
-        </span>
-      </div>
-    );
-  }
-
-  const etiquetaDe = (valor: string): string =>
-    pregunta.opciones.find((o) => o.valor === valor)?.etiqueta ?? valor;
-
-  const enviarEleccion = (valores: string[]): void => {
-    if (valores.length === 0) return;
-    onResponder(pregunta.clave, valores, valores.map(etiquetaDe));
-  };
+  const idEnunciado = React.useId();
 
   return (
-    <div className="flex flex-col gap-2">
-      <p className="text-md text-fg">{pregunta.enunciado}</p>
+    <div
+      role={pregunta.multiple ? "group" : "radiogroup"}
+      aria-labelledby={idEnunciado}
+      className="flex flex-col gap-2"
+    >
+      <p id={idEnunciado} className="text-md text-fg">
+        {pregunta.enunciado}
+        {pregunta.multiple ? (
+          <span className="ml-2 text-sm text-fg-muted">Puedes elegir varias</span>
+        ) : null}
+      </p>
 
       {pregunta.opciones.slice(0, 4).map((opcion) => {
-        const marcada = elegidas.includes(opcion.valor);
+        const marcada = marcadas.includes(opcion.valor);
         return (
           <button
             key={`${pregunta.clave}:${opcion.valor}`}
             type="button"
-            onClick={() => {
-              if (!pregunta.multiple) {
-                enviarEleccion([opcion.valor]);
-                return;
-              }
-              setElegidas((previas) =>
-                previas.includes(opcion.valor)
-                  ? previas.filter((v) => v !== opcion.valor)
-                  : [...previas, opcion.valor],
-              );
-            }}
+            role={pregunta.multiple ? "checkbox" : "radio"}
+            aria-checked={marcada}
+            onClick={() => onElegir(opcion.valor)}
             className={cn(
-              "flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors duration-[--dur-fast]",
+              "flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors duration-[--dur-fast]",
               marcada
                 ? "border-primary bg-primary-soft"
                 : "border-border bg-raised hover:border-border-strong hover:bg-hover",
             )}
           >
+            <Marca multiple={pregunta.multiple} marcada={marcada} />
             <span className="flex flex-col">
               <span className="text-base font-medium text-fg">{opcion.etiqueta}</span>
-              {opcion.pista ? (
-                <span className="text-sm text-fg-muted">{opcion.pista}</span>
-              ) : null}
+              {opcion.pista ? <span className="text-sm text-fg-muted">{opcion.pista}</span> : null}
             </span>
-            {marcada ? <Check size={16} strokeWidth={2.5} className="text-primary-fg" aria-hidden /> : null}
           </button>
         );
       })}
 
-      {pregunta.multiple && elegidas.length > 0 ? (
-        <Button size="sm" className="w-fit" onClick={() => enviarEleccion(elegidas)}>
-          Confirmar {elegidas.length}
-        </Button>
-      ) : null}
-
       {pregunta.abierta ? (
-        <form
-          className="flex items-center gap-2"
-          onSubmit={(evento) => {
-            evento.preventDefault();
-            const limpio = escrito.trim();
-            if (limpio.length === 0) return;
-            onResponder(pregunta.clave, [limpio], [limpio]);
-          }}
-        >
-          <Input
-            value={escrito}
-            onChange={(evento) => setEscrito(evento.target.value)}
-            placeholder="…o escríbelo"
-            aria-label={pregunta.enunciado}
-          />
-          <Button size="sm" variant="secondary" type="submit" disabled={escrito.trim().length === 0}>
-            Enviar
-          </Button>
-        </form>
+        <Input
+          value={escrito}
+          onChange={(evento) => onEscribir(evento.target.value)}
+          placeholder={
+            pregunta.opciones.length > 0
+              ? pregunta.multiple
+                ? "Algo más que no esté en la lista…"
+                : "…o escríbelo"
+              : "Escribe tu respuesta"
+          }
+          aria-label={pregunta.enunciado}
+        />
       ) : null}
     </div>
+  );
+}
+
+/** Cuadrado si se eligen varias, círculo si solo una: se sabe antes de pulsar. */
+function Marca({ multiple, marcada }: { multiple: boolean; marcada: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "grid size-[18px] shrink-0 place-items-center border-2 transition-colors",
+        multiple ? "rounded-[5px]" : "rounded-full",
+        marcada ? "border-primary bg-primary text-[var(--fg-on-brand)]" : "border-border-strong",
+      )}
+    >
+      {marcada ? (
+        multiple ? (
+          <Check size={12} strokeWidth={3} />
+        ) : (
+          <span className="size-2 rounded-full bg-[var(--fg-on-brand)]" />
+        )
+      ) : null}
+    </span>
   );
 }
 
