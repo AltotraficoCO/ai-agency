@@ -331,7 +331,11 @@ export function crearDobleWordPress(
       return json(estado.plugins);
     }
     if (ruta.startsWith("/wp-json/wp/v2/plugins/")) {
-      const id = decodeURIComponent(ruta.slice("/wp-json/wp/v2/plugins/".length));
+      const crudo = ruta.slice("/wp-json/wp/v2/plugins/".length);
+      // WordPress solo reconoce la barra literal entre carpeta y archivo: con
+      // "%2F" la ruta no casa y responde 404. Aceptarla aquí escondió ese fallo.
+      if (/%2f/i.test(crudo)) return error("rest_plugin_not_found", "Plugin not found.", 404);
+      const id = decodeURIComponent(crudo);
       const p = estado.plugins.find((x) => x.plugin === id);
       if (!p) return error("rest_plugin_not_found", "Plugin no encontrado.", 404);
       if (metodo === "PUT") {

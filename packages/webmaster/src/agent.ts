@@ -141,7 +141,7 @@ REGLAS DE SEGURIDAD (innegociables):
 - Máximo ${MAX_ACCIONES} acciones de herramienta por tarea. Si te acercas al límite, cierra con lo que tengas verificado.`;
 
 const BLOQUE_CIERRE = `
-FORMATO DE CIERRE (obligatorio): tu último mensaje debe terminar con una línea que empiece con "RESUMEN:" dirigida al cliente, en español, concreta y sin tecnicismos innecesarios: qué cambiaste, dónde se ve (URL), cómo lo verificaste, qué backup_id quedó y si hay algún pendiente o algo esperando aprobación o respuesta. El RESUMEN informa; nunca pregunta.`;
+FORMATO DE CIERRE (obligatorio): tu último mensaje debe terminar con una línea que empiece con "RESUMEN:" dirigida al cliente, en español, concreta y sin tecnicismos innecesarios: qué cambiaste, dónde se ve (URL), cómo lo verificaste, qué backup_id quedó y si hay algún pendiente o algo esperando aprobación o respuesta. El RESUMEN informa; nunca pregunta. Si una herramienta falló, cuenta el error tal como vino (por ejemplo "WordPress respondió 404: plugin no encontrado"); nunca inventes la causa ni digas que algo "no se permite" si no es lo que dijo el error.`;
 
 // ---------------------------------------------------------------------------
 // Webmaster de WordPress

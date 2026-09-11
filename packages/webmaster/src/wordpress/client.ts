@@ -328,6 +328,16 @@ export async function restaurarContenido(
   await exigirOk(res, `Fallo al restaurar ${tipo} ${id}`);
 }
 
+/**
+ * Ruta de un plugin en la REST API. El identificador es "carpeta/archivo" y
+ * WordPress solo reconoce la barra LITERAL: con `encodeURIComponent` entero la
+ * barra viaja como "%2F", la ruta no casa y responde 404 "Plugin not found".
+ * Por eso cada parte se codifica por separado.
+ */
+function rutaPlugin(plugin: string): string {
+  return `/wp/v2/plugins/${plugin.split("/").map(encodeURIComponent).join("/")}`;
+}
+
 export async function cambiarEstadoPlugin(
   c: WpCreds,
   plugin: string,
@@ -337,7 +347,7 @@ export async function cambiarEstadoPlugin(
   const res = await wp(
     c,
     o,
-    `/wp/v2/plugins/${encodeURIComponent(plugin)}`,
+    rutaPlugin(plugin),
     { method: "PUT", body: JSON.stringify({ status }) },
     30_000,
   );
@@ -384,13 +394,7 @@ export async function eliminarPlugin(
   // WordPress exige que esté inactivo antes de borrarlo.
   const actual = (await listarPlugins(c, o)).find((p) => p.plugin === plugin);
   if (actual?.status === "active") await cambiarEstadoPlugin(c, plugin, "inactive", o);
-  const res = await wp(
-    c,
-    o,
-    `/wp/v2/plugins/${encodeURIComponent(plugin)}`,
-    { method: "DELETE" },
-    30_000,
-  );
+  const res = await wp(c, o, rutaPlugin(plugin), { method: "DELETE" }, 30_000);
   await exigirOk(res, `No pude eliminar "${plugin}"`);
 }
 
