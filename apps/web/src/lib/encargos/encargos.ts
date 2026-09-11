@@ -242,6 +242,56 @@ export function respuestasDeAprobacion(
   return respuestas;
 }
 
+/**
+ * Borra un encargo del historial. Nunca uno que esté `running`: el worker lo
+ * tiene tomado y seguiría tocando el sitio aunque la fila desapareciera. Sus
+ * aprobaciones se van en cascada; los backups se conservan, sin la tarea.
+ */
+export async function eliminarEncargo(input: {
+  workspaceId: string;
+  agentId: string;
+  taskId: string;
+}): Promise<ResultadoEncargo> {
+  return conEspacio(input.workspaceId, async (scope) => {
+    const { rows } = await scope.query<{ estado: EstadoEncargo }>(
+      `select estado from public.agent_tasks where workspace_id = $1 and agent_id = $2 and id = $3`,
+      [input.workspaceId, input.agentId, input.taskId],
+    );
+    const estado = rows[0]?.estado;
+    if (!estado) return { ok: false, error: "Ese encargo ya no existe." };
+    if (estado === "running") {
+      return { ok: false, error: "Está trabajando en tu sitio ahora mismo. Espera a que termine para borrarlo." };
+    }
+    await scope.query(
+      `delete from public.agent_tasks
+        where workspace_id = $1 and agent_id = $2 and id = $3 and estado <> 'running'`,
+      [input.workspaceId, input.agentId, input.taskId],
+    );
+    return { ok: true };
+  });
+}
+
+/** Vacía el historial del agente. Lo que está trabajando se queda. */
+export async function vaciarEncargos(input: {
+  workspaceId: string;
+  agentId: string;
+}): Promise<{ borrados: number; enCurso: number }> {
+  return conEspacio(input.workspaceId, async (scope) => {
+    const borrados = await scope.query<{ id: string }>(
+      `delete from public.agent_tasks
+        where workspace_id = $1 and agent_id = $2 and estado <> 'running'
+        returning id`,
+      [input.workspaceId, input.agentId],
+    );
+    const enCurso = await scope.query<{ n: string }>(
+      `select count(*)::text as n from public.agent_tasks
+        where workspace_id = $1 and agent_id = $2 and estado = 'running'`,
+      [input.workspaceId, input.agentId],
+    );
+    return { borrados: borrados.rows.length, enCurso: Number(enCurso.rows[0]?.n ?? 0) };
+  });
+}
+
 /** La primera línea, recortada: es lo que el worker registra como título. */
 function tituloDe(texto: string): string {
   const primera = (texto.split("\n")[0] ?? texto).trim();

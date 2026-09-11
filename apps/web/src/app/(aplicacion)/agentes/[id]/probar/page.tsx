@@ -6,7 +6,12 @@ import { MarcoApp } from "@/components/marco-app";
 import { SimuladorChat } from "@/components/simulador-chat";
 import { datosDelMarco } from "@/lib/marco";
 import { leerAgente } from "@/lib/agentes";
-import { accionDecidirAprobacion, accionEncargar } from "@/lib/encargos/acciones";
+import {
+  accionDecidirAprobacion,
+  accionEliminarEncargo,
+  accionEncargar,
+  accionVaciarEncargos,
+} from "@/lib/encargos/acciones";
 import { encargosDelAgente, esWebmaster } from "@/lib/encargos/encargos";
 import { asegurarSesion, leerHistorial } from "@/lib/motor/simulador";
 import { hayModeloReal } from "@/lib/motor/modelo";
@@ -44,6 +49,8 @@ export default async function PaginaProbar({ params }: { params: Promise<{ id: s
           encargos={encargos}
           encargar={accionEncargar.bind(null, id)}
           decidir={accionDecidirAprobacion.bind(null, id)}
+          eliminar={accionEliminarEncargo.bind(null, id)}
+          vaciar={accionVaciarEncargos.bind(null, id)}
         />
       </MarcoApp>
     );

@@ -3,7 +3,34 @@
 import { revalidatePath } from "next/cache";
 import { exigirUsuarioActual } from "@/lib/identidad";
 import type { Resultado } from "@/lib/negocio/acciones";
-import { crearEncargo, decidirAprobacion, esWebmaster } from "./encargos";
+import { crearEncargo, decidirAprobacion, eliminarEncargo, esWebmaster, vaciarEncargos } from "./encargos";
+
+export async function accionEliminarEncargo(agentId: string, taskId: string): Promise<Resultado> {
+  const usuario = await exigirUsuarioActual();
+  if (!PAPELES_QUE_ENCARGAN.has(usuario.rol)) {
+    return { ok: false, error: "Tu papel en este espacio no permite borrar encargos." };
+  }
+  const resultado = await eliminarEncargo({ workspaceId: usuario.workspaceId, agentId, taskId });
+  if (!resultado.ok) return resultado;
+  revalidatePath(`/agentes/${agentId}/probar`);
+  return { ok: true, mensaje: "Encargo eliminado." };
+}
+
+export async function accionVaciarEncargos(agentId: string): Promise<Resultado> {
+  const usuario = await exigirUsuarioActual();
+  if (!PAPELES_QUE_ENCARGAN.has(usuario.rol)) {
+    return { ok: false, error: "Tu papel en este espacio no permite borrar encargos." };
+  }
+  const { borrados, enCurso } = await vaciarEncargos({ workspaceId: usuario.workspaceId, agentId });
+  revalidatePath(`/agentes/${agentId}/probar`);
+  return {
+    ok: true,
+    mensaje:
+      enCurso > 0
+        ? `Borré ${borrados} encargos. ${enCurso} sigue trabajando y se queda hasta que termine.`
+        : `Borré ${borrados} encargos.`,
+  };
+}
 
 /** Quién puede pedir cambios en el sitio o aprobarlos: los papeles con `agents.write`. */
 const PAPELES_QUE_ENCARGAN = new Set(["owner", "admin", "builder"]);

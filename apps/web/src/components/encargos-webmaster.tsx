@@ -11,6 +11,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Trash2 } from "lucide-react";
 import { Badge, Button, Textarea } from "@strappy/ui";
 import type { EncargoVista } from "@/lib/encargos/encargos";
 import type { Resultado } from "@/lib/negocio/acciones";
@@ -32,16 +33,22 @@ export function EncargosWebmaster({
   encargos,
   encargar,
   decidir,
+  eliminar,
+  vaciar,
 }: {
   nombreAgente: string;
   sitio: { nombre: string; url: string } | null;
   encargos: EncargoVista[];
   encargar: (datos: FormData) => Promise<Resultado>;
   decidir: (aprobacionId: string, aprobada: boolean) => Promise<Resultado>;
+  eliminar: (taskId: string) => Promise<Resultado>;
+  vaciar: () => Promise<Resultado>;
 }) {
   const router = useRouter();
   const formulario = React.useRef<HTMLFormElement>(null);
   const final = React.useRef<HTMLDivElement>(null);
+  const [aviso, setAviso] = React.useState<Resultado | null>(null);
+  const [vaciando, setVaciando] = React.useState(false);
 
   const [estado, enviar, pendiente] = React.useActionState<Resultado | null, FormData>(
     async (_previo, datos) => {
@@ -66,19 +73,40 @@ export function EncargosWebmaster({
     final.current?.scrollIntoView({ behavior: "smooth" });
   }, [encargos.length]);
 
+  async function vaciarHistorial() {
+    if (!window.confirm("¿Vaciar el historial de encargos? Los que están trabajando ahora se quedan.")) return;
+    setVaciando(true);
+    const resultado = await vaciar();
+    setVaciando(false);
+    setAviso(resultado);
+    if (resultado.ok) router.refresh();
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-6">
-      {sitio ? (
-        <p className="text-sm text-fg-secondary">
-          Trabaja en <span className="font-medium text-fg">{sitio.nombre}</span> · {sitio.url}
-        </p>
-      ) : (
-        <p className="rounded-lg bg-inset px-3 py-2 text-sm text-fg-secondary">
-          Conecta tu sitio en{" "}
-          <Link className="text-primary-fg underline" href="/ajustes/sitio">
-            Ajustes → Sitio web
-          </Link>{" "}
-          para que {nombreAgente} pueda hacer cambios.
+      <div className="flex items-center justify-between gap-3">
+        {sitio ? (
+          <p className="text-sm text-fg-secondary">
+            Trabaja en <span className="font-medium text-fg">{sitio.nombre}</span> · {sitio.url}
+          </p>
+        ) : (
+          <p className="rounded-lg bg-inset px-3 py-2 text-sm text-fg-secondary">
+            Conecta tu sitio en{" "}
+            <Link className="text-primary-fg underline" href="/ajustes/sitio">
+              Ajustes → Sitio web
+            </Link>{" "}
+            para que {nombreAgente} pueda hacer cambios.
+          </p>
+        )}
+        {encargos.length > 0 && (
+          <Button size="sm" variant="ghost" loading={vaciando} onClick={vaciarHistorial}>
+            Vaciar historial
+          </Button>
+        )}
+      </div>
+      {aviso && (
+        <p className={`text-sm ${aviso.ok ? "text-fg-secondary" : "text-danger-fg"}`} role="status">
+          {aviso.ok ? aviso.mensaje : aviso.error}
         </p>
       )}
 
@@ -90,7 +118,13 @@ export function EncargosWebmaster({
           </li>
         )}
         {encargos.map((encargo) => (
-          <Encargo key={encargo.id} encargo={encargo} nombreAgente={nombreAgente} decidir={decidir} />
+          <Encargo
+            key={encargo.id}
+            encargo={encargo}
+            nombreAgente={nombreAgente}
+            decidir={decidir}
+            eliminar={eliminar}
+          />
         ))}
       </ol>
       <div ref={final} />
@@ -130,13 +164,16 @@ function Encargo({
   encargo,
   nombreAgente,
   decidir,
+  eliminar,
 }: {
   encargo: EncargoVista;
   nombreAgente: string;
   decidir: (aprobacionId: string, aprobada: boolean) => Promise<Resultado>;
+  eliminar: (taskId: string) => Promise<Resultado>;
 }) {
   const router = useRouter();
   const [decidiendo, setDecidiendo] = React.useState<string | null>(null);
+  const [borrando, setBorrando] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const etiqueta = ETIQUETAS[encargo.estado];
 
@@ -149,10 +186,36 @@ function Encargo({
     else setError(resultado.error);
   }
 
+  async function borrar() {
+    if (!window.confirm("¿Eliminar este encargo del historial? Lo que ya cambió en tu sitio se queda como está.")) {
+      return;
+    }
+    setBorrando(true);
+    setError(null);
+    const resultado = await eliminar(encargo.id);
+    setBorrando(false);
+    if (resultado.ok) router.refresh();
+    else setError(resultado.error);
+  }
+
   return (
-    <li className="flex flex-col gap-2">
-      <div className="max-w-[85%] self-end whitespace-pre-wrap rounded-lg bg-inset px-3 py-2 text-sm text-fg">
-        {encargo.detalle ?? encargo.titulo}
+    <li className="group flex flex-col gap-2">
+      <div className="flex items-start justify-end gap-2">
+        {encargo.estado !== "running" && (
+          <button
+            type="button"
+            onClick={borrar}
+            disabled={borrando}
+            aria-label="Eliminar encargo"
+            title="Eliminar encargo"
+            className="mt-1.5 rounded-md p-1 text-fg-muted opacity-60 transition-opacity hover:text-danger-fg hover:opacity-100 focus-visible:opacity-100 disabled:opacity-30"
+          >
+            <Trash2 size={15} strokeWidth={1.75} aria-hidden />
+          </button>
+        )}
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-lg bg-inset px-3 py-2 text-sm text-fg">
+          {encargo.detalle ?? encargo.titulo}
+        </div>
       </div>
 
       <div className="flex max-w-[85%] flex-col gap-2 rounded-lg border border-[var(--border-subtle)] px-3 py-2">
