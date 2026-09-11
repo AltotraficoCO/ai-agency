@@ -6,53 +6,55 @@
 
 /* ============================================================================
    Strappy · sistema de diseño
-   El color codifica quién habla: índigo = la IA, fucsia = el humano.
+   Estética de herramienta de desarrollo: negro casi puro, grises neutros,
+   bordes finos y un único acento verde neón para lo que se puede hacer.
+   El color sigue codificando quién habla: verde = la IA, azul = el humano.
    Esta es la única fuente de verdad visual del producto.
    ========================================================================= */
 
 @theme {
-  /* ── Marca: índigo (la IA, acciones primarias) ─────────────────────────── */
-  --color-brand-50:  #EFEFFE;
-  --color-brand-100: #E0DFFD;
-  --color-brand-200: #C6C3FB;
-  --color-brand-300: #A49EF8;
-  --color-brand-400: #8479F4;
-  --color-brand-500: #6355F0;
-  --color-brand-600: #4F3EE0;
-  --color-brand-700: #4130BE;
-  --color-brand-800: #362A96;
-  --color-brand-900: #2F2777;
-  --color-brand-950: #1B1746;
+  /* ── Marca: verde neón (la IA, acciones primarias) ─────────────────────── */
+  --color-brand-50:  #EDFFE8;
+  --color-brand-100: #D6FFCB;
+  --color-brand-200: #AEFF9A;
+  --color-brand-300: #7DFF5E;
+  --color-brand-400: #5BFF3A;
+  --color-brand-500: #39FF14;
+  --color-brand-600: #2ED10F;
+  --color-brand-700: #22A30B;
+  --color-brand-800: #1B7A0C;
+  --color-brand-900: #16600E;
+  --color-brand-950: #0A2A06;
 
-  /* ── Acento: fucsia (el humano, control manual) ────────────────────────── */
-  --color-human-50:  #FDF0F8;
-  --color-human-100: #FBE0F1;
-  --color-human-200: #F8C2E3;
-  --color-human-300: #F396CE;
-  --color-human-400: #EC6BB6;
-  --color-human-500: #E549A0;
-  --color-human-600: #C92C81;
-  --color-human-700: #A31F67;
-  --color-human-800: #7D1A50;
-  --color-human-900: #5C1540;
+  /* ── Acento: azul eléctrico (el humano, control manual) ────────────────── */
+  --color-human-50:  #E6F2FF;
+  --color-human-100: #CCE5FF;
+  --color-human-200: #99CCFF;
+  --color-human-300: #66B3FF;
+  --color-human-400: #3399FF;
+  --color-human-500: #0080FF;
+  --color-human-600: #0066CC;
+  --color-human-700: #004D99;
+  --color-human-800: #003366;
+  --color-human-900: #001F3D;
 
-  /* ── Neutros fríos (matiz azulado, no gris puro) ───────────────────────── */
+  /* ── Neutros: zinc, sin matiz ──────────────────────────────────────────── */
   --color-ink-0:   #FFFFFF;
-  --color-ink-25:  #FAFBFD;
-  --color-ink-50:  #F4F5F8;
-  --color-ink-100: #EDEFF4;
-  --color-ink-200: #DFE3EB;
-  --color-ink-300: #C3CAD8;
-  --color-ink-400: #98A1B5;
-  --color-ink-500: #7C8699;
-  --color-ink-600: #55607A;
-  --color-ink-700: #3A4356;
-  --color-ink-800: #2A313F;
-  --color-ink-850: #1F2531;
-  --color-ink-900: #161A22;
-  --color-ink-925: #101319;
-  --color-ink-950: #0B0D12;
-  --color-ink-975: #07090D;
+  --color-ink-25:  #FAFAFA;
+  --color-ink-50:  #F4F4F5;
+  --color-ink-100: #E4E4E7;
+  --color-ink-200: #D4D4D8;
+  --color-ink-300: #A1A1AA;
+  --color-ink-400: #8A8A93;
+  --color-ink-500: #71717A;
+  --color-ink-600: #52525B;
+  --color-ink-700: #3F3F46;
+  --color-ink-800: #27272A;
+  --color-ink-850: #1E1E1E;
+  --color-ink-900: #161616;
+  --color-ink-925: #111111;
+  --color-ink-950: #0D0D0D;
+  --color-ink-975: #080808;
 
   /* ── Semánticos ────────────────────────────────────────────────────────── */
   --color-success-50:  #E9FBF0;
@@ -76,20 +78,20 @@
   --color-danger-600: #DC2626;
   --color-danger-700: #B31B1B;
 
-  --color-info-50:  #E8F3FE;
-  --color-info-100: #CFE5FC;
-  --color-info-400: #60A5FA;
-  --color-info-500: #3B82F6;
-  --color-info-600: #2563EB;
-  --color-info-700: #1D4FD1;
+  --color-info-50:  #E6FBFF;
+  --color-info-100: #C8F4FC;
+  --color-info-400: #22D3EE;
+  --color-info-500: #06B6D4;
+  --color-info-600: #0891B2;
+  --color-info-700: #0E7490;
 
   /* Color de terceros: solo en el logotipo del canal y su punto de estado. */
   --color-whatsapp: #25D366;
 
   /* ── Tipografía ────────────────────────────────────────────────────────── */
-  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont,
+  --font-sans: var(--font-plex-sans), -apple-system, BlinkMacSystemFont,
                "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular,
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular,
                "SF Mono", Menlo, Consolas, monospace;
 
   --text-2xs: 0.6875rem;  --text-2xs--line-height: 1rem;      /* 11/16 */
@@ -109,13 +111,13 @@
 
   --spacing: 0.25rem;
 
-  /* ── Radios ────────────────────────────────────────────────────────────── */
+  /* ── Radios: rectos, de herramienta ────────────────────────────────────── */
   --radius-xs:   4px;
-  --radius-sm:   6px;
-  --radius-md:   8px;   /* botón, input, select */
-  --radius-lg:   10px;  /* popover, dropdown, toast */
-  --radius-xl:   14px;  /* card, panel, modal */
-  --radius-2xl:  18px;  /* burbuja de chat, composer */
+  --radius-sm:   5px;
+  --radius-md:   6px;   /* botón, input, select */
+  --radius-lg:   8px;   /* popover, dropdown, toast */
+  --radius-xl:   12px;  /* card, panel, modal */
+  --radius-2xl:  16px;  /* burbuja de chat, composer */
   --radius-full: 9999px;
 
   /* ── Alturas de control ────────────────────────────────────────────────── */
@@ -148,108 +150,112 @@
   :root {
     color-scheme: dark;
 
-    --s-canvas:   #07090D;
-    --s-page:     #0B0D12;
-    --s-nav:      #101319;
-    --s-raised:   #161A22;
-    --s-overlay:  #1C212B;
-    --s-inset:    #0D1015;
-    --s-hover:    #1B2029;
-    --s-active:   #222836;
-    --s-selected: #1A1B36;
+    --s-canvas:   #080808;
+    --s-page:     #0D0D0D;
+    --s-nav:      #111111;
+    --s-raised:   #161616;
+    --s-overlay:  #1E1E1E;
+    --s-inset:    #0A0A0A;
+    --s-hover:    #1C1C1C;
+    --s-active:   #242424;
+    --s-selected: #14200F;
 
-    --border-subtle:  #1B2130;
-    --border-default: #262E3D;
-    --border-strong:  #3A4356;
-    --border-focus:   #8479F4;
+    --border-subtle:  #1F1F22;
+    --border-default: #27272A;
+    --border-strong:  #3F3F46;
+    --border-focus:   #39FF14;
 
-    --fg-default:   #E8EBF2;
-    --fg-secondary: #9AA3B5;
-    --fg-muted:     #6B7488;
-    --fg-disabled:  #4A5265;
-    --fg-on-brand:  #FFFFFF;
+    --fg-default:   #E4E4E7;
+    --fg-secondary: #A1A1AA;
+    --fg-muted:     #71717A;
+    --fg-disabled:  #52525B;
+    --fg-on-brand:  #000000;
     --fg-on-human:  #FFFFFF;
-    --fg-inverse:   #0B0D12;
+    --fg-inverse:   #0D0D0D;
 
-    --brand:        #6355F0;
-    --brand-hover:  #7264F5;
-    --brand-active: #4F3EE0;
-    --brand-fg:     #A49EF8;
-    --brand-soft:   #1A1740;
-    --brand-ring:   #8479F4;
+    --brand:        #39FF14;
+    --brand-hover:  #2ED10F;
+    --brand-active: #22A30B;
+    --brand-fg:     #39FF14;
+    --brand-soft:   #0F2409;
+    --brand-ring:   #39FF14;
+    --brand-glow:   0 0 20px rgb(57 255 20 / 0.30);
 
-    --human:      #E549A0;
-    --human-fg:   #F396CE;
-    --human-soft: #37122A;
+    --human:      #0080FF;
+    --human-fg:   #4DA6FF;
+    --human-soft: #06192E;
 
     --success: #22C55E; --success-fg: #4ADE80; --success-soft: #0E2A1A;
     --warning: #F0A511; --warning-fg: #FBBF24; --warning-soft: #2E2209;
     --danger:  #EF4444; --danger-fg:  #F87171; --danger-soft:  #2E1213;
-    --info:    #3B82F6; --info-fg:    #60A5FA; --info-soft:    #0F1F3D;
+    --info:    #06B6D4; --info-fg:    #22D3EE; --info-soft:    #06252B;
 
     --shadow-1: 0 1px 2px 0 rgb(0 0 0 / 0.40);
     --shadow-2: 0 4px 12px -2px rgb(0 0 0 / 0.50), 0 1px 2px 0 rgb(0 0 0 / 0.40);
     --shadow-3: 0 16px 40px -8px rgb(0 0 0 / 0.62), 0 2px 6px 0 rgb(0 0 0 / 0.40);
-    --shadow-inner-top: inset 0 1px 0 0 rgb(255 255 255 / 0.04);
+    --shadow-inner-top: inset 0 1px 0 0 rgb(255 255 255 / 0.03);
 
-    --scrim: rgb(3 5 9 / 0.72);
-    --skeleton-from: #161A22;
-    --skeleton-to:   #222836;
+    --scrim: rgb(0 0 0 / 0.72);
+    --skeleton-from: #161616;
+    --skeleton-to:   #242424;
   }
 
   .light {
     color-scheme: light;
 
-    --s-canvas:   #EEF0F5;
-    --s-page:     #F4F5F8;
+    --s-canvas:   #F4F4F5;
+    --s-page:     #FAFAFA;
     --s-nav:      #FFFFFF;
     --s-raised:   #FFFFFF;
     --s-overlay:  #FFFFFF;
-    --s-inset:    #F7F8FB;
-    --s-hover:    #F1F3F7;
-    --s-active:   #E8EBF1;
-    --s-selected: #EFEEFE;
+    --s-inset:    #F4F4F5;
+    --s-hover:    #F4F4F5;
+    --s-active:   #E4E4E7;
+    --s-selected: #ECFDE8;
 
-    --border-subtle:  #EDEFF4;
-    --border-default: #DFE3EB;
-    --border-strong:  #C3CAD8;
-    --border-focus:   #6355F0;
+    --border-subtle:  #F0F0F2;
+    --border-default: #E4E4E7;
+    --border-strong:  #D4D4D8;
+    --border-focus:   #22A30B;
 
-    --fg-default:   #10131A;
-    --fg-secondary: #55607A;
-    --fg-muted:     #7C8699;
-    --fg-disabled:  #A9B1C1;
-    --fg-on-brand:  #FFFFFF;
+    --fg-default:   #09090B;
+    --fg-secondary: #52525B;
+    --fg-muted:     #71717A;
+    --fg-disabled:  #A1A1AA;
+    --fg-on-brand:  #000000;
     --fg-on-human:  #FFFFFF;
     --fg-inverse:   #FFFFFF;
 
-    --brand:        #5947EE;
-    --brand-hover:  #4F3EE0;
-    --brand-active: #4130BE;
-    --brand-fg:     #4F3EE0;
-    --brand-soft:   #EFEEFE;
-    --brand-ring:   #6355F0;
+    /* El neón se queda en los botones, con texto negro; como texto sobre
+       blanco no se lee, así que ahí baja a un verde con contraste. */
+    --brand:        #39FF14;
+    --brand-hover:  #2ED10F;
+    --brand-active: #22A30B;
+    --brand-fg:     #15803D;
+    --brand-soft:   #ECFDE8;
+    --brand-ring:   #22A30B;
+    --brand-glow:   0 0 16px rgb(46 209 15 / 0.35);
 
-    --human:      #C92C81;
-    --human-fg:   #A31F67;
-    --human-soft: #FDF0F8;
+    --human:      #0070E0;
+    --human-fg:   #0060C0;
+    --human-soft: #E6F2FF;
 
     --success: #16A34A; --success-fg: #157F3C; --success-soft: #E9FBF0;
     --warning: #C4820A; --warning-fg: #96650B; --warning-soft: #FFF8E6;
     --danger:  #DC2626; --danger-fg:  #B31B1B; --danger-soft:  #FEECEC;
-    --info:    #2563EB; --info-fg:    #1D4FD1; --info-soft:    #E8F3FE;
+    --info:    #0891B2; --info-fg:    #0E7490; --info-soft:    #E6FBFF;
 
-    --shadow-1: 0 1px 2px 0 rgb(16 19 26 / 0.06),
-                0 1px 1px -0.5px rgb(16 19 26 / 0.04);
-    --shadow-2: 0 2px 4px -1px rgb(16 19 26 / 0.07),
-                0 8px 16px -4px rgb(16 19 26 / 0.08);
-    --shadow-3: 0 4px 8px -2px rgb(16 19 26 / 0.08),
-                0 24px 48px -12px rgb(16 19 26 / 0.18);
+    --shadow-1: 0 1px 2px 0 rgb(9 9 11 / 0.06),
+                0 1px 1px -0.5px rgb(9 9 11 / 0.04);
+    --shadow-2: 0 2px 4px -1px rgb(9 9 11 / 0.07),
+                0 8px 16px -4px rgb(9 9 11 / 0.08);
+    --shadow-3: 0 4px 8px -2px rgb(9 9 11 / 0.08),
+                0 24px 48px -12px rgb(9 9 11 / 0.18);
     --shadow-inner-top: none;
 
-    --scrim: rgb(16 19 26 / 0.40);
-    --skeleton-from: #EDEFF4;
-    --skeleton-to:   #F7F8FB;
+    --scrim: rgb(9 9 11 / 0.40);
+    --skeleton-from: #F0F0F2;
+    --skeleton-to:   #FAFAFA;
   }
 }
 
@@ -292,6 +298,7 @@
   --shadow-e1: var(--shadow-1);
   --shadow-e2: var(--shadow-2);
   --shadow-e3: var(--shadow-3);
+  --shadow-glow: var(--brand-glow);
 }
 
 @layer base {
@@ -308,6 +315,10 @@
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
+
+  h1, h2, h3, h4 { font-weight: 600; }
+
+  code, pre, kbd, samp { font-family: var(--font-mono); }
 
   /* Cifras tabulares en datos; nunca en prosa. */
   table, .tnum, [data-numeric] { font-variant-numeric: tabular-nums; }

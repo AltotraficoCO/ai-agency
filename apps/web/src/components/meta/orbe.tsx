@@ -49,14 +49,14 @@ export function Orbe({ size = 56, pose = "esperando", quieto = false, className 
       <span
         aria-hidden
         className={cn("absolute inset-0 rounded-full blur-md", !quieto && "strap-orbe-aura")}
-        style={{ background: "linear-gradient(135deg, #6355F0 0%, #E549A0 100%)", opacity: 0.35 }}
+        style={{ background: "linear-gradient(135deg, #39FF14 0%, #0080FF 100%)", opacity: 0.35 }}
       />
       <span
         className={cn(
           "relative grid h-full w-full place-items-center rounded-full text-white shadow-e2",
           !quieto && "strap-orbe-respira",
         )}
-        style={{ background: "linear-gradient(135deg, #6355F0 0%, #E549A0 100%)" }}
+        style={{ background: "linear-gradient(135deg, #39FF14 0%, #0080FF 100%)" }}
       >
         <Strap pose={pose} size={Math.round(size * 0.62)} animate={false} aria-hidden />
       </span>

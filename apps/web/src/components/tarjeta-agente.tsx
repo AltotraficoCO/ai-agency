@@ -25,24 +25,24 @@ const PAPELES: Record<string, Papel> = {
   webmaster: {
     nombre: "Webmaster",
     imagen: "/agentes/webmaster.webp",
-    halo: "radial-gradient(circle, rgba(59,130,246,0.35) 0%, rgba(59,130,246,0) 70%)",
+    halo: "radial-gradient(circle, rgba(57,255,20,0.26) 0%, rgba(57,255,20,0) 70%)",
   },
   recepcionista: {
     nombre: "Recepcionista",
     imagen: "/agentes/recepcionista.webp",
-    halo: "radial-gradient(circle, rgba(56,189,248,0.32) 0%, rgba(56,189,248,0) 70%)",
+    halo: "radial-gradient(circle, rgba(0,128,255,0.30) 0%, rgba(0,128,255,0) 70%)",
   },
   marketing: {
     nombre: "Marketing",
     imagen: "/agentes/marketing.webp",
-    halo: "radial-gradient(circle, rgba(99,102,241,0.35) 0%, rgba(99,102,241,0) 70%)",
+    halo: "radial-gradient(circle, rgba(34,211,238,0.28) 0%, rgba(34,211,238,0) 70%)",
   },
 };
 
 /** Los agentes propios no tienen personaje todavía: un robot sobre un degradado. */
 const PROPIO: Papel = {
   nombre: "Agente propio",
-  halo: "radial-gradient(circle, rgba(167,139,250,0.3) 0%, rgba(167,139,250,0) 70%)",
+  halo: "radial-gradient(circle, rgba(57,255,20,0.22) 0%, rgba(57,255,20,0) 70%)",
 };
 
 export type DatosTarjetaAgente = {
@@ -101,7 +101,7 @@ export function TarjetaAgente({ agente, destino }: { agente: DatosTarjetaAgente;
               className="relative size-36 object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.45)] transition-transform duration-[var(--dur-base)] group-hover:-translate-y-1 motion-reduce:transition-none"
             />
           ) : (
-            <span className="relative grid size-20 place-items-center rounded-full bg-[linear-gradient(135deg,#a78bfa_0%,#d946ef_100%)] text-white shadow-lg ring-1 ring-white/10">
+            <span className="relative grid size-20 place-items-center rounded-full bg-[linear-gradient(135deg,#39ff14_0%,#0080ff_100%)] text-black shadow-lg ring-1 ring-white/10">
               <Bot size={34} strokeWidth={1.75} aria-hidden />
             </span>
           )}

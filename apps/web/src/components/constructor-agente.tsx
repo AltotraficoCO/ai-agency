@@ -386,7 +386,7 @@ const LINEA_RESALTADA = Decoration.line({ class: "cm-seccion-activa" });
 const TEMA_RESALTADO = EditorView.baseTheme({
   ".cm-seccion-activa": {
     backgroundColor: "var(--primary-soft, rgba(99, 85, 240, 0.16))",
-    borderLeft: "2px solid var(--primary, #6355F0)",
+    borderLeft: "2px solid var(--brand, #39FF14)",
     marginLeft: "-2px",
   },
 });

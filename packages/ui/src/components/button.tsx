@@ -10,7 +10,7 @@ import { Spinner } from "./spinner";
 const buttonVariants = cva(
   cn(
     "relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap",
-    "rounded-md font-medium transition-colors duration-[var(--dur-instant)]",
+    "rounded-md font-medium transition-[color,background-color,border-color,box-shadow] duration-[var(--dur-fast)]",
     "disabled:pointer-events-none disabled:opacity-45",
     "[&_svg]:shrink-0",
     focusRing,
@@ -19,9 +19,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-primary text-[var(--fg-on-brand)] shadow-e1 hover:bg-[var(--brand-hover)] active:bg-[var(--brand-active)]",
+          "bg-primary font-semibold text-[var(--fg-on-brand)] shadow-e1 hover:bg-[var(--brand-hover)] hover:shadow-glow active:bg-[var(--brand-active)]",
         secondary:
-          "bg-raised text-fg border border-border hover:bg-hover active:bg-active",
+          "bg-transparent text-fg border border-border hover:border-primary hover:text-primary-fg active:bg-active",
         ghost: "bg-transparent text-fg-secondary hover:bg-hover hover:text-fg active:bg-active",
         human:
           "bg-human text-[var(--fg-on-human)] shadow-e1 hover:brightness-110 active:brightness-95",
