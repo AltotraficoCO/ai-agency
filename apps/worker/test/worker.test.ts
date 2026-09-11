@@ -124,6 +124,15 @@ describe("consumidor de tareas", () => {
     expect(tarea.estado).toBe("done");
     expect(tarea.resumen).toBe("cambié el título y lo comprobé en el navegador.");
     expect(tarea.creditos).toBeGreaterThan(0);
+    // El registro de trabajo queda guardado, un paso por herramienta y todos cerrados.
+    const pasos = (tarea.pasos ?? []) as { herramienta: string; estado: string }[];
+    expect(pasos.map((p) => p.herramienta)).toEqual([
+      "wp_listar_contenido",
+      "wp_leer_contenido",
+      "wp_editar_contenido",
+      "navegador_ver_pagina",
+    ]);
+    expect(pasos.every((p) => p.estado === "hecho")).toBe(true);
 
     const evidencia = tarea.evidencia as {
       acciones: unknown[];

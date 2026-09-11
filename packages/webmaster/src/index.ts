@@ -4,6 +4,7 @@ export * from "./context.js";
 export * from "./aprobacion.js";
 export * from "./agent.js";
 export * from "./loop.js";
+export * from "./pasos.js";
 export * from "./tools/index.js";
 export * as wordpress from "./wordpress/client.js";
 export * as conector from "./conector/client.js";

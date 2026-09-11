@@ -32,6 +32,7 @@ type FilaTarea = {
   intentos: number;
   mensajes: unknown;
   aprobaciones: unknown;
+  pasos: unknown;
 };
 
 export type OpcionesColaPostgres = {
@@ -81,7 +82,9 @@ export class ColaPostgres implements TaskQueuePort {
              limit 1
           )
         returning t.id, t.workspace_id, t.site_id, t.agent_id, t.titulo,
-                  t.detalle, t.intentos, t.mensajes, t.aprobaciones`,
+                  t.detalle, t.intentos, t.mensajes, t.aprobaciones,
+                  -- Por fila entera: si la migración 0018 aún no está aplicada, sale null en vez de romper.
+                  to_jsonb(t)->'pasos' as pasos`,
         [input.workerId, input.arrendamientoMs, this.#maxIntentos],
       );
       await conn.query("commit");
@@ -99,6 +102,7 @@ export class ColaPostgres implements TaskQueuePort {
         ...(Array.isArray(fila.aprobaciones)
           ? { aprobaciones: fila.aprobaciones as TareaReclamada["aprobaciones"] }
           : {}),
+        ...(Array.isArray(fila.pasos) ? { pasos: fila.pasos } : {}),
       };
     } catch (e) {
       await conn.query("rollback").catch(() => {});
@@ -183,6 +187,17 @@ export class ColaPostgres implements TaskQueuePort {
         this.#maxIntentos,
         input.motivo,
       ],
+    );
+  }
+
+  async registrarPasos(input: { taskId: string; workerId: string; pasos: readonly unknown[] }): Promise<void> {
+    // Solo quien tiene la tarea escribe su registro: un worker que perdió el
+    // arrendamiento no pisa lo que ya está contando el que la recogió.
+    await this.#pool.query(
+      `update ${this.#tabla}
+          set pasos = $3::jsonb, updated_at = now()
+        where id = $1 and worker_id = $2`,
+      [input.taskId, input.workerId, JSON.stringify(input.pasos)],
     );
   }
 }

@@ -19,6 +19,7 @@ import { plural } from "./formato";
 import { ListaFuentes } from "./lista-fuentes";
 import { PanelAgentes } from "./panel-agentes";
 import { Pruebalo } from "./pruebalo";
+import { ReintentarFallidas } from "./reintentar-fallidas";
 
 const INTERVALO_MS = 3000;
 
@@ -52,6 +53,9 @@ export function DetalleBase({ ficha }: { ficha: FichaCerebro }) {
         <Dato icono={<Layers size={14} aria-hidden />} texto={plural(ficha.fuentes, "fuente", "fuentes")} />
         <Dato icono={<BookOpen size={14} aria-hidden />} texto={plural(ficha.fragmentos, "fragmento", "fragmentos")} />
         <Dato icono={<Bot size={14} aria-hidden />} texto={plural(ficha.agentes.length, "agente la usa", "agentes la usan")} />
+        {ficha.fuentesDetalle.some((f) => f.estado === "error") && !aprendiendo ? (
+          <ReintentarFallidas cerebroId={ficha.id} onCambio={refrescar} />
+        ) : null}
         <span aria-live="polite" className="inline-flex items-center gap-2">
           {aprendiendo ? (
             <span className="inline-flex items-center gap-2 rounded-full bg-primary-soft px-3 py-1 text-primary-fg">

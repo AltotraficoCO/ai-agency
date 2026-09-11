@@ -29,6 +29,8 @@ type FilaCerebro = {
   fragmentos: string;
   aprendiendo: string;
   con_problemas: string;
+  con_errores: string;
+  por_revisar: string;
   actualizado: string;
 };
 
@@ -44,6 +46,12 @@ const SQL_CEREBROS = `
          (select count(*) from public.brain_sources s
            where s.workspace_id = b.workspace_id and s.brain_id = b.id
              and s.status in ('error','stale')) as con_problemas,
+         (select count(*) from public.brain_sources s
+           where s.workspace_id = b.workspace_id and s.brain_id = b.id
+             and s.status = 'error') as con_errores,
+         (select count(*) from public.brain_sources s
+           where s.workspace_id = b.workspace_id and s.brain_id = b.id
+             and s.status = 'stale') as por_revisar,
          greatest(b.updated_at,
                   coalesce((select max(s.updated_at) from public.brain_sources s
                              where s.workspace_id = b.workspace_id and s.brain_id = b.id), b.updated_at)
@@ -60,6 +68,8 @@ function aResumen(fila: FilaCerebro, agentes: readonly AgenteVinculado[]): Resum
     fragmentos: Number(fila.fragmentos),
     aprendiendo: Number(fila.aprendiendo),
     conProblemas: Number(fila.con_problemas),
+    conErrores: Number(fila.con_errores),
+    porRevisar: Number(fila.por_revisar),
     agentes,
     actualizado: new Date(fila.actualizado).toISOString(),
   };

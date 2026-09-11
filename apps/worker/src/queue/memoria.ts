@@ -108,4 +108,10 @@ export class ColaEnMemoria implements TaskQueuePort {
       leaseHasta: undefined,
     });
   }
+
+  async registrarPasos(input: { taskId: string; workerId: string; pasos: readonly unknown[] }): Promise<void> {
+    const t = this.buscar(input.taskId);
+    if (!t || t.workerId !== input.workerId) return;
+    t.pasos = [...input.pasos];
+  }
 }

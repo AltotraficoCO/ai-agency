@@ -12,6 +12,7 @@ import {
   herramientasDe,
   huellaAccion,
   webmaster,
+  type PasoTrabajo,
   type SitioContext,
 } from "../src/index.js";
 import {
@@ -545,5 +546,62 @@ describe("seguridad", () => {
     // Y la ficha del agente, que es lo que decide, no la incluye.
     expect(herramientasDe(webmaster).map((t) => t.slug)).not.toContain("conector_listar_paginas");
     expect(herramientasDe(webmaster).map((t) => t.slug)).toContain("wp_editar_contenido");
+  });
+});
+
+describe("registro de trabajo en vivo", () => {
+  it("avisa al empezar y al terminar cada herramienta y deja esperando lo que pide aprobación", async () => {
+    const m = montar();
+    const vistos: PasoTrabajo[] = [];
+    const { modelo } = modeloGuionizado([
+      { llama: "wp_leer_contenido", con: { tipo: "page", id: 7 } },
+      { llama: "wp_instalar_plugin", con: { slug: "litespeed-cache" } },
+      { dice: "RESUMEN: pendiente." },
+    ]);
+    const resultado = await ejecutarTareaWebmaster({
+      agent: webmaster,
+      model: modelo,
+      modelId: "prueba/modelo",
+      rates: TARIFAS,
+      workspaceId: "ws_1",
+      agentName: "Max",
+      sitio: m.sitio,
+      tarea: { id: "task_1", titulo: "Instala un plugin de caché", detalle: null },
+      alAvanzar: (paso) => vistos.push(paso),
+    });
+
+    expect(resultado.estado).toBe("esperando_aprobacion");
+    const leer = vistos.filter((p) => p.herramienta === "wp_leer_contenido");
+    expect(leer.map((p) => p.estado)).toEqual(["en_curso", "hecho"]);
+    // El mismo id empieza y termina: la web lo fusiona en una sola fila.
+    expect(new Set(leer.map((p) => p.id)).size).toBe(1);
+    expect(leer[0]?.etiqueta).toBe("Leyendo una página");
+
+    const instalar = vistos.filter((p) => p.herramienta === "wp_instalar_plugin");
+    expect(instalar.at(-1)).toMatchObject({ estado: "esperando", detalle: "litespeed-cache" });
+    // Nada del registro lleva la contraseña de aplicación del sitio.
+    expect(JSON.stringify(vistos)).not.toContain(m.wp.estado.appPassword);
+  });
+
+  it("un fallo de quien escucha no para el trabajo", async () => {
+    const m = montar();
+    const { modelo } = modeloGuionizado([
+      { llama: "wp_listar_contenido" },
+      { dice: "RESUMEN: revisé el contenido." },
+    ]);
+    const resultado = await ejecutarTareaWebmaster({
+      agent: webmaster,
+      model: modelo,
+      modelId: "prueba/modelo",
+      rates: TARIFAS,
+      workspaceId: "ws_1",
+      agentName: "Max",
+      sitio: m.sitio,
+      tarea: { id: "task_1", titulo: "Revisa el contenido", detalle: null },
+      alAvanzar: () => {
+        throw new Error("la base se cayó");
+      },
+    });
+    expect(resultado.estado).toBe("completada");
   });
 });

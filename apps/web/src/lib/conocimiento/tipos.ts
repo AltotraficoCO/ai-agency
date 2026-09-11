@@ -30,6 +30,10 @@ export type ResumenCerebro = {
   readonly aprendiendo: number;
   /** Fuentes en error o que hay que revisar. */
   readonly conProblemas: number;
+  /** Solo las que fallaron de verdad (`error`). */
+  readonly conErrores?: number;
+  /** Solo las que conviene revisar (`stale`, p. ej. un PDF escaneado). */
+  readonly porRevisar?: number;
   readonly agentes: readonly AgenteVinculado[];
   /** ISO 8601. */
   readonly actualizado: string;

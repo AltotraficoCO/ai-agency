@@ -11,7 +11,9 @@ import { NuevaBase } from "@/components/conocimiento/nueva-base";
 import { TarjetaBase } from "@/components/conocimiento/tarjeta-base";
 import { VacioConocimiento } from "@/components/conocimiento/vacio-conocimiento";
 import { plural } from "@/components/conocimiento/formato";
+import { after } from "next/server";
 import { listarCerebros } from "@/lib/conocimiento/conocimiento";
+import { prepararRecuperacionAutomatica } from "@/lib/conocimiento/recuperar";
 import { datosDelMarco } from "@/lib/marco";
 
 export const metadata = { title: "Conocimiento" };
@@ -21,7 +23,12 @@ export const dynamic = "force-dynamic";
 
 export default async function PaginaConocimiento() {
   const marco = await datosDelMarco();
-  const bases = await listarCerebros(marco.actual.workspaceId);
+  const workspaceId = marco.actual.workspaceId;
+  // Lo que falló por el proveedor de búsqueda se pone en cola antes de listar,
+  // y se vuelve a aprender después de responder. Acotado por pasada y por día.
+  const recuperacion = await prepararRecuperacionAutomatica({ workspaceId });
+  if (recuperacion) after(recuperacion);
+  const bases = await listarCerebros(workspaceId);
   const fuentes = bases.reduce((total, b) => total + b.fuentes, 0);
 
   return (

@@ -20,7 +20,9 @@ import {
   stepCountIs,
   type LanguageModel,
   type ModelMessage,
+  type Tool,
   type ToolApprovalResponse,
+  type ToolExecutionOptions,
   type ToolSet,
 } from "ai";
 import {
@@ -34,6 +36,7 @@ import type { SkillAgentDef } from "./agent.js";
 import type { WebmasterContext } from "./context.js";
 import type { ColectorCapturas, SitioContext } from "./ports.js";
 import { huellaAccion } from "./aprobacion.js";
+import { detalleDePaso, etiquetaDePaso, recortar, type PasoTrabajo } from "./pasos.js";
 import { HERRAMIENTAS_WEBMASTER } from "./tools/index.js";
 
 // ---------------------------------------------------------------------------
@@ -142,7 +145,56 @@ export type EjecucionInput = {
   readonly aprobaciones?: readonly ToolApprovalResponse[];
   readonly abortSignal?: AbortSignal;
   readonly onEvento?: (mensaje: string) => void;
+  /**
+   * Registro de trabajo en vivo: se llama al empezar cada herramienta
+   * (`en_curso`), al terminar (`hecho` o `error`) y cuando algo queda
+   * esperando un clic (`esperando`). Un fallo aquí nunca para el trabajo.
+   */
+  readonly alAvanzar?: (paso: PasoTrabajo) => void;
 };
+
+/**
+ * Envuelve las herramientas para contar en vivo qué se está haciendo.
+ *
+ * Se hace en la frontera del AI SDK y no en `onInvocation` porque ese solo
+ * avisa al terminar y sin `toolCallId`: sin él no se puede decir «esto que
+ * empezó hace un momento ya terminó», y el registro saldría duplicado.
+ */
+function conRegistroDePasos(tools: ToolSet, avisar: (paso: Omit<PasoTrabajo, "en">) => void): ToolSet {
+  const envuelto: ToolSet = {};
+  for (const [nombre, herramienta] of Object.entries(tools)) {
+    const ejecutar = herramienta.execute as
+      | ((entrada: unknown, opciones: ToolExecutionOptions) => Promise<unknown>)
+      | undefined;
+    if (!ejecutar) {
+      envuelto[nombre] = herramienta;
+      continue;
+    }
+    const conRegistro: Tool = {
+      ...herramienta,
+      execute: async (entrada: unknown, opciones: ToolExecutionOptions) => {
+        const base = {
+          id: opciones.toolCallId,
+          herramienta: nombre,
+          etiqueta: etiquetaDePaso(nombre),
+          detalle: detalleDePaso(entrada),
+        };
+        avisar({ ...base, estado: "en_curso" });
+        try {
+          const salida = await ejecutar(entrada, opciones);
+          const espera = (salida as { requiere_aprobacion?: unknown } | null)?.requiere_aprobacion === true;
+          avisar({ ...base, estado: espera ? "esperando" : "hecho" });
+          return salida;
+        } catch (error) {
+          avisar({ ...base, estado: "error", detalle: recortar(error instanceof Error ? error.message : String(error)) });
+          throw error;
+        }
+      },
+    };
+    envuelto[nombre] = conRegistro;
+  }
+  return envuelto;
+}
 
 // ---------------------------------------------------------------------------
 // El bucle
@@ -209,7 +261,24 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
     log(`${l.slug} · ${l.error ? `error: ${l.error}` : `${l.durationMs} ms`}`);
   };
 
-  const tools: ToolSet = toAiToolSet(herramientasDe(agent), { onInvocation: anotar });
+  // Registro de trabajo: nunca debe poder romper la tarea ni filtrar un secreto.
+  const avisar = (paso: Omit<PasoTrabajo, "en">): void => {
+    if (!input.alAvanzar) return;
+    try {
+      input.alAvanzar({
+        ...paso,
+        detalle: paso.detalle ? limpiarSecretos(paso.detalle, sitio) : null,
+        en: new Date().toISOString(),
+      });
+    } catch {
+      // Quien escucha es el worker guardando en la base: si falla, el trabajo sigue.
+    }
+  };
+
+  const tools: ToolSet = conRegistroDePasos(
+    toAiToolSet(herramientasDe(agent), { onInvocation: anotar }),
+    avisar,
+  );
 
   // Timeout duro: el `timeout` del AI SDK acota cada llamada al proveedor, no
   // el bucle entero. La señal sí lo acota, y es lo que promete el catálogo.
@@ -332,6 +401,15 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
             : "es una operación de administración del sitio",
           resumen: propuesta || describirSolicitud(s.toolCall.toolName, s.toolCall.input),
           entrada: redactSecrets(s.toolCall.input),
+        });
+        avisar({
+          id: s.toolCall.toolCallId,
+          herramienta: s.toolCall.toolName,
+          etiqueta: etiquetaDePaso(s.toolCall.toolName),
+          // Aprobada de antes: se ejecutará enseguida y el envoltorio la marcará en curso.
+          estado: registro.decision === "rechazada" ? "error" : "esperando",
+          detalle:
+            registro.decision === "rechazada" ? "Rechazado por una persona" : detalleDePaso(s.toolCall.input),
         });
         if (registro.decision) {
           // Misma acción que una persona ya decidió: se contesta con esa decisión.

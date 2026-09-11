@@ -30,6 +30,7 @@ import {
   type WpCreds,
 } from "@strappy/webmaster";
 import type { MotorTarea, PuertosWorker, SitioConectado, TareaReclamada } from "../ports.js";
+import { RegistroDePasos } from "./pasos.js";
 import type { Consumidor } from "./tipos.js";
 
 export type OpcionesConsumidorTareas = {
@@ -114,6 +115,12 @@ export class ConsumidorDeTareas implements Consumidor {
     // Una clave por intento: reanudar tras una aprobación es otro gasto, pero
     // reintentar el cobro de ESTE intento no debe cobrarlo dos veces.
     const intento = randomUUID();
+    // Lo que el Webmaster va haciendo, guardado en vivo para que la web lo enseñe.
+    const registro = new RegistroDePasos({
+      previos: tarea.pasos,
+      guardar: (pasos) => puertos.cola.registrarPasos({ taskId: tarea.id, workerId, pasos }),
+      log: decir,
+    });
 
     const latido = setInterval(() => {
       void puertos.cola
@@ -176,7 +183,9 @@ export class ConsumidorDeTareas implements Consumidor {
           ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] }
           : {}),
         onEvento: decir,
+        alAvanzar: (paso) => registro.anotar(paso),
       });
+      await registro.cerrar(resultado.estado);
 
       if (motor.cobrar) {
         await motor
@@ -260,6 +269,7 @@ export class ConsumidorDeTareas implements Consumidor {
       }
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : String(error);
+      await registro.cerrar("fallida");
       await puertos.cola
         .fallar({
           taskId: tarea.id,

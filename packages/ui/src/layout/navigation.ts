@@ -7,6 +7,7 @@ import {
   Inbox,
   House,
   MessageCircle,
+  PiggyBank,
   Settings,
   Sparkles,
   Users,
@@ -22,6 +23,7 @@ export const rutas = {
   agentesWhatsapp: "/whatsapp/agentes",
   bandeja: "/bandeja",
   agentes: "/agentes",
+  impacto: "/negocio/impacto",
   contactos: "/contactos",
   canales: "/ajustes/canales",
   conocimiento: "/conocimiento",
@@ -91,6 +93,12 @@ const analitica: DestinoNav = {
   href: rutas.analitica,
   icono: ChartColumn,
 };
+const impacto: DestinoNav = {
+  id: "impacto",
+  etiqueta: "Impacto",
+  href: rutas.impacto,
+  icono: PiggyBank,
+};
 const agentesNegocio: DestinoNav = {
   id: "agentes",
   etiqueta: "Agentes del negocio",
@@ -104,7 +112,8 @@ const agentesNegocio: DestinoNav = {
  * Dos módulos que no se mezclan. WhatsApp es la atención a clientes: los
  * agentes que contestan (los crea la persona con Strap), la bandeja,
  * los contactos, lo que saben y cómo les va. Negocio son los agentes que
- * trabajan por encargo para la empresa, como el Webmaster o Marketing.
+ * trabajan por encargo para la empresa, como el Webmaster o Marketing, y el
+ * Impacto: lo que hicieron y cuánto le ahorraron al negocio.
  *
  * Canales no está aquí a propósito: WhatsApp se conecta una vez y luego no se
  * vuelve a tocar, así que vive en Ajustes.
@@ -117,7 +126,7 @@ export const menuPrincipal: readonly EntradaNav[] = [
     icono: MessageCircle,
     destinos: [agentesWhatsapp, bandeja, contactos, conocimiento, analitica],
   },
-  { id: "negocio", etiqueta: "Negocio", icono: BriefcaseBusiness, destinos: [agentesNegocio] },
+  { id: "negocio", etiqueta: "Negocio", icono: BriefcaseBusiness, destinos: [impacto, agentesNegocio] },
 ];
 
 /** Los mismos destinos del menú, sin agrupar. */

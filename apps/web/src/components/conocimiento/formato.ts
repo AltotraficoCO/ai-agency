@@ -37,14 +37,26 @@ export const ESTADO_FUENTE: Readonly<Record<EstadoFuente, { texto: string; tono:
   error: { texto: "Error", tono: "error" },
 };
 
-/** El estado de una base entera, resumido en una palabra. */
-export function estadoDeBase(base: Pick<ResumenCerebro, "aprendiendo" | "conProblemas" | "fuentes">): {
+/**
+ * El estado de una base entera, resumido en una palabra.
+ *
+ * Un error de verdad y algo que solo conviene revisar (un PDF escaneado) no se
+ * dicen igual: «Con problemas» para las dos cosas asustaba por un escaneo.
+ */
+export function estadoDeBase(
+  base: Pick<ResumenCerebro, "aprendiendo" | "conProblemas" | "fuentes" | "conErrores" | "porRevisar">,
+): {
   texto: string;
   tono: TonoEstado;
   animado: boolean;
 } {
   if (base.aprendiendo > 0) return { texto: "Aprendiendo", tono: "ia", animado: true };
-  if (base.conProblemas > 0) return { texto: "Con problemas", tono: "aviso", animado: false };
+  if (base.conErrores !== undefined || base.porRevisar !== undefined) {
+    if ((base.conErrores ?? 0) > 0) return { texto: "Con errores", tono: "error", animado: false };
+    if ((base.porRevisar ?? 0) > 0) return { texto: "Revisar", tono: "aviso", animado: false };
+  } else if (base.conProblemas > 0) {
+    return { texto: "Con problemas", tono: "aviso", animado: false };
+  }
   if (base.fuentes === 0) return { texto: "Vacía", tono: "neutral", animado: false };
   return { texto: "Lista", tono: "exito", animado: false };
 }

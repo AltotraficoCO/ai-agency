@@ -40,6 +40,7 @@ import {
   type RespuestaDeBloque,
 } from "./partes";
 import { TextoStrap, limpiarTextoStrap } from "./texto-strap";
+import { RegistroTrabajo, type PasoVista } from "@/components/conversacion/registro-trabajo";
 
 export interface HiloProps {
   hiloId: string;
@@ -253,17 +254,40 @@ function Mensaje({
     <div className="strappy-slide-up flex gap-3">
       <Orbe size={32} pose="esperando" quieto={!ocupado} className="mt-0.5" />
       <div className="flex min-w-0 flex-1 flex-col gap-3">
-        {mensaje.parts.map((parte, indice) => (
-          <ParteDelAgente
-            key={`${mensaje.id}-${indice}`}
-            parte={parte}
-            esUltimo={esUltimo}
-            enCurso={esUltimo && ocupado}
-            borrador={borrador}
-            onResponder={onResponder}
-            onEditar={onEditar}
-          />
-        ))}
+        {segmentar(mensaje, esUltimo && ocupado).map((segmento) =>
+          segmento.clase === "parte" ? (
+            <ParteDelAgente
+              key={segmento.clave}
+              parte={segmento.parte}
+              esUltimo={esUltimo}
+              enCurso={esUltimo && ocupado}
+              borrador={borrador}
+              onResponder={onResponder}
+              onEditar={onEditar}
+            />
+          ) : (
+            <React.Fragment key={segmento.clave}>
+              {segmento.pasos.length > 0 ? (
+                <RegistroTrabajo
+                  pasos={segmento.pasos}
+                  activo={esUltimo && ocupado && segmento.pasos.some((p) => p.estado === "en_curso")}
+                  textoActivo="Strap está trabajando…"
+                />
+              ) : null}
+              {segmento.bloques.map((bloque) => (
+                <ParteDelAgente
+                  key={bloque.clave}
+                  parte={bloque.parte}
+                  esUltimo={esUltimo}
+                  enCurso={esUltimo && ocupado}
+                  borrador={borrador}
+                  onResponder={onResponder}
+                  onEditar={onEditar}
+                />
+              ))}
+            </React.Fragment>
+          ),
+        )}
       </div>
     </div>
   );
@@ -359,6 +383,63 @@ const EN_MARCHA: Readonly<Record<string, string>> = {
 
 function enMarcha(tipo: string): string {
   return EN_MARCHA[tipo] ?? "Trabajando en ello…";
+}
+
+type ParteMensaje = UIMessage["parts"][number];
+
+type Segmento =
+  | { clase: "parte"; parte: ParteMensaje; clave: string }
+  | { clase: "trabajo"; pasos: PasoVista[]; bloques: { parte: ParteMensaje; clave: string }[]; clave: string };
+
+/**
+ * Parte un mensaje de Strap en lo que se lee y lo que hizo.
+ *
+ * Las herramientas seguidas se juntan en un registro de trabajo colapsable
+ * («Strap trabajó 4 pasos»), en vez de una pastilla por cada una. Las que
+ * enseñan algo —preguntas, ficha, tarjeta, progreso, prueba— cuentan como paso
+ * y además se pintan debajo del registro, en su sitio de siempre.
+ */
+function segmentar(mensaje: UIMessage, enCurso: boolean): Segmento[] {
+  const segmentos: Segmento[] = [];
+  let grupo: Extract<Segmento, { clase: "trabajo" }> | null = null;
+
+  for (const [indice, parte] of mensaje.parts.entries()) {
+    const clave = `${mensaje.id}-${indice}`;
+    if (!isToolUIPart(parte)) {
+      grupo = null;
+      segmentos.push({ clase: "parte", parte, clave });
+      continue;
+    }
+    if (!grupo) {
+      grupo = { clase: "trabajo", pasos: [], bloques: [], clave };
+      segmentos.push(grupo);
+    }
+    const paso = pasoDe(parte, enCurso);
+    if (paso) grupo.pasos.push(paso);
+    const salida = parte.state === "output-available" ? (parte.output as { tipo?: unknown } | undefined) : undefined;
+    if (typeof salida?.tipo === "string" && SALIDAS_VISIBLES.has(salida.tipo)) {
+      grupo.bloques.push({ parte, clave });
+    }
+  }
+  return segmentos;
+}
+
+/** Una herramienta de Strap contada como paso del registro. */
+function pasoDe(parte: Extract<ParteMensaje, { toolCallId: string }>, enCurso: boolean): PasoVista | null {
+  const enMarchaTexto = enMarcha(parte.type);
+  const hecho = enMarchaTexto.replace(/…$/, "");
+  switch (parte.state) {
+    case "output-available":
+      return { id: parte.toolCallId, etiqueta: hecho, estado: "hecho" };
+    case "output-error":
+      return { id: parte.toolCallId, etiqueta: hecho, estado: "error", detalle: "No salió a la primera." };
+    case "input-streaming":
+    case "input-available":
+      // Sin turno en curso, una llamada sin resultado es un corte: lo cuenta el aviso de abajo.
+      return enCurso ? { id: parte.toolCallId, etiqueta: enMarchaTexto, estado: "en_curso" } : null;
+    default:
+      return null;
+  }
 }
 
 const SALIDAS_VISIBLES = new Set(["preguntas", "checklist", "tarjeta", "progreso", "autojuego"]);

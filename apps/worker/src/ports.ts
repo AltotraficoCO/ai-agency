@@ -54,6 +54,8 @@ export type TareaReclamada = {
   readonly mensajes?: readonly unknown[];
   /** Decisiones humanas que hay que inyectar antes de continuar. */
   readonly aprobaciones?: readonly ToolApprovalResponse[];
+  /** Registro de trabajo de intentos anteriores: al reanudar se sigue añadiendo. */
+  readonly pasos?: readonly unknown[];
 };
 
 export type CierreTarea = {
@@ -89,6 +91,11 @@ export interface TaskQueuePort {
     evidencia: unknown;
     reintentable: boolean;
   }): Promise<void>;
+  /**
+   * Guarda el registro de trabajo mientras la tarea corre, para que la web lo
+   * enseñe en vivo. Sobrescribe la lista entera: quien llama ya fusionó.
+   */
+  registrarPasos(input: { taskId: string; workerId: string; pasos: readonly unknown[] }): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------

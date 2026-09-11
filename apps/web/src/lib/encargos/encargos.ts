@@ -17,6 +17,7 @@ import "server-only";
 import type { ToolApprovalResponse } from "ai";
 import type { TenantScope } from "@strappy/db";
 import { huellaAccion } from "@strappy/webmaster/aprobacion";
+import { esPasoTrabajo, pasosDesdeMensajes } from "@strappy/webmaster/pasos";
 import { conEspacio } from "@/lib/db/pool";
 
 export type EstadoEncargo = "queued" | "running" | "esperando_aprobacion" | "done" | "failed" | "cancelled";
@@ -35,6 +36,24 @@ export type AprobacionVista = {
   permiteTexto: boolean;
 };
 
+/**
+ * Un paso del registro de trabajo: lo que el Webmaster hizo (o está haciendo)
+ * dentro de un encargo, contado para la persona y no para un programador.
+ */
+export type PasoTrabajo = {
+  /** Estable dentro del encargo: sirve de `key` y para no duplicar al refrescar. */
+  id: string;
+  /** Slug de la herramienta, p. ej. `wp_leer_plantilla_elementor`. */
+  herramienta: string;
+  /** «Leyendo el pie de página», «Haciendo copia de seguridad»… */
+  etiqueta: string;
+  estado: "en_curso" | "hecho" | "error" | "esperando";
+  /** Una línea de contexto: qué página, qué plugin, el motivo del error. */
+  detalle: string | null;
+  /** ISO 8601. */
+  en: string;
+};
+
 export type EncargoVista = {
   id: string;
   titulo: string;
@@ -45,6 +64,8 @@ export type EncargoVista = {
   creditos: number;
   creadoEl: string;
   aprobaciones: AprobacionVista[];
+  /** Registro de trabajo, del primero al último. Vacío si todavía no empezó. */
+  pasos: PasoTrabajo[];
 };
 
 type ResultadoEncargo = { ok: true } | { ok: false; error: string };
@@ -77,9 +98,18 @@ export async function encargosDelAgente(workspaceId: string, agentId: string): P
       creditos: string;
       created_at: Date;
       aprobaciones: AprobacionVista[];
+      pasos: unknown;
+      mensajes: unknown;
     }>(
+      // `to_jsonb(t)->'pasos'` y no `t.pasos`: si la migración 0018 aún no
+      // está aplicada, la columna no existe y la página tiene que seguir viva.
+      // La conversación solo se trae cuando no hay registro guardado: es el
+      // plan B de los encargos anteriores al registro en vivo, y pesa.
       `select t.id, t.titulo, t.detalle, t.estado, t.resumen, t.error,
               t.creditos::text as creditos, t.created_at,
+              coalesce(to_jsonb(t)->'pasos', '[]'::jsonb) as pasos,
+              case when coalesce(jsonb_array_length(to_jsonb(t)->'pasos'), 0) = 0
+                   then t.mensajes end as mensajes,
               coalesce((
                 select json_agg(json_build_object(
                          'id', a.id,
@@ -99,17 +129,22 @@ export async function encargosDelAgente(workspaceId: string, agentId: string): P
         limit 30`,
       [workspaceId, agentId, PREGUNTA],
     );
-    return rows.reverse().map((r) => ({
-      id: r.id,
-      titulo: r.titulo,
-      detalle: r.detalle,
-      estado: r.estado,
-      resumen: r.resumen,
-      error: r.error,
-      creditos: Number(r.creditos),
-      creadoEl: new Date(r.created_at).toISOString(),
-      aprobaciones: r.aprobaciones,
-    }));
+    return rows.reverse().map((r) => {
+      const creadoEl = new Date(r.created_at).toISOString();
+      const guardados = Array.isArray(r.pasos) ? r.pasos.filter(esPasoTrabajo) : [];
+      return {
+        id: r.id,
+        titulo: r.titulo,
+        detalle: r.detalle,
+        estado: r.estado,
+        resumen: r.resumen,
+        error: r.error,
+        creditos: Number(r.creditos),
+        creadoEl,
+        aprobaciones: r.aprobaciones,
+        pasos: guardados.length > 0 ? guardados : pasosDesdeMensajes(r.mensajes, creadoEl),
+      };
+    });
   });
 }
 

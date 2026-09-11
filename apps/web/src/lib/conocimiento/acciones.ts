@@ -28,6 +28,7 @@ import {
   prepararRelectura,
   registrarPendiente,
 } from "./aprender";
+import { reintentarFallidas } from "./recuperar";
 import type { FragmentoEncontrado, ResultadoAccion } from "./tipos";
 
 const PAPELES_QUE_EDITAN = new Set(["owner", "admin", "builder"]);
@@ -287,6 +288,29 @@ export async function accionReleerFuente(cerebroId: string, fuenteId: string): P
   enSegundoPlano(preparada.tarea);
   refrescar(cerebroId);
   return { ok: true };
+}
+
+/**
+ * «Reintentar lo que falló»: vuelve a poner en cola todo lo releíble en error o
+ * por revisar, y cuenta qué no se puede reintentar y por qué.
+ */
+export async function accionReintentarFallidas(
+  cerebroId: string,
+): Promise<ResultadoAccion<{ reintentadas: number; noSePueden: { titulo: string; motivo: string }[] }>> {
+  const usuario = await quienEdita();
+  if ("error" in usuario) return { ok: false, error: usuario.error };
+  if (!(await existeCerebro(usuario.workspaceId, cerebroId))) {
+    return { ok: false, error: "Esa base de conocimiento no existe." };
+  }
+  try {
+    const resultado = await reintentarFallidas({ workspaceId: usuario.workspaceId, cerebroId });
+    if (resultado.tarea) enSegundoPlano(resultado.tarea);
+    refrescar(cerebroId);
+    return { ok: true, datos: { reintentadas: resultado.reintentadas, noSePueden: resultado.noSePueden } };
+  } catch (error) {
+    console.error("[conocimiento] reintentar fallidas", error);
+    return { ok: false, error: "No se pudo reintentar ahora mismo. Vuelve a probar en un momento." };
+  }
 }
 
 export async function accionConectarAgente(
