@@ -1,29 +1,28 @@
 /**
  * Los agentes del espacio.
  *
- * Es la única lista de esta fase que enseña datos reales, y por eso importa que
- * diga la verdad: un agente en borrador no atiende a nadie, y la tarjeta lo dice
- * en lugar de dejar creer que sí.
+ * Cada agente con su cara y un punto que dice la verdad: verde si atiende o
+ * trabaja ahora mismo, gris si todavía no hace nada. Los activos van primero y
+ * la primera tarjeta es siempre la de contratar otro.
  */
-import { Badge, Card, CardBody, CardHeader, CardTitle, EmptyState } from "@strappy/ui";
-import { EnlaceBoton } from "@/components/enlace-boton";
 import { MarcoApp } from "@/components/marco-app";
+import { TarjetaAgente, TarjetaContratar } from "@/components/tarjeta-agente";
 import { datosDelMarco } from "@/lib/marco";
 import { listarAgentes, type ResumenAgente } from "@/lib/agentes";
 
 export const metadata = { title: "Agentes" };
 export const dynamic = "force-dynamic";
 
-const ESTADOS: Record<ResumenAgente["estado"], { texto: string; tono: "exito" | "neutral" | "aviso" }> = {
-  published: { texto: "Publicado", tono: "exito" },
-  draft: { texto: "Borrador", tono: "neutral" },
-  paused: { texto: "En pausa", tono: "aviso" },
-  archived: { texto: "Archivado", tono: "neutral" },
-};
+/** A dónde lleva la tarjeta: al trabajo del agente, o a terminarlo si es un borrador propio. */
+function destinoDe(agente: ResumenAgente): string {
+  if (agente.activo || agente.catalogo) return `/agentes/${agente.id}/probar`;
+  return `/agentes/${agente.id}/instrucciones`;
+}
 
 export default async function PaginaAgentes() {
   const marco = await datosDelMarco();
   const agentes = await listarAgentes(marco.actual.workspaceId);
+  const activos = agentes.filter((a) => a.activo).length;
 
   return (
     <MarcoApp
@@ -31,58 +30,35 @@ export default async function PaginaAgentes() {
       creditos={marco.creditos}
       pendientes={marco.pendientes}
       titulo="Agentes"
-      acciones={
-        <EnlaceBoton size="sm" href="/contratar">Contratar agente</EnlaceBoton>
-      }
     >
-      {agentes.length === 0 ? (
-        <div className="grid min-h-full place-items-center">
-          <EmptyState
-            variant="primera-vez"
-            title="Todavía no tienes agentes"
-            description="Un agente es quien atiende por ti. Contrata uno del catálogo o pídele al asistente que construya el tuyo."
-            action={
-              <EnlaceBoton href="/contratar">Ver el catálogo</EnlaceBoton>
-            }
-          />
+      <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
+        <div>
+          <h1 className="text-xl font-semibold text-fg">Tus agentes</h1>
+          <p className="mt-1 text-sm text-fg-secondary">
+            {agentes.length === 0
+              ? "Todavía no tienes ninguno. Contrata el primero del catálogo."
+              : `${activos} ${activos === 1 ? "activo" : "activos"} de ${agentes.length}. Abre uno para verlo trabajar.`}
+          </p>
         </div>
-      ) : (
-        <div className="mx-auto grid max-w-5xl gap-3 p-6 sm:grid-cols-2">
-          {agentes.map((agente) => {
-            const estado = ESTADOS[agente.estado];
-            return (
-              <Card key={agente.id}>
-                <CardHeader className="flex-row items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <CardTitle className="truncate">{agente.nombre}</CardTitle>
-                    <p className="mt-1 line-clamp-2 text-sm text-fg-secondary">
-                      {agente.descripcion ?? "Sin descripción todavía."}
-                    </p>
-                  </div>
-                  <Badge tone={estado.tono}>{estado.texto}</Badge>
-                </CardHeader>
-                <CardBody className="flex flex-wrap items-center gap-2">
-                  <span className="text-2xs text-fg-muted">
-                    {agente.conversaciones === 0
-                      ? "Sin conversaciones todavía"
-                      : `${agente.conversaciones} conversaciones`}
-                    {" · "}
-                    {agente.modo === "max" ? "Modo máximo" : "Modo económico"}
-                  </span>
-                  <div className="ml-auto flex gap-2">
-                    <EnlaceBoton size="sm" variant="ghost" href={`/agentes/${agente.id}/instrucciones`}>
-                      Instrucciones
-                    </EnlaceBoton>
-                    <EnlaceBoton size="sm" variant="secondary" href={`/agentes/${agente.id}/probar`}>
-                      Probar
-                    </EnlaceBoton>
-                  </div>
-                </CardBody>
-              </Card>
-            );
-          })}
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <TarjetaContratar />
+          {agentes.map((agente) => (
+            <TarjetaAgente
+              key={agente.id}
+              agente={{
+                id: agente.id,
+                nombre: agente.nombre,
+                catalogo: agente.catalogo,
+                estado: agente.estado,
+                modo: agente.modo,
+                activo: agente.activo,
+              }}
+              destino={destinoDe(agente)}
+            />
+          ))}
         </div>
-      )}
+      </div>
     </MarcoApp>
   );
 }

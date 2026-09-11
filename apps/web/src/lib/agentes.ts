@@ -24,6 +24,13 @@ export type ResumenAgente = {
   publicado: boolean;
   conversaciones: number;
   actualizado: string;
+  /** Agente del catálogo del que viene (webmaster, recepcionista…); null si es propio. */
+  catalogo: string | null;
+  /**
+   * Atiende o trabaja ahora mismo. Un conversacional, cuando está publicado; uno
+   * por encargo (el Webmaster) no se publica: trabaja en cuanto está contratado.
+   */
+  activo: boolean;
 };
 
 export async function listarAgentes(workspaceId: string): Promise<ResumenAgente[]> {
@@ -38,27 +45,39 @@ export async function listarAgentes(workspaceId: string): Promise<ResumenAgente[
       active_version_id: string | null;
       updated_at: string;
       conversaciones: string;
+      catalogo: string | null;
     }>(
       `select a.id, a.name, a.description, a.status, a.agent_type, a.mode,
               a.active_version_id, a.updated_at,
               (select count(*) from public.conversations c
-                where c.workspace_id = a.workspace_id and c.agent_id = a.id) as conversaciones
+                where c.workspace_id = a.workspace_id and c.agent_id = a.id) as conversaciones,
+              (select s.catalog_slug from public.agent_subscriptions s
+                where s.workspace_id = a.workspace_id and s.agent_id = a.id and s.status <> 'cancelled'
+                order by s.started_at desc
+                limit 1) as catalogo
          from public.agents a
         where a.workspace_id = $1 and a.status <> 'archived'
         order by a.updated_at desc`,
       [scope.workspaceId],
     );
-    return rows.map((r) => ({
-      id: r.id,
-      nombre: r.name,
-      descripcion: r.description,
-      estado: r.status,
-      tipo: r.agent_type,
-      modo: r.mode,
-      publicado: Boolean(r.active_version_id) && r.status === "published",
-      conversaciones: Number(r.conversaciones),
-      actualizado: new Date(r.updated_at).toISOString(),
-    }));
+    const agentes = rows.map((r) => {
+      const publicado = Boolean(r.active_version_id) && r.status === "published";
+      return {
+        id: r.id,
+        nombre: r.name,
+        descripcion: r.description,
+        estado: r.status,
+        tipo: r.agent_type,
+        modo: r.mode,
+        publicado,
+        conversaciones: Number(r.conversaciones),
+        actualizado: new Date(r.updated_at).toISOString(),
+        catalogo: r.catalogo,
+        activo: r.status !== "paused" && (publicado || (r.agent_type === "task" && r.catalogo !== null)),
+      };
+    });
+    // Los activos primero; dentro de cada grupo se mantiene el más reciente arriba.
+    return agentes.sort((x, y) => Number(y.activo) - Number(x.activo));
   });
 }
 
