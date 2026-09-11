@@ -344,6 +344,25 @@ function mensajeDeError(paso: PasoRegistro, error: unknown): string {
   }
 }
 
+/**
+ * URL del alta por permisos, sin `config_id`.
+ *
+ * Embedded Signup solo funciona si la app de Meta es Tech Provider o BSP
+ * aprobado; sin esa aprobación Meta rechaza el diálogo pidiendo un `config_id`
+ * válido. Este diálogo clásico de OAuth pide los mismos permisos y sirve con
+ * cualquier app que los tenga. La cuenta y el número no vienen en la respuesta:
+ * se descubren después, a partir del token.
+ */
+export function urlOAuthPermisos(input: { appId: string; redirectUri: string; state: string }): string {
+  const url = new URL(`https://www.facebook.com/${GRAPH_API_VERSION}/dialog/oauth`);
+  url.searchParams.set("client_id", input.appId);
+  url.searchParams.set("redirect_uri", input.redirectUri);
+  url.searchParams.set("scope", [...PERMISOS_REQUERIDOS, "business_management"].join(","));
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("state", input.state);
+  return url.toString();
+}
+
 /** URL del flujo de Embedded Signup, para que la interfaz no arme cadenas a mano. */
 export function urlEmbeddedSignup(input: {
   appId: string;

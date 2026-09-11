@@ -6,6 +6,10 @@ import "server-only";
  * El registro en sí (`ejecutarRegistro`) vive en `@strappy/whatsapp` y no sabe
  * de Postgres ni de Next. Aquí está lo que ese paquete no puede saber:
  *
+ *  · Qué diálogo abrir. Embedded Signup exige que la app de Meta sea Tech
+ *    Provider aprobado, y la nuestra aún no lo es: Meta rechaza el diálogo
+ *    pidiendo un `config_id`. Se usa el OAuth clásico con permisos, que es el
+ *    que ya funciona en Varylo con esta misma app.
  *  · Dónde se guarda cada paso. El token y el PIN van cifrados con
  *    `ENCRYPTION_KEY`; el paso y el último error, en `channels.settings`, que es
  *    lo que pinta la pantalla.
@@ -20,7 +24,7 @@ import { cifrar, descifrar, leerClave } from "@strappy/db";
 import {
   crearClienteWhatsApp,
   ejecutarRegistro,
-  urlEmbeddedSignup,
+  urlOAuthPermisos,
   VERSION_SIGNUP,
   WhatsAppApiError,
   type EstadoRegistro,
@@ -37,17 +41,16 @@ const RUTA_WEBHOOK = "/api/webhooks/whatsapp";
 /** El enlace de conexión caduca: un `state` viejo reutilizado no debe servir. */
 const VIGENCIA_ESTADO_MS = 15 * 60_000;
 
-type ConfigMeta = { appId: string; appSecret: string; configId: string; verifyToken: string };
+type ConfigMeta = { appId: string; appSecret: string; verifyToken: string };
 type Filas = { canalId: string; cuentaId: string };
 
 /** Credenciales de la app de Meta. `null` si falta cualquiera: la pantalla lo dice. */
 export function configMeta(): ConfigMeta | null {
   const appId = process.env.META_APP_ID;
   const appSecret = process.env.META_APP_SECRET;
-  const configId = process.env.META_CONFIG_ID;
   const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN;
-  if (!appId || !appSecret || !configId || !verifyToken || !process.env.ENCRYPTION_KEY) return null;
-  return { appId, appSecret, configId, verifyToken };
+  if (!appId || !appSecret || !verifyToken || !process.env.ENCRYPTION_KEY) return null;
+  return { appId, appSecret, verifyToken };
 }
 
 function clave(): Buffer {
@@ -62,7 +65,7 @@ export function urlDeResultado(origen: string, resultado: "ok" | "error", detall
   return url;
 }
 
-/** A dónde mandar al navegador para abrir el alta de Meta. `null` sin configuración. */
+/** A dónde mandar al navegador para abrir el diálogo de Meta. `null` sin configuración. */
 export function urlDeConexion(input: { origen: string; workspaceId: string; userId: string }): string | null {
   const config = configMeta();
   if (!config) return null;
@@ -70,9 +73,8 @@ export function urlDeConexion(input: { origen: string; workspaceId: string; user
     JSON.stringify({ w: input.workspaceId, u: input.userId, exp: Date.now() + VIGENCIA_ESTADO_MS }),
     clave(),
   );
-  return urlEmbeddedSignup({
+  return urlOAuthPermisos({
     appId: config.appId,
-    configId: config.configId,
     redirectUri: new URL(RUTA_RETORNO, input.origen).toString(),
     state,
   });
