@@ -5,9 +5,10 @@
  *  · El modo sale del agente (`lite` o `max`) y se rebaja a `lite` si el plan
  *    del espacio no incluye Max. Max es de los planes grandes; ofrecerlo en el
  *    gratuito es regalar el modelo caro.
- *  · El modelo concreto sale de `model_tiers` para la tarea `builder`, que es
- *    la de los agentes que trabajan con herramientas, y se resuelve contra la
- *    misma cartera que usa la web (`MODEL_WALLET`, hoy OpenRouter).
+ *  · El modelo concreto sale de `model_tiers` para la tarea `business_agent`
+ *    (fila `negocio`), la de los agentes del negocio, y se resuelve contra la
+ *    cartera del worker (`MODEL_WALLET`, hoy OpenRouter). Su clave es distinta
+ *    de la de la web y solo permite los modelos de esa fila.
  *  · Las tarifas salen de `credit_rates` y el cobro va al mismo libro que el
  *    resto de Strappy, así que una tarea del Webmaster se ve y se paga igual
  *    que una conversación.
@@ -41,7 +42,7 @@ export class MotorPorPlan {
       cargarTarifas(ambito),
     ]);
 
-    const eleccion = resolveModel(tabla, { mode: modo, task: "builder" });
+    const eleccion = resolveModel(tabla, { mode: modo, task: "business_agent" });
     this.#resolvedor ??= crearResolvedorDeModelo();
     const libro = crearCreditLedger(ambito);
 
