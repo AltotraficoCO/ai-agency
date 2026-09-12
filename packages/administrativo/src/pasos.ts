@@ -26,6 +26,7 @@ export type PasoTrabajo = {
 /** En gerundio y sin jerga contable: lo lee el dueño del negocio, no su contador. */
 const ETIQUETAS: Readonly<Record<string, string>> = {
   admin_estado_de_caja: "Revisando cuánto te deben y cuánto entró",
+  admin_informe_del_negocio: "Preparando el informe de cómo va el negocio",
   admin_facturas_por_cobrar: "Revisando las facturas sin pagar",
   admin_buscar_cliente: "Buscando al cliente",
   admin_emitir_factura: "Proponiendo emitir una factura",

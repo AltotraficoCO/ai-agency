@@ -42,6 +42,7 @@ import {
 import { ejecutarTareaMarketing, marketing, type CuentasContext } from "@strappy/marketing";
 import {
   administrativo,
+  AGENTES as AGENTES_ADMINISTRATIVOS,
   ejecutarTareaAdministrativa,
   type LibrosContext,
 } from "@strappy/administrativo";
@@ -237,8 +238,10 @@ export class ConsumidorDeTareas implements Consumidor {
     if (quien === "marketing") {
       return this.#ejecutarMarketing(tarea, motor, registro, decir, cadena, extra, encargo);
     }
-    if (quien === "administrativo") {
-      return this.#ejecutarAdministrativo(tarea, motor, registro, decir, cadena, extra, encargo);
+    // Dos puestos, un mismo paquete: el Administrativo toca la contabilidad y
+    // Reportes solo la mira. Comparten adaptador, así que comparten camino.
+    if (quien === "administrativo" || quien === "reportes") {
+      return this.#ejecutarAdministrativo(quien, tarea, motor, registro, decir, cadena, extra, encargo);
     }
     if (quien === "disenador") {
       return this.#ejecutarDisenador(tarea, motor, registro, decir, cadena, extra, encargo);
@@ -584,6 +587,7 @@ export class ConsumidorDeTareas implements Consumidor {
   // -------------------------------------------------------------------------
 
   async #ejecutarAdministrativo(
+    quien: string,
     tarea: TareaReclamada,
     motor: MotorTarea,
     registro: RegistroDePasos,
@@ -593,6 +597,9 @@ export class ConsumidorDeTareas implements Consumidor {
     encargo?: { titulo: string; detalle: string },
   ): Promise<ResultadoTarea> {
     const { puertos } = this.#o;
+    // El oficio decide qué herramientas tiene: Reportes no lleva las que
+    // escriben, así que no puede emitir nada aunque se lo pidan.
+    const oficio = AGENTES_ADMINISTRATIVOS[quien] ?? administrativo;
     const libros: LibrosDelNegocio = puertos.libros
       ? await puertos.libros.cargar({
           workspaceId: tarea.workspaceId,
@@ -601,11 +608,11 @@ export class ConsumidorDeTareas implements Consumidor {
       : {
           conexionId: tarea.siteId,
           negocio: "tu negocio",
-          agentName: administrativo.label,
+          agentName: oficio.label,
         };
 
     decir(
-      `"${tarea.titulo}" → ${administrativo.slug} · ` +
+      `"${tarea.titulo}" → ${oficio.slug} · ` +
         `${libros.contabilidad ? libros.contabilidad.sistema : "sin contabilidad conectada"} · ` +
         `${motor.modelId}${motor.modo ? ` (${motor.modo})` : ""}` +
         (libros.primerContacto ? " (simulación)" : ""),
@@ -623,7 +630,7 @@ export class ConsumidorDeTareas implements Consumidor {
     };
 
     const colaboracionA = this.#colaboracion(
-      "administrativo",
+      oficio.slug,
       tarea,
       motor,
       registro,
@@ -631,10 +638,10 @@ export class ConsumidorDeTareas implements Consumidor {
       cadena,
       extra,
     );
-    const companerosA = await this.#companeros("administrativo", tarea.workspaceId);
+    const companerosA = await this.#companeros(oficio.slug, tarea.workspaceId);
 
     return ejecutarTareaAdministrativa({
-      agent: administrativo,
+      agent: oficio,
       model: motor.model,
       modelId: motor.modelId,
       rates: motor.rates,

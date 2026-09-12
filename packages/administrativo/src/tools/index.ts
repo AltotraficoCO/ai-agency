@@ -9,11 +9,13 @@
  */
 import { ToolRegistry, type ToolDef } from "@strappy/tools";
 import { HERRAMIENTAS_LECTURA } from "./lectura.js";
+import { HERRAMIENTAS_INFORME } from "./informe.js";
 import { HERRAMIENTAS_DOCUMENTOS } from "./documentos.js";
 import { HERRAMIENTAS_COBROS } from "./cobros.js";
 import { HERRAMIENTAS_CONFIRMACION } from "./confirmacion.js";
 
 export * from "./lectura.js";
+export * from "./informe.js";
 export * from "./documentos.js";
 export * from "./cobros.js";
 export * from "./confirmacion.js";
@@ -21,6 +23,7 @@ export * from "./comun.js";
 
 export const HERRAMIENTAS_ADMINISTRATIVO: readonly ToolDef<never, unknown>[] = [
   ...HERRAMIENTAS_LECTURA,
+  ...HERRAMIENTAS_INFORME,
   ...HERRAMIENTAS_DOCUMENTOS,
   ...HERRAMIENTAS_COBROS,
   ...HERRAMIENTAS_CONFIRMACION,

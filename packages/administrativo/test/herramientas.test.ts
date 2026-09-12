@@ -259,7 +259,8 @@ describe("el recordatorio se escribe, no se envía", () => {
 
 describe("el registro de trabajo y el catálogo de herramientas", () => {
   it("las ocho herramientas están registradas y ninguna pide datos del runtime", () => {
-    expect(HERRAMIENTAS_ADMINISTRATIVO).toHaveLength(8);
+    // 8 del Administrativo + el informe del negocio, que usa el de Reportes.
+    expect(HERRAMIENTAS_ADMINISTRATIVO).toHaveLength(9);
     for (const h of HERRAMIENTAS_ADMINISTRATIVO) {
       expect(h.slug).toMatch(/^[a-z][a-z0-9_]*$/);
     }
