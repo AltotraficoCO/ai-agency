@@ -10,17 +10,15 @@
  * así que solo se leen unas pocas claves conocidas e inofensivas.
  */
 
-export type EstadoPaso = "en_curso" | "hecho" | "error" | "esperando";
+/**
+ * El tipo vive en `@strappy/agentes`: lo comparten los cinco oficios, y el
+ * worker y la web lo leen igual venga de quien venga. Estaba copiado byte a
+ * byte en cada paquete, así que añadir un estado nuevo al armazón habría dejado
+ * a los demás atrás sin que nada avisara.
+ */
+import type { EstadoPaso, PasoTrabajo } from "@strappy/agentes";
 
-export type PasoTrabajo = {
-  readonly id: string;
-  readonly herramienta: string;
-  readonly etiqueta: string;
-  readonly estado: EstadoPaso;
-  readonly detalle: string | null;
-  /** ISO 8601. */
-  readonly en: string;
-};
+export type { EstadoPaso, PasoTrabajo };
 
 /** En gerundio y sin siglas: lo lee el dueño del negocio, no un anunciante. */
 const ETIQUETAS: Readonly<Record<string, string>> = {

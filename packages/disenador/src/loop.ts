@@ -15,19 +15,16 @@
  *  · **El contador.** El tope de imágenes por encargo es lo único que impide
  *    que un encargo mal entendido se coma el saldo dibujando variaciones.
  */
-import type { LanguageModel, ModelMessage, ToolApprovalResponse } from "ai";
 import {
-  bloqueDeCompaneros,
-  ejecutarTareaDeAgente,
+  contextoComun,
   filtrarHerramientas,
-  type ColaboracionPort,
-  type Companero,
+  lanzarOficio,
+  oficioComun,
+  type EntradaComunDeAgente,
   type OficioDelAgente,
   type ResultadoTarea,
-  type TareaEncargo,
 } from "@strappy/agentes";
 import type { ToolDef } from "@strappy/tools";
-import type { RateTable } from "@strappy/core";
 import type { DisenadorAgentDef } from "./agent.js";
 import { huellaAccion } from "./aprobacion.js";
 import type { DisenadorContext } from "./context.js";
@@ -49,30 +46,12 @@ export function herramientasDe(agent: DisenadorAgentDef): readonly ToolDef<never
   return filtrarHerramientas(HERRAMIENTAS_DISENADOR, agent.allowedToolPatterns);
 }
 
-export type EjecucionDisenador = {
+/** Lo común a todos los agentes por encargo, más lo que solo tiene este. */
+export type EjecucionDisenador = EntradaComunDeAgente & {
   readonly agent: DisenadorAgentDef;
-  readonly model: LanguageModel;
-  readonly modelId: string;
-  readonly rates: RateTable;
-  readonly workspaceId: string;
-  readonly agentId?: string;
-  /** Nombre con el que el cliente conoce a su agente. */
-  readonly agentName: string;
   /** Cómo se llama el negocio: el agente habla de él por su nombre. */
   readonly negocio: string;
   readonly diseno: DisenoContext;
-  readonly tarea: TareaEncargo;
-  readonly mensajesPrevios?: readonly ModelMessage[];
-  readonly aprobaciones?: readonly ToolApprovalResponse[];
-  readonly abortSignal?: AbortSignal;
-  readonly onEvento?: (mensaje: string) => void;
-  readonly alAvanzar?: (paso: import("./pasos.js").PasoTrabajo) => void;
-  /** Compañeros contratados a los que puede pedir ayuda. Vacío: trabaja solo. */
-  readonly companeros?: readonly Companero[];
-  /** Quién ejecuta el encargo del compañero. Sin esto no se puede delegar. */
-  readonly colaboracion?: ColaboracionPort;
-  /** Agentes que ya intervinieron en esta cadena. Vacío si lo pidió una persona. */
-  readonly cadena?: readonly string[];
 };
 
 export async function ejecutarTareaDisenador(
@@ -98,35 +77,27 @@ export async function ejecutarTareaDisenador(
   };
 
   const contexto: DisenadorContext = {
-    workspaceId: input.workspaceId,
-    ...(input.agentId ? { agentId: input.agentId } : {}),
-    agentRunId: tarea.id,
-    dryRun: simulacion,
-    scopes: agent.scopes,
-    ports: {},
-    now: () => new Date(),
+    ...contextoComun(input, agent, simulacion),
     diseno,
   };
 
   const oficio: OficioDelAgente = {
-    slug: agent.slug,
-    herramientas: herramientasDe(agent),
-    maxAcciones: agent.maxAcciones,
-    timeoutMs: agent.timeoutMs,
-    sistema:
-      agent.prompt({
+    ...oficioComun({
+      agent,
+      herramientas: herramientasDe(agent),
+      sistema: agent.prompt({
         agentName: input.agentName,
         negocio: input.negocio,
         maxImagenes: diseno.maxImagenes ?? MAX_IMAGENES_POR_ENCARGO,
         creditosPorImagen: diseno.creditosPorImagen ?? CREDITOS_POR_IMAGEN,
         estiloMedido: diseno.estilo?.origen === "sitio",
         modoSimulacion: simulacion,
-      }) + bloqueDeCompaneros(input.companeros ?? []),
-    contexto,
-    ...(input.colaboracion ? { colaboracion: input.colaboracion } : {}),
-    ...(input.cadena ? { cadena: input.cadena } : {}),
-    etiquetaDePaso,
-    detalleDePaso,
+      }),
+      contexto,
+      etiquetaDePaso,
+      detalleDePaso,
+      comun: input,
+    }),
     // Las credenciales del sitio viven dentro del adaptador de medios y la
     // clave de la cartera dentro del de imágenes: no hay nada que tapar aquí.
     limpiarSecretos: (texto) => texto,
@@ -140,20 +111,7 @@ export async function ejecutarTareaDisenador(
     capturas: () => capturas,
   };
 
-  return ejecutarTareaDeAgente({
-    oficio,
-    model: input.model,
-    modelId: input.modelId,
-    rates: input.rates,
-    workspaceId: input.workspaceId,
-    tarea,
-    simulacion,
-    ...(input.mensajesPrevios ? { mensajesPrevios: input.mensajesPrevios } : {}),
-    ...(input.aprobaciones ? { aprobaciones: input.aprobaciones } : {}),
-    ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
-    ...(input.onEvento ? { onEvento: input.onEvento } : {}),
-    ...(input.alAvanzar ? { alAvanzar: input.alAvanzar } : {}),
-  });
+  return lanzarOficio(input, oficio, simulacion);
 }
 
 /**

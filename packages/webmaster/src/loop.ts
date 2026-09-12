@@ -18,18 +18,16 @@
  * sistema de créditos, un agente cuyo gasto no se puede medir no se puede
  * vender.
  */
-import type { LanguageModel, ModelMessage, ToolApprovalResponse } from "ai";
 import {
-  bloqueDeCompaneros,
-  ejecutarTareaDeAgente,
+  contextoComun,
   filtrarHerramientas,
+  lanzarOficio,
+  oficioComun,
   type CapturaEvidencia,
-  type ColaboracionPort,
-  type Companero,
+  type EntradaComunDeAgente,
   type OficioDelAgente,
 } from "@strappy/agentes";
 import { redactSecrets, type ToolDef } from "@strappy/tools";
-import type { RateTable } from "@strappy/core";
 import type { SkillAgentDef } from "./agent.js";
 import type { WebmasterContext } from "./context.js";
 import type { ColectorCapturas, SitioContext } from "./ports.js";
@@ -50,7 +48,7 @@ export type {
 } from "@strappy/agentes";
 export { extraerResumen, quitarRazonamiento } from "@strappy/agentes";
 
-import type { ResultadoTarea, TareaEncargo } from "@strappy/agentes";
+import type { ResultadoTarea } from "@strappy/agentes";
 
 // ---------------------------------------------------------------------------
 // Filtro de herramientas: deny by default
@@ -64,35 +62,10 @@ export function herramientasDe(agent: SkillAgentDef): readonly ToolDef<never, un
 // Entrada
 // ---------------------------------------------------------------------------
 
-export type EjecucionInput = {
+/** Lo común a todos los agentes por encargo, más el sitio del cliente. */
+export type EjecucionInput = EntradaComunDeAgente & {
   readonly agent: SkillAgentDef;
-  readonly model: LanguageModel;
-  /** Identificador del modelo tal cual se pide al proveedor. Para tarificar. */
-  readonly modelId: string;
-  readonly rates: RateTable;
-  readonly workspaceId: string;
-  readonly agentId?: string;
-  readonly agentName: string;
   readonly sitio: SitioContext;
-  readonly tarea: TareaEncargo;
-  /** Mensajes previos, si se está reanudando tras una aprobación. */
-  readonly mensajesPrevios?: readonly ModelMessage[];
-  /** Decisiones humanas que hay que inyectar antes de continuar. */
-  readonly aprobaciones?: readonly ToolApprovalResponse[];
-  readonly abortSignal?: AbortSignal;
-  readonly onEvento?: (mensaje: string) => void;
-  /**
-   * Registro de trabajo en vivo: se llama al empezar cada herramienta
-   * (`en_curso`), al terminar (`hecho` o `error`) y cuando algo queda
-   * esperando un clic (`esperando`). Un fallo aquí nunca para el trabajo.
-   */
-  readonly alAvanzar?: (paso: PasoTrabajo) => void;
-  /** Compañeros contratados a los que puede pedir ayuda. Vacío: trabaja solo. */
-  readonly companeros?: readonly Companero[];
-  /** Quién ejecuta el encargo del compañero. Sin esto no se puede delegar. */
-  readonly colaboracion?: ColaboracionPort;
-  /** Agentes que ya intervinieron en esta cadena. Vacío si lo pidió una persona. */
-  readonly cadena?: readonly string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -119,32 +92,24 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
   };
 
   const contexto: WebmasterContext = {
-    workspaceId: input.workspaceId,
-    ...(input.agentId ? { agentId: input.agentId } : {}),
-    agentRunId: tarea.id,
-    dryRun: simulacion,
-    scopes: agent.scopes,
-    ports: {},
-    now: () => new Date(),
+    ...contextoComun(input, agent, simulacion),
     sitio: { ...sitio, capturas: colector },
   };
 
   const oficio: OficioDelAgente = {
-    slug: agent.slug,
-    herramientas: herramientasDe(agent),
-    maxAcciones: agent.maxAcciones,
-    timeoutMs: agent.timeoutMs,
-    sistema:
-      agent.prompt({
+    ...oficioComun({
+      agent,
+      herramientas: herramientasDe(agent),
+      sistema: agent.prompt({
         agentName: input.agentName,
         siteUrl: urlVisible(sitio),
         modoSimulacion: simulacion,
-      }) + bloqueDeCompaneros(input.companeros ?? []),
-    contexto,
-    ...(input.colaboracion ? { colaboracion: input.colaboracion } : {}),
-    ...(input.cadena ? { cadena: input.cadena } : {}),
-    etiquetaDePaso,
-    detalleDePaso,
+      }),
+      contexto,
+      etiquetaDePaso,
+      detalleDePaso,
+      comun: input,
+    }),
     limpiarSecretos: (texto) => limpiarSecretos(texto, sitio),
     describirSolicitud,
     // La misma que calculan las herramientas del Webmaster y con la que la web
@@ -157,20 +122,7 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
     capturas: () => capturas,
   };
 
-  return ejecutarTareaDeAgente({
-    oficio,
-    model: input.model,
-    modelId: input.modelId,
-    rates: input.rates,
-    workspaceId: input.workspaceId,
-    tarea,
-    simulacion,
-    ...(input.mensajesPrevios ? { mensajesPrevios: input.mensajesPrevios } : {}),
-    ...(input.aprobaciones ? { aprobaciones: input.aprobaciones } : {}),
-    ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
-    ...(input.onEvento ? { onEvento: input.onEvento } : {}),
-    ...(input.alAvanzar ? { alAvanzar: input.alAvanzar } : {}),
-  });
+  return lanzarOficio(input, oficio, simulacion);
 }
 
 // ---------------------------------------------------------------------------

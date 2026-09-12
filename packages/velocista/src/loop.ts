@@ -11,19 +11,16 @@
  * tests rellenan los dobles. Por eso el agente se puede probar entero hoy,
  * aunque no haya clave de Google puesta todavía.
  */
-import type { LanguageModel, ModelMessage, ToolApprovalResponse } from "ai";
 import {
-  bloqueDeCompaneros,
-  ejecutarTareaDeAgente,
+  contextoComun,
   filtrarHerramientas,
-  type ColaboracionPort,
-  type Companero,
+  lanzarOficio,
+  oficioComun,
+  type EntradaComunDeAgente,
   type OficioDelAgente,
   type ResultadoTarea,
-  type TareaEncargo,
 } from "@strappy/agentes";
 import type { ToolDef } from "@strappy/tools";
-import type { RateTable } from "@strappy/core";
 import type { VelocistaAgentDef } from "./agent.js";
 import { huellaAccion } from "./aprobacion.js";
 import type { VelocistaContext } from "./context.js";
@@ -37,30 +34,12 @@ export function herramientasDe(agent: VelocistaAgentDef): readonly ToolDef<never
   return filtrarHerramientas(HERRAMIENTAS_VELOCISTA, agent.allowedToolPatterns);
 }
 
-export type EjecucionVelocista = {
+/** Lo común a todos los agentes por encargo, más lo que solo tiene este. */
+export type EjecucionVelocista = EntradaComunDeAgente & {
   readonly agent: VelocistaAgentDef;
-  readonly model: LanguageModel;
-  readonly modelId: string;
-  readonly rates: RateTable;
-  readonly workspaceId: string;
-  readonly agentId?: string;
-  /** Nombre con el que el cliente conoce a su agente. */
-  readonly agentName: string;
   /** Cómo se llama el negocio: el agente habla de él por su nombre. */
   readonly negocio: string;
   readonly velocidad: VelocidadContext;
-  readonly tarea: TareaEncargo;
-  readonly mensajesPrevios?: readonly ModelMessage[];
-  readonly aprobaciones?: readonly ToolApprovalResponse[];
-  readonly abortSignal?: AbortSignal;
-  readonly onEvento?: (mensaje: string) => void;
-  readonly alAvanzar?: (paso: import("./pasos.js").PasoTrabajo) => void;
-  /** Compañeros contratados a los que puede pedir ayuda. Vacío: trabaja solo. */
-  readonly companeros?: readonly Companero[];
-  /** Quién ejecuta el encargo del compañero. Sin esto no se puede delegar. */
-  readonly colaboracion?: ColaboracionPort;
-  /** Agentes que ya intervinieron en esta cadena. Vacío si lo pidió una persona. */
-  readonly cadena?: readonly string[];
   /**
    * Credenciales descifradas que nunca pueden salir en un texto del cliente.
    * La clave del medidor es nuestra, no suya, y aun así se tapa: los errores de
@@ -74,35 +53,27 @@ export async function ejecutarTareaVelocista(input: EjecucionVelocista): Promise
   const simulacion = Boolean(velocidad.primerContacto);
 
   const contexto: VelocistaContext = {
-    workspaceId: input.workspaceId,
-    ...(input.agentId ? { agentId: input.agentId } : {}),
-    agentRunId: tarea.id,
-    dryRun: simulacion,
-    scopes: agent.scopes,
-    ports: {},
-    now: () => new Date(),
+    ...contextoComun(input, agent, simulacion),
     velocidad,
   };
 
   const tapar = crearTapadera(input.secretos ?? []);
 
   const oficio: OficioDelAgente = {
-    slug: agent.slug,
-    herramientas: herramientasDe(agent),
-    maxAcciones: agent.maxAcciones,
-    timeoutMs: agent.timeoutMs,
-    sistema:
-      agent.prompt({
+    ...oficioComun({
+      agent,
+      herramientas: herramientasDe(agent),
+      sistema: agent.prompt({
         agentName: input.agentName,
         negocio: input.negocio,
         sitioUrl: velocidad.sitio?.url ?? "su web",
         modoSimulacion: simulacion,
-      }) + bloqueDeCompaneros(input.companeros ?? []),
-    contexto,
-    ...(input.colaboracion ? { colaboracion: input.colaboracion } : {}),
-    ...(input.cadena ? { cadena: input.cadena } : {}),
-    etiquetaDePaso,
-    detalleDePaso,
+      }),
+      contexto,
+      etiquetaDePaso,
+      detalleDePaso,
+      comun: input,
+    }),
     limpiarSecretos: tapar,
     describirSolicitud,
     // La misma que usan las herramientas de este paquete al pasar por la puerta
@@ -113,20 +84,7 @@ export async function ejecutarTareaVelocista(input: EjecucionVelocista): Promise
     motivoAprobacion: "instala algo en la web del negocio",
   };
 
-  return ejecutarTareaDeAgente({
-    oficio,
-    model: input.model,
-    modelId: input.modelId,
-    rates: input.rates,
-    workspaceId: input.workspaceId,
-    tarea,
-    simulacion,
-    ...(input.mensajesPrevios ? { mensajesPrevios: input.mensajesPrevios } : {}),
-    ...(input.aprobaciones ? { aprobaciones: input.aprobaciones } : {}),
-    ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
-    ...(input.onEvento ? { onEvento: input.onEvento } : {}),
-    ...(input.alAvanzar ? { alAvanzar: input.alAvanzar } : {}),
-  });
+  return lanzarOficio(input, oficio, simulacion);
 }
 
 /** Cualquier cabecera de autenticación, venga como venga. */

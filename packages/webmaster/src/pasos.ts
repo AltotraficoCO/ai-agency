@@ -12,20 +12,15 @@
  * conocidas e inofensivas, y nunca una cuyo nombre huela a secreto.
  */
 
-export type EstadoPaso = "en_curso" | "hecho" | "error" | "esperando";
+/**
+ * El tipo vive en `@strappy/agentes`: lo comparten los cinco oficios, y el
+ * worker y la web lo leen igual venga de quien venga. Estaba copiado byte a
+ * byte en cada paquete, así que añadir un estado nuevo al armazón habría dejado
+ * a los demás atrás sin que nada avisara.
+ */
+import type { EstadoPaso, PasoTrabajo } from "@strappy/agentes";
 
-export type PasoTrabajo = {
-  /** Estable dentro del encargo (el `toolCallId`): sirve de clave y para fusionar. */
-  readonly id: string;
-  /** Slug de la herramienta, p. ej. `wp_leer_plantilla_elementor`. */
-  readonly herramienta: string;
-  readonly etiqueta: string;
-  readonly estado: EstadoPaso;
-  /** Una línea de contexto: qué página, qué plugin, el motivo del error. */
-  readonly detalle: string | null;
-  /** ISO 8601 del momento en que empezó el paso. */
-  readonly en: string;
-};
+export type { EstadoPaso, PasoTrabajo };
 
 /** Qué está haciendo, en gerundio y para alguien que no sabe qué es un slug. */
 const ETIQUETAS: Readonly<Record<string, string>> = {
