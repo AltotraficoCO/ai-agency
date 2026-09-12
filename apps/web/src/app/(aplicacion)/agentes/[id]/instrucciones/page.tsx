@@ -43,9 +43,18 @@ export default async function PaginaInstrucciones({
         agentId={id}
         inicial={agente.spec}
         publicado={agente.publicado}
-        {...(agente.tipo === "conversational"
-          ? { cabecera: <SelectorFoto agentId={id} actual={agente.avatar} nombre={agente.nombre} /> }
-          : {})}
+        cabecera={
+          // La cara se cambia AQUI, en la pantalla del agente, venga de donde
+          // venga. Antes solo se ofrecia a los de WhatsApp, asi que a un agente
+          // contratado no habia forma de cambiarsela desde su propia ficha: el
+          // cliente lo busco justo aqui, que es donde tiene sentido buscarlo.
+          <SelectorFoto
+            agentId={id}
+            actual={agente.avatar}
+            nombre={agente.nombre}
+            variante={agente.tipo === "conversational" ? "whatsapp" : "catalogo"}
+          />
+        }
       />
     </MarcoApp>
   );

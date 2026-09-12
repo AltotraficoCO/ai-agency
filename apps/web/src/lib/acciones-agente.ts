@@ -181,6 +181,9 @@ export async function cambiarCaraAgente(agentId: string, cara: string): Promise<
     if (cambiado.catalog_slug) revalidatePath(`/contratar/${cambiado.catalog_slug}`);
     revalidatePath("/agentes");
     revalidatePath(`/agentes/${agentId}`);
+    // La cara se cambia desde la propia pantalla del agente: si no se refresca,
+    // el cliente elige otra y sigue viendo la de antes hasta que recarga.
+    revalidatePath(`/agentes/${agentId}/instrucciones`);
     return { ok: true };
   } catch (error) {
     return { ok: false, error: mensaje(error) };
