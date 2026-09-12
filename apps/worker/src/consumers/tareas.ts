@@ -126,9 +126,21 @@ function esDefinitivo(mensaje: string): boolean {
   );
 }
 
+/**
+ * El slug con el que se busca el oficio.
+ *
+ * Se compara en minúsculas y sin espacios porque llega de dos sitios distintos:
+ * la columna `agente` de la tarea y el `slug` que un agente escribe al pedirle
+ * ayuda a un compañero. Un modelo que escriba «Velocista » con mayúscula o con
+ * un espacio de más nombraba un oficio que existe y se llevaba un rechazo.
+ */
+function normalizarSlug(valor: string): string {
+  return valor.trim().toLowerCase();
+}
+
 /** Quién ejecuta el encargo. Sin valor, el Webmaster: es lo que eran todos. */
 function agenteDeLaTarea(tarea: TareaReclamada): string {
-  return (tarea.agente ?? "webmaster").trim() || "webmaster";
+  return normalizarSlug(tarea.agente ?? "webmaster") || "webmaster";
 }
 
 export class ConsumidorDeTareas implements Consumidor {
@@ -260,7 +272,11 @@ export class ConsumidorDeTareas implements Consumidor {
    * sitio del cliente: el agente financiero acabaría tocando WordPress.
    */
   async #ejecutarAgente(quien: string, e: Encargo): Promise<ResultadoTarea> {
-    switch (quien) {
+    // Se normaliza AQUI y no en cada entrada: este es el unico punto por el que
+    // pasan los dos caminos, el encargo del cliente y la delegacion de un
+    // companero. El mensaje de rechazo conserva lo que escribio quien llamo,
+    // para que se vea que nombro un oficio que no existe.
+    switch (normalizarSlug(quien)) {
       case "webmaster":
         return this.#ejecutarWebmaster(e);
       case "marketing":
@@ -533,7 +549,11 @@ export class ConsumidorDeTareas implements Consumidor {
     const { puertos } = this.#o;
     // El oficio decide qué herramientas tiene: Reportes no lleva las que
     // escriben, así que no puede emitir nada aunque se lo pidan.
-    const oficio = AGENTES_ADMINISTRATIVOS[quien] ?? administrativo;
+    // Sin respaldo a `administrativo`: era una red que dependia de quien
+    // llamara. Hoy el enrutado solo manda aqui dos slugs, pero un tercero
+    // acabaria emitiendo facturas con el oficio equivocado en vez de fallar.
+    const oficio = AGENTES_ADMINISTRATIVOS[normalizarSlug(quien)];
+    if (!oficio) return this.#oficioDesconocido(quien, e);
     const libros: LibrosDelNegocio = puertos.libros
       ? await puertos.libros.cargar({
           workspaceId: tarea.workspaceId,

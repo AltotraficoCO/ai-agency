@@ -31,7 +31,7 @@ class SitiosVacios implements SitePort {
   async marcarTocado(): Promise<void> {}
 }
 
-function montar(guion: readonly PasoGuion[], o: { conContabilidad?: boolean } = {}) {
+function montar(guion: readonly PasoGuion[], o: { conContabilidad?: boolean; slug?: string } = {}) {
   const cola = new ColaEnMemoria();
   const aprobaciones = new AprobacionesEnMemoria();
   const contabilidad = new ContabilidadEnMemoria();
@@ -78,7 +78,7 @@ function montar(guion: readonly PasoGuion[], o: { conContabilidad?: boolean } = 
     id: "task_1",
     workspaceId: "ws_1",
     siteId: null,
-    agente: "administrativo",
+    agente: o.slug ?? "administrativo",
     titulo: "¿Cuánto nos deben?",
     detalle: "Dime qué está vencido y qué es lo más urgente.",
   });
@@ -176,5 +176,35 @@ describe("encargo del agente financiero", () => {
     const tarea = m.cola.buscar("task_1")!;
     expect(tarea.resumen).not.toContain("tok_secretisimo_123456");
     expect(tarea.resumen).toContain("***");
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("a quién se manda el encargo", () => {
+  it("un slug con espacios o mayúsculas nombra al mismo oficio", async () => {
+    // Lo escribe un modelo, no un formulario: cuando un agente le pide ayuda a
+    // un compañero teclea su nombre, y «Reportes » con un espacio nombraba un
+    // oficio que existe y se llevaba un rechazo.
+    const m = montar([{ dice: "RESUMEN: te deben 42 millones." }], { slug: "  Reportes  " });
+
+    expect(await m.consumidor.tick()).toBe(true);
+
+    const tarea = m.cola.buscar("task_1")!;
+    expect(tarea.estado).toBe("done");
+    expect(tarea.resumen).toContain("42 millones");
+  });
+
+  it("un oficio que este worker no sabe ejecutar se rechaza, no cae en otro", async () => {
+    // El respaldo anterior mandaba cualquier slug desconocido al Administrativo,
+    // que SÍ puede emitir facturas. Un nombre mal escrito acababa con el oficio
+    // equivocado tocando la contabilidad del cliente en vez de fallar.
+    const m = montar([{ dice: "RESUMEN: no debería llegar aquí." }], { slug: "contable" });
+
+    expect(await m.consumidor.tick()).toBe(true);
+
+    const tarea = m.cola.buscar("task_1")!;
+    expect(tarea.estado).not.toBe("done");
+    expect(m.contabilidad.escrituras()).toBe(0);
   });
 });
