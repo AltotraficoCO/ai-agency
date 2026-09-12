@@ -57,7 +57,7 @@ export const PLANES: readonly Plan[] = [
   {
     clave: "starter",
     nombre: "Pro",
-    precioUsd: 99,
+    precioUsd: 100,
     creditosIncluidos: 100_000,
     resumen: "Un negocio que ya atiende todos los días por WhatsApp.",
     incluye: [
@@ -72,7 +72,7 @@ export const PLANES: readonly Plan[] = [
   {
     clave: "growth",
     nombre: "Scale-Up",
-    precioUsd: 499,
+    precioUsd: 500,
     creditosIncluidos: 500_000,
     resumen: "Varios equipos, varios números y volumen sostenido.",
     incluye: [
@@ -86,7 +86,7 @@ export const PLANES: readonly Plan[] = [
   {
     clave: "business",
     nombre: "Prime",
-    precioUsd: 1_499,
+    precioUsd: 1_500,
     creditosIncluidos: 1_500_000,
     resumen: "Operación grande con acompañamiento y acuerdos de servicio.",
     incluye: [
@@ -130,15 +130,18 @@ export type Recarga = {
 };
 
 /**
- * Las recargas se venden al mismo precio unitario que el plan Pro (0,00099
- * USD/crédito), sin descuento por volumen: el descuento por volumen es lo que
- * distingue a un plan superior, y si la recarga lo igualara nadie subiría de
- * plan.
+ * Todo se vende al valor nominal del crédito: 0,001 USD, sin descuento por
+ * volumen.
+ *
+ * Con el margen del 3,0x anterior un descuento del 5% apenas se notaba. Con el
+ * 20% acordado en sep-2026 (migración 0025), regalar el 5% se lleva un cuarto
+ * del margen, y la recarga de 500 se llevaba casi la mitad. Lo que distingue a
+ * un plan superior no es el precio del crédito, sino lo que trae alrededor.
  */
 export const RECARGAS: readonly Recarga[] = [
   { clave: "r25", creditos: 25_000, precioUsd: 25, precioStripeEnv: "STRIPE_PRECIO_RECARGA_25" },
-  { clave: "r100", creditos: 100_000, precioUsd: 99, precioStripeEnv: "STRIPE_PRECIO_RECARGA_100" },
-  { clave: "r500", creditos: 500_000, precioUsd: 475, precioStripeEnv: "STRIPE_PRECIO_RECARGA_500" },
+  { clave: "r100", creditos: 100_000, precioUsd: 100, precioStripeEnv: "STRIPE_PRECIO_RECARGA_100" },
+  { clave: "r500", creditos: 500_000, precioUsd: 500, precioStripeEnv: "STRIPE_PRECIO_RECARGA_500" },
 ];
 
 export function recargaPorClave(clave: string | null | undefined): Recarga | null {
