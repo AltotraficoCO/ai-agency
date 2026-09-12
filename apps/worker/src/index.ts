@@ -10,6 +10,7 @@
 import { leerConfig } from "./config.js";
 import { ColaPostgres } from "./queue/postgres.js";
 import { AprobacionesPostgres, BackupsPostgres, SitiosPostgres } from "./adaptadores/postgres.js";
+import { CuentasPostgres } from "./adaptadores/cuentas.js";
 import { MotorPorPlan } from "./adaptadores/motor.js";
 import { ConsumidorDeTareas } from "./consumers/tareas.js";
 import { ConsumidorDeVigilancia } from "./consumers/vigilancia.js";
@@ -63,6 +64,9 @@ async function main(): Promise<void> {
       sitios: new SitiosPostgres(pool, config.claveMaestra),
       backups: new BackupsPostgres(pool),
       aprobaciones: new AprobacionesPostgres(pool),
+      // Las cuentas de publicidad del espacio. Mientras los accesos de Google
+      // y Meta no estén aprobados llega sin plataformas, y el agente lo dice.
+      cuentas: new CuentasPostgres(pool),
     },
     workerId: config.workerId,
     motorPara: (tarea) => motor.para(tarea),

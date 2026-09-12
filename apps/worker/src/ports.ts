@@ -17,6 +17,7 @@ import type {
   EstadoVigilancia,
   WpCreds,
 } from "@strappy/webmaster";
+import type { AdsPort, AnalyticsPort } from "@strappy/marketing";
 
 // ---------------------------------------------------------------------------
 // Driver SQL
@@ -48,7 +49,18 @@ export interface SqlConnection extends SqlExecutor {
 export type TareaReclamada = {
   readonly id: string;
   readonly workspaceId: string;
-  readonly siteId: string;
+  /**
+   * Conexión sobre la que se trabaja. Null cuando el encargo no va sobre un
+   * sitio: un encargo de Marketing apunta a una cuenta de anuncios, y puede
+   * crearse antes de que el cliente conecte ninguna.
+   */
+  readonly siteId: string | null;
+  /**
+   * Quién lo ejecuta: el slug del catálogo (`webmaster`, `marketing`…). Sin
+   * valor se trata como Webmaster, que es lo que eran todos los encargos antes
+   * de que hubiera más de un agente por encargo.
+   */
+  readonly agente?: string;
   readonly agentId?: string;
   readonly titulo: string;
   readonly detalle: string | null;
@@ -155,6 +167,38 @@ export interface SitePort {
 }
 
 // ---------------------------------------------------------------------------
+// Cuentas de publicidad (agente de Marketing)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lo que el agente de Marketing necesita para trabajar en un espacio.
+ *
+ * Se arma por tarea, igual que el sitio del Webmaster: las plataformas
+ * conectadas son del cliente y no del proceso. Hoy el adaptador real está
+ * pendiente de los accesos de Google y Meta, así que en producción llega sin
+ * plataformas y el agente lo dice en vez de fallar con un error técnico.
+ */
+export type CuentasDeMarketing = {
+  /** Conexión principal del encargo, si la hay: sobre ella cuelgan las aprobaciones. */
+  readonly conexionId: string | null;
+  readonly ads: readonly AdsPort[];
+  readonly analytics?: AnalyticsPort;
+  /** Nombre del negocio: el agente habla de él por su nombre. */
+  readonly negocio: string;
+  /** Nombre con el que el cliente conoce a su agente. */
+  readonly agentName: string;
+  /** Primer contacto con las cuentas: mira y propone, no cambia nada. */
+  readonly primerContacto?: boolean;
+};
+
+export interface CuentasPort {
+  cargar(input: {
+    workspaceId: string;
+    conexionId: string | null;
+  }): Promise<CuentasDeMarketing>;
+}
+
+// ---------------------------------------------------------------------------
 // Vigilancia proactiva del sitio
 // ---------------------------------------------------------------------------
 
@@ -224,4 +268,6 @@ export type PuertosWorker = {
   readonly backups: BackupPort;
   readonly aprobaciones: ApprovalPort;
   readonly notificaciones?: NotificacionPort;
+  /** Sin él, un encargo de Marketing dice que falta conectar las plataformas. */
+  readonly cuentas?: CuentasPort;
 };

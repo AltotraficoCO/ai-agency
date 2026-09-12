@@ -1,132 +1,65 @@
 /**
- * El bucle de herramientas del Webmaster.
+ * El Webmaster, montado sobre el bucle común de los agentes por encargo.
  *
- * Esto es lo que sustituye a OpenCode. El proyecto anterior arrancaba un
- * binario de unos 100 MB por tarea, tardaba entre dos y cinco segundos en
- * levantar y —lo que de verdad lo hacía inviable aquí— no devolvía consumo de
- * tokens: con un sistema de créditos, un agente cuyo gasto no se puede medir
- * no se puede vender. El AI SDK v6 da `usage` normalizado por paso, y eso es
- * exactamente lo que hace falta para cobrar.
+ * El bucle en sí —tope de acciones, freno de repeticiones, registro de trabajo
+ * en vivo, aprobaciones del AI SDK, cobro por tokens y por herramienta, timeout
+ * duro— vive ahora en `@strappy/agentes` y lo comparten todos los agentes que
+ * trabajan por encargo. Aquí queda lo que de verdad es del Webmaster: el sitio
+ * del cliente, sus credenciales, las capturas del navegador y cómo se describe
+ * al cliente lo que hay que aprobar.
  *
- * Del modelo de sandbox del original se conserva lo esencial y se mejora lo
- * que se puede: las credenciales viajan en el contexto inyectado por el
- * runtime y nunca en el prompt, las herramientas están denegadas por defecto
- * (solo se exponen las que el agente declara), toda entrada y salida pasa por
- * el filtro de secretos antes de persistirse, y hay un tope duro de tiempo.
- * El HOME desechable ya no hace falta: no se lanza ningún proceso hijo.
+ * Por qué se separó: el agente de Marketing necesitaba exactamente el mismo
+ * bucle, y copiarlo habría significado dos sitios donde arreglar el próximo
+ * fallo. Lo que NO cambió es el comportamiento: mismos textos, mismos límites,
+ * misma evidencia. Es lo único que hoy factura.
+ *
+ * Esto es lo que sustituyó a OpenCode. El proyecto anterior arrancaba un
+ * binario de unos 100 MB por tarea y no devolvía consumo de tokens: con un
+ * sistema de créditos, un agente cuyo gasto no se puede medir no se puede
+ * vender.
  */
+import type { LanguageModel, ModelMessage, ToolApprovalResponse } from "ai";
 import {
-  generateText,
-  stepCountIs,
-  type LanguageModel,
-  type ModelMessage,
-  type Tool,
-  type ToolApprovalResponse,
-  type ToolExecutionOptions,
-  type ToolSet,
-} from "ai";
-import {
-  redactSecrets,
-  toAiToolSet,
-  type ToolDef,
-  type ToolInvocationLog,
-} from "@strappy/tools";
-import { creditsForUsage, normalizeUsage, type RateTable } from "@strappy/core";
+  ejecutarTareaDeAgente,
+  filtrarHerramientas,
+  type CapturaEvidencia,
+  type OficioDelAgente,
+} from "@strappy/agentes";
+import { redactSecrets, type ToolDef } from "@strappy/tools";
+import type { RateTable } from "@strappy/core";
 import type { SkillAgentDef } from "./agent.js";
 import type { WebmasterContext } from "./context.js";
 import type { ColectorCapturas, SitioContext } from "./ports.js";
 import { huellaAccion } from "./aprobacion.js";
-import { detalleDePaso, etiquetaDePaso, recortar, type PasoTrabajo } from "./pasos.js";
+import { detalleDePaso, etiquetaDePaso, type PasoTrabajo } from "./pasos.js";
 import { HERRAMIENTAS_WEBMASTER } from "./tools/index.js";
+
+// Los tipos del resultado y de la evidencia son los del armazón común: la web,
+// el worker y la facturación ya hablan ese vocabulario.
+export type {
+  AccionRegistrada,
+  CapturaEvidencia,
+  Evidencia,
+  ResultadoTarea,
+  SolicitudAprobacion,
+  TareaEncargo,
+  UsoAgregado,
+} from "@strappy/agentes";
+export { extraerResumen, quitarRazonamiento } from "@strappy/agentes";
+
+import type { ResultadoTarea, TareaEncargo } from "@strappy/agentes";
 
 // ---------------------------------------------------------------------------
 // Filtro de herramientas: deny by default
 // ---------------------------------------------------------------------------
 
-function coincide(patron: string, slug: string): boolean {
-  if (!patron.includes("*")) return patron === slug;
-  const partes = patron.split("*").map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  return new RegExp(`^${partes.join(".*")}$`).test(slug);
-}
-
 export function herramientasDe(agent: SkillAgentDef): readonly ToolDef<never, unknown>[] {
-  return HERRAMIENTAS_WEBMASTER.filter((t) =>
-    agent.allowedToolPatterns.some((p) => coincide(p, t.slug)),
-  );
+  return filtrarHerramientas(HERRAMIENTAS_WEBMASTER, agent.allowedToolPatterns);
 }
-
-// ---------------------------------------------------------------------------
-// Evidencia
-// ---------------------------------------------------------------------------
-
-export type AccionRegistrada = {
-  readonly herramienta: string;
-  readonly entrada: unknown;
-  readonly salida?: unknown;
-  readonly simulada: boolean;
-  readonly duracionMs: number;
-  readonly error?: string;
-  readonly backupId?: string;
-};
-
-export type CapturaEvidencia = {
-  readonly herramienta: string;
-  readonly mimeType: string;
-  readonly url: string;
-  readonly titulo: string;
-  readonly base64: string;
-};
-
-export type SolicitudAprobacion = {
-  readonly id: string;
-  readonly herramienta: string;
-  readonly motivo: string;
-};
-
-export type UsoAgregado = {
-  readonly inputTokens: number;
-  readonly outputTokens: number;
-  readonly cacheReadTokens: number;
-  readonly cacheWriteTokens: number;
-};
-
-export type Evidencia = {
-  readonly acciones: readonly AccionRegistrada[];
-  readonly capturas: readonly CapturaEvidencia[];
-  readonly backups: readonly string[];
-  readonly aprobacionesPendientes: readonly SolicitudAprobacion[];
-  readonly pasos: number;
-  readonly uso: UsoAgregado;
-  readonly creditos: number;
-  readonly modelo: string;
-  readonly simulacion: boolean;
-};
-
-export type ResultadoTarea =
-  | { readonly estado: "completada"; readonly resumen: string; readonly evidencia: Evidencia }
-  | {
-      readonly estado: "esperando_aprobacion";
-      readonly resumen: string;
-      readonly evidencia: Evidencia;
-      /** Conversación completa: se guarda para reanudar cuando alguien decida. */
-      readonly mensajes: readonly ModelMessage[];
-    }
-  | {
-      readonly estado: "fallida";
-      readonly error: string;
-      readonly motivo: "timeout" | "tope_acciones" | "error";
-      readonly evidencia: Evidencia;
-    };
 
 // ---------------------------------------------------------------------------
 // Entrada
 // ---------------------------------------------------------------------------
-
-export type TareaEncargo = {
-  readonly id: string;
-  readonly titulo: string;
-  readonly detalle: string | null;
-};
 
 export type EjecucionInput = {
   readonly agent: SkillAgentDef;
@@ -153,123 +86,17 @@ export type EjecucionInput = {
   readonly alAvanzar?: (paso: PasoTrabajo) => void;
 };
 
-/**
- * Envuelve las herramientas para contar en vivo qué se está haciendo.
- *
- * Se hace en la frontera del AI SDK y no en `onInvocation` porque ese solo
- * avisa al terminar y sin `toolCallId`: sin él no se puede decir «esto que
- * empezó hace un momento ya terminó», y el registro saldría duplicado.
- */
-function conRegistroDePasos(tools: ToolSet, avisar: (paso: Omit<PasoTrabajo, "en">) => void): ToolSet {
-  const envuelto: ToolSet = {};
-  for (const [nombre, herramienta] of Object.entries(tools)) {
-    const ejecutar = herramienta.execute as
-      | ((entrada: unknown, opciones: ToolExecutionOptions) => Promise<unknown>)
-      | undefined;
-    if (!ejecutar) {
-      envuelto[nombre] = herramienta;
-      continue;
-    }
-    const conRegistro: Tool = {
-      ...herramienta,
-      execute: async (entrada: unknown, opciones: ToolExecutionOptions) => {
-        const base = {
-          id: opciones.toolCallId,
-          herramienta: nombre,
-          etiqueta: etiquetaDePaso(nombre, entrada),
-          detalle: detalleDePaso(entrada),
-        };
-        avisar({ ...base, estado: "en_curso" });
-        try {
-          const salida = await ejecutar(entrada, opciones);
-          const espera = (salida as { requiere_aprobacion?: unknown } | null)?.requiere_aprobacion === true;
-          avisar({ ...base, estado: espera ? "esperando" : "hecho" });
-          return salida;
-        } catch (error) {
-          avisar({ ...base, estado: "error", detalle: recortar(error instanceof Error ? error.message : String(error)) });
-          throw error;
-        }
-      },
-    };
-    envuelto[nombre] = conRegistro;
-  }
-  return envuelto;
-}
-
-/** Veces que la misma llamada puede fallar antes de parar la tarea. */
-const MAX_FALLOS_IGUALES = 3;
-
-type Freno = { readonly herramienta: string; readonly veces: number; readonly error: string };
-
-/**
- * Freno de repeticiones: cuenta los fallos por huella exacta (herramienta +
- * entrada normalizada). Sin él, un modelo que no entiende un error repetía la
- * misma llamada hasta el tope de acciones —doce «Invalid post ID» seguidos— y
- * el cliente pagaba cada una.
- *
- * Al segundo fallo igual el error que ve el modelo le prohíbe repetir; al
- * tercero, `alFrenar` marca la tarea para que `stopWhen` la corte. Un acierto
- * con esa misma huella pone su cuenta a cero.
- */
-function conFrenoDeRepeticiones(
-  tools: ToolSet,
-  huella: (nombre: string, entrada: unknown) => string,
-  alFrenar: (freno: Freno) => void,
-): ToolSet {
-  const fallos = new Map<string, number>();
-  const envuelto: ToolSet = {};
-  for (const [nombre, herramienta] of Object.entries(tools)) {
-    const ejecutar = herramienta.execute as
-      | ((entrada: unknown, opciones: ToolExecutionOptions) => Promise<unknown>)
-      | undefined;
-    if (!ejecutar) {
-      envuelto[nombre] = herramienta;
-      continue;
-    }
-    envuelto[nombre] = {
-      ...herramienta,
-      execute: async (entrada: unknown, opciones: ToolExecutionOptions) => {
-        const clave = huella(nombre, entrada);
-        try {
-          const salida = await ejecutar(entrada, opciones);
-          fallos.delete(clave);
-          return salida;
-        } catch (error) {
-          const veces = (fallos.get(clave) ?? 0) + 1;
-          fallos.set(clave, veces);
-          if (veces < 2) throw error;
-          const mensaje = error instanceof Error ? error.message : String(error);
-          if (veces >= MAX_FALLOS_IGUALES) alFrenar({ herramienta: nombre, veces, error: mensaje });
-          throw new Error(
-            `Ya intentaste exactamente esto y falló ${veces} veces con: ${mensaje}. No lo repitas: cambia de enfoque (otra herramienta, otro id, otro tipo) o termina explicando el problema.`,
-          );
-        }
-      },
-    } satisfies Tool;
-  }
-  return envuelto;
-}
-
-/** Lo que lee el cliente cuando el freno para la tarea. */
-function resumenDeFreno(freno: Freno): string {
-  const etiqueta = etiquetaDePaso(freno.herramienta);
-  return `Me detuve porque «${etiqueta}» falló ${freno.veces} veces con exactamente la misma petición: ${recortar(freno.error, 300)}. Repetirla no iba a cambiar el resultado y solo gastaba saldo.`;
-}
-
 // ---------------------------------------------------------------------------
-// El bucle
+// El oficio de Webmaster
 // ---------------------------------------------------------------------------
 
 export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<ResultadoTarea> {
   const { agent, sitio, tarea } = input;
-  const log = input.onEvento ?? (() => {});
   const simulacion = Boolean(sitio.primerContacto);
 
-  const acciones: AccionRegistrada[] = [];
+  // Dónde se acumulan las capturas de ESTA ejecución. Va en el contexto y no en
+  // una variable de módulo: dos tareas del mismo proceso no comparten evidencia.
   const capturas: CapturaEvidencia[] = [];
-  const backups: string[] = [];
-  const pendientes: SolicitudAprobacion[] = [];
-
   const colector: ColectorCapturas = {
     push: (c) => {
       capturas.push({
@@ -293,272 +120,50 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
     sitio: { ...sitio, capturas: colector },
   };
 
-  // Una pregunta al cliente detiene el bucle en ese paso: seguir trabajando sin
-  // la respuesta es justo adivinar lo que el cliente no dijo.
-  let hayPregunta = false;
-
-  const anotar = (l: ToolInvocationLog): void => {
-    const salida = l.output as Record<string, unknown> | undefined;
-    const backupId = typeof salida?.backup_id === "string" ? salida.backup_id : undefined;
-    if (backupId) backups.push(backupId);
-    if (l.slug === "preguntar_al_cliente" && salida?.requiere_aprobacion === true) hayPregunta = true;
-    if (salida?.requiere_aprobacion === true && typeof salida.solicitud_id === "string") {
-      pendientes.push({
-        id: salida.solicitud_id,
-        herramienta: l.slug,
-        motivo: String(salida.motivo ?? ""),
-      });
-    }
-    acciones.push({
-      herramienta: l.slug,
-      entrada: l.input,
-      ...(l.output !== undefined ? { salida: l.output } : {}),
-      simulada: l.simulated,
-      duracionMs: l.durationMs,
-      ...(l.error ? { error: l.error } : {}),
-      ...(backupId ? { backupId } : {}),
-    });
-    log(`${l.slug} · ${l.error ? `error: ${l.error}` : `${l.durationMs} ms`}`);
+  const oficio: OficioDelAgente = {
+    slug: agent.slug,
+    herramientas: herramientasDe(agent),
+    maxAcciones: agent.maxAcciones,
+    timeoutMs: agent.timeoutMs,
+    sistema: agent.prompt({
+      agentName: input.agentName,
+      siteUrl: urlVisible(sitio),
+      modoSimulacion: simulacion,
+    }),
+    contexto,
+    etiquetaDePaso,
+    detalleDePaso,
+    limpiarSecretos: (texto) => limpiarSecretos(texto, sitio),
+    describirSolicitud,
+    // La misma que calculan las herramientas del Webmaster y con la que la web
+    // resuelve las decisiones: si aquí se usara otra, ninguna aprobación se
+    // volvería a encontrar y todo lo sensible quedaría colgado.
+    huella: (toolSlug, entrada) => huellaAccion(sitio.taskId, toolSlug, entrada),
+    aprobaciones: sitio.approvals,
+    conexionId: sitio.siteId,
+    motivoAprobacion: "es una operación de administración del sitio",
+    capturas: () => capturas,
   };
 
-  // Registro de trabajo: nunca debe poder romper la tarea ni filtrar un secreto.
-  const avisar = (paso: Omit<PasoTrabajo, "en">): void => {
-    if (!input.alAvanzar) return;
-    try {
-      input.alAvanzar({
-        ...paso,
-        detalle: paso.detalle ? limpiarSecretos(paso.detalle, sitio) : null,
-        en: new Date().toISOString(),
-      });
-    } catch {
-      // Quien escucha es el worker guardando en la base: si falla, el trabajo sigue.
-    }
-  };
-
-  let freno: Freno | null = null;
-
-  // El freno va por fuera del registro: el paso muestra el error real de
-  // WordPress y solo el modelo lee el aviso de «no lo repitas».
-  const tools: ToolSet = conFrenoDeRepeticiones(
-    conRegistroDePasos(toAiToolSet(herramientasDe(agent), { onInvocation: anotar }), avisar),
-    (nombre, entrada) => huellaAccion(tarea.id, nombre, entrada),
-    (f) => {
-      freno ??= f;
-    },
-  );
-
-  // Timeout duro: el `timeout` del AI SDK acota cada llamada al proveedor, no
-  // el bucle entero. La señal sí lo acota, y es lo que promete el catálogo.
-  const propia = AbortSignal.timeout(agent.timeoutMs);
-  const señal = input.abortSignal ? AbortSignal.any([propia, input.abortSignal]) : propia;
-
-  const sistema = agent.prompt({
-    agentName: input.agentName,
-    siteUrl: urlVisible(sitio),
-    modoSimulacion: simulacion,
-  });
-
-  const mensajes: ModelMessage[] = [...(input.mensajesPrevios ?? [])];
-  if (mensajes.length === 0) {
-    mensajes.push({
-      role: "user",
-      content:
-        `TAREA APROBADA POR EL CLIENTE:\n` +
-        `Título: ${tarea.titulo}\n` +
-        `Detalle: ${tarea.detalle ?? "(sin detalle adicional)"}\n\n` +
-        `Ejecútala ahora siguiendo tu método de trabajo.`,
-    });
-  }
-  if (input.aprobaciones?.length) {
-    // Las respuestas del AI SDK tienen que ser el ÚLTIMO mensaje: el SDK solo
-    // ejecuta una herramienta aprobada si la conversación termina justo en ese
-    // mensaje de herramienta. Poner detrás el aviso de reanudación le hacía
-    // ignorar la aprobación; el modelo la volvía a pedir con la misma huella,
-    // ya aprobada, y la tarea quedaba "en espera" sin botones que pulsar.
-    mensajes.push({ role: "tool", content: [...input.aprobaciones] });
-  } else if (input.mensajesPrevios?.length && mensajes.at(-1)?.role !== "user") {
-    // Se reanuda una aprobación de la propia herramienta (portada, precios):
-    // ahí no hay respuesta que inyectar. Sin este aviso el modelo lee su propio
-    // "no lo reintentes" del intento anterior y cierra sin hacer nada. Si lo
-    // último ya es un mensaje del cliente —la respuesta a una pregunta—, sobra.
-    mensajes.push({
-      role: "user",
-      content:
-        "REANUDACIÓN: una persona ya decidió sobre lo que quedó esperando aprobación. " +
-        "Vuelve a intentar exactamente la acción que dejaste pendiente. Si sigue sin " +
-        "aprobación, la herramienta te lo dirá otra vez y entonces sí lo dejas. " +
-        "Termina la tarea y cierra con RESUMEN.",
-    });
-  }
-
-  let uso: UsoAgregado = {
-    inputTokens: 0,
-    outputTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-  };
-  let creditos = 0;
-  let pasos = 0;
-
-  const evidencia = (): Evidencia => ({
-    acciones,
-    capturas,
-    backups,
-    aprobacionesPendientes: pendientes,
-    pasos,
-    uso,
-    creditos,
-    modelo: input.modelId,
+  return ejecutarTareaDeAgente({
+    oficio,
+    model: input.model,
+    modelId: input.modelId,
+    rates: input.rates,
+    workspaceId: input.workspaceId,
+    tarea,
     simulacion,
+    ...(input.mensajesPrevios ? { mensajesPrevios: input.mensajesPrevios } : {}),
+    ...(input.aprobaciones ? { aprobaciones: input.aprobaciones } : {}),
+    ...(input.abortSignal ? { abortSignal: input.abortSignal } : {}),
+    ...(input.onEvento ? { onEvento: input.onEvento } : {}),
+    ...(input.alAvanzar ? { alAvanzar: input.alAvanzar } : {}),
   });
-
-  try {
-    let textoFinal = "";
-
-    for (let ronda = 0; ; ronda++) {
-      const resultado = await generateText({
-        model: input.model,
-        system: sistema,
-        messages: mensajes,
-        tools,
-        // El tope de acciones del catálogo. No es una sugerencia: es lo que
-        // impide que una tarea mal entendida se coma el saldo del cliente. Y
-        // tras una pregunta al cliente se para: la respuesta decide lo demás.
-        // Y tras el mismo fallo tres veces, también: insistir no lo arregla.
-        stopWhen: [stepCountIs(agent.maxAcciones), () => hayPregunta, () => freno !== null],
-        experimental_context: contexto,
-        abortSignal: señal,
-        timeout: agent.timeoutMs,
-      });
-
-      pasos += resultado.steps.length;
-      for (const paso of resultado.steps) {
-        const n = normalizeUsage(paso.usage);
-        uso = {
-          inputTokens: uso.inputTokens + n.inputTokens,
-          outputTokens: uso.outputTokens + n.outputTokens,
-          cacheReadTokens: uso.cacheReadTokens + (n.cacheReadTokens ?? 0),
-          cacheWriteTokens: uso.cacheWriteTokens + (n.cacheWriteTokens ?? 0),
-        };
-        creditos += creditsForUsage(input.rates, input.modelId, n).credits;
-      }
-      mensajes.push(...resultado.response.messages);
-      textoFinal = resultado.text;
-      if (freno) break;
-
-      // ¿El AI SDK cortó alguna herramienta sensible antes de ejecutarla?
-      const solicitudes = resultado.content.filter(
-        (p): p is Extract<typeof p, { type: "tool-approval-request" }> =>
-          p.type === "tool-approval-request",
-      );
-      const yaDecididas: ToolApprovalResponse[] = [];
-      for (const s of solicitudes) {
-        // `pedir_aprobacion` es la pregunta del propio agente: al cliente se le
-        // enseña su propuesta, no el nombre de una herramienta.
-        const propuesta =
-          s.toolCall.toolName === "pedir_aprobacion"
-            ? String((s.toolCall.input as { propuesta?: unknown } | undefined)?.propuesta ?? "").trim()
-            : "";
-        const registro = await sitio.approvals.request({
-          workspaceId: input.workspaceId,
-          taskId: sitio.taskId,
-          siteId: sitio.siteId,
-          huella: huellaAccion(sitio.taskId, s.toolCall.toolName, s.toolCall.input),
-          toolSlug: s.toolCall.toolName,
-          motivo: propuesta
-            ? "necesito tu confirmación antes de seguir"
-            : "es una operación de administración del sitio",
-          resumen: propuesta || describirSolicitud(s.toolCall.toolName, s.toolCall.input),
-          entrada: redactSecrets(s.toolCall.input),
-        });
-        avisar({
-          id: s.toolCall.toolCallId,
-          herramienta: s.toolCall.toolName,
-          etiqueta: etiquetaDePaso(s.toolCall.toolName, s.toolCall.input),
-          // Aprobada de antes: se ejecutará enseguida y el envoltorio la marcará en curso.
-          estado: registro.decision === "rechazada" ? "error" : "esperando",
-          detalle:
-            registro.decision === "rechazada" ? "Rechazado por una persona" : detalleDePaso(s.toolCall.input),
-        });
-        if (registro.decision) {
-          // Misma acción que una persona ya decidió: se contesta con esa decisión.
-          yaDecididas.push({
-            type: "tool-approval-response",
-            approvalId: s.approvalId,
-            approved: registro.decision === "aprobada",
-            ...(registro.decision === "aprobada" ? {} : { reason: "Una persona ya rechazó esta acción." }),
-          });
-        } else {
-          pendientes.push({
-            id: registro.id,
-            herramienta: s.toolCall.toolName,
-            motivo: propuesta ? "confirmación del cliente" : "operación de administración del sitio",
-          });
-        }
-      }
-
-      // Si todo lo que se cortó ya estaba decidido, esperar un clic sería
-      // dejar la tarea colgada de un botón que nadie puede ver: se sigue.
-      if (yaDecididas.length > 0 && pendientes.length === 0 && ronda < MAX_RONDAS_DECIDIDAS) {
-        mensajes.push({ role: "tool", content: yaDecididas });
-        continue;
-      }
-      break;
-    }
-
-    // Las herramientas también se venden: su coste declarado se suma aparte
-    // del de los tokens, que es lo que separa el precio del coste.
-    for (const a of acciones) {
-      const def = HERRAMIENTAS_WEBMASTER.find((t) => t.slug === a.herramienta);
-      creditos += input.rates.tools?.[a.herramienta] ?? def?.creditCost ?? 0;
-    }
-
-    if (freno) {
-      return {
-        estado: "fallida",
-        motivo: "tope_acciones",
-        error: limpiarSecretos(resumenDeFreno(freno), sitio),
-        evidencia: evidencia(),
-      };
-    }
-
-    const texto = limpiarSecretos(quitarRazonamiento(textoFinal), sitio);
-    const esperando = pendientes.length > 0;
-    const resumen =
-      esperando && !texto.includes("RESUMEN:")
-        ? "Necesito tu aprobación para continuar. Revisa la propuesta y pulsa Aprobar o Rechazar."
-        : extraerResumen(texto, simulacion);
-
-    if (esperando) {
-      return {
-        estado: "esperando_aprobacion",
-        resumen,
-        evidencia: evidencia(),
-        mensajes,
-      };
-    }
-    return { estado: "completada", resumen, evidencia: evidencia() };
-  } catch (error) {
-    const abortada = señal.aborted || (error instanceof Error && error.name === "AbortError");
-    const mensaje = error instanceof Error ? error.message : String(error);
-    return {
-      estado: "fallida",
-      motivo: abortada ? "timeout" : "error",
-      error: limpiarSecretos(mensaje.slice(0, 500), sitio),
-      evidencia: evidencia(),
-    };
-  }
 }
 
 // ---------------------------------------------------------------------------
-// Utilidades
+// Utilidades del oficio
 // ---------------------------------------------------------------------------
-
-/**
- * Rondas extra cuando el modelo vuelve a proponer una acción que una persona ya
- * decidió. Acotadas: un modelo que insiste sin fin no debe comerse el saldo.
- */
-const MAX_RONDAS_DECIDIDAS = 3;
 
 /**
  * Lo que ve el cliente en la tarjeta de aprobación. "wp_instalar_plugin: espera
@@ -591,19 +196,6 @@ export function urlVisible(sitio: SitioContext): string {
 }
 
 /**
- * Quita el razonamiento que algunos modelos (GLM, DeepSeek) escriben dentro del
- * texto con etiquetas <think>. Si llega sin la etiqueta de apertura —pasa
- * cuando el proveedor recorta el principio—, se descarta todo hasta la última
- * de cierre: lo que va antes es el borrador, no la respuesta.
- */
-export function quitarRazonamiento(texto: string): string {
-  let limpio = texto.replace(/<think>[\s\S]*?<\/think>/gi, "");
-  const cierre = limpio.toLowerCase().lastIndexOf("</think>");
-  if (cierre >= 0) limpio = limpio.slice(cierre + "</think>".length);
-  return limpio.replace(/<\/?think>/gi, "").trim();
-}
-
-/**
  * Última red antes de que un texto llegue al cliente. El filtro de secretos de
  * `@strappy/tools` cubre objetos por nombre de clave; esto cubre el caso de
  * que el modelo haya copiado literalmente una credencial en su respuesta.
@@ -613,14 +205,4 @@ export function limpiarSecretos(texto: string, sitio: SitioContext): string {
     (s): s is string => typeof s === "string" && s.length >= 8,
   );
   return secretos.reduce((acc, s) => acc.split(s).join("«oculto»"), texto);
-}
-
-/** El cierre obligatorio. Si el modelo no lo dio, se dice, no se inventa. */
-export function extraerResumen(texto: string, simulacion: boolean): string {
-  const i = texto.lastIndexOf("RESUMEN:");
-  if (i >= 0) return texto.slice(i + "RESUMEN:".length).trim();
-  if (texto) return texto;
-  return simulacion
-    ? "La exploración terminó sin un plan escrito."
-    : "La tarea terminó sin resumen del agente.";
 }

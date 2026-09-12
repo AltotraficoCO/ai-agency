@@ -25,7 +25,8 @@ const MAX_INTENTOS = 3;
 type FilaTarea = {
   id: string;
   workspace_id: string;
-  site_id: string;
+  site_id: string | null;
+  agente: string | null;
   agent_id: string | null;
   titulo: string;
   detalle: string | null;
@@ -84,7 +85,10 @@ export class ColaPostgres implements TaskQueuePort {
         returning t.id, t.workspace_id, t.site_id, t.agent_id, t.titulo,
                   t.detalle, t.intentos, t.mensajes, t.aprobaciones,
                   -- Por fila entera: si la migración 0018 aún no está aplicada, sale null en vez de romper.
-                  to_jsonb(t)->'pasos' as pasos`,
+                  to_jsonb(t)->'pasos' as pasos,
+                  -- Igual con 0029: sin la columna agente sale null, y el
+                  -- consumidor lo trata como Webmaster, que es lo que era.
+                  to_jsonb(t)->>'agente' as agente`,
         [input.workerId, input.arrendamientoMs, this.#maxIntentos],
       );
       await conn.query("commit");
@@ -93,7 +97,8 @@ export class ColaPostgres implements TaskQueuePort {
       return {
         id: fila.id,
         workspaceId: fila.workspace_id,
-        siteId: fila.site_id,
+        siteId: fila.site_id ?? null,
+        ...(fila.agente ? { agente: fila.agente } : {}),
         ...(fila.agent_id ? { agentId: fila.agent_id } : {}),
         titulo: fila.titulo,
         detalle: fila.detalle,

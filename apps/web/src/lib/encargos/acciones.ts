@@ -4,10 +4,10 @@ import { revalidatePath } from "next/cache";
 import { exigirUsuarioActual } from "@/lib/identidad";
 import type { Resultado } from "@/lib/negocio/acciones";
 import {
+  agenteDeEncargos,
   crearEncargo,
   decidirAprobacion,
   eliminarEncargo,
-  esWebmaster,
   responderPregunta,
   vaciarEncargos,
 } from "./encargos";
@@ -20,8 +20,9 @@ export async function accionEncargar(agentId: string, datos: FormData): Promise<
   if (!PAPELES_QUE_ENCARGAN.has(usuario.rol)) {
     return { ok: false, error: "Tu papel en este espacio no permite pedir cambios en el sitio." };
   }
-  if (!(await esWebmaster(usuario.workspaceId, agentId))) {
-    return { ok: false, error: "Este agente no trabaja sobre tu sitio web." };
+  const agente = await agenteDeEncargos(usuario.workspaceId, agentId);
+  if (!agente) {
+    return { ok: false, error: "Este agente no trabaja por encargos: se prueba conversando." };
   }
 
   const resultado = await crearEncargo({
@@ -29,6 +30,7 @@ export async function accionEncargar(agentId: string, datos: FormData): Promise<
     agentId,
     usuarioId: usuario.id,
     texto: String(datos.get("texto") ?? ""),
+    agente,
   });
   if (!resultado.ok) return resultado;
 

@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EmptyState, rutas } from "@strappy/ui";
-import { EncargosWebmaster } from "@/components/encargos-webmaster";
+import {
+  EncargosWebmaster,
+  OFICIO_MARKETING,
+  OFICIO_WEBMASTER,
+} from "@/components/encargos-webmaster";
 import { EnlaceBoton } from "@/components/enlace-boton";
 import { MarcoApp } from "@/components/marco-app";
 import { SimuladorChat } from "@/components/simulador-chat";
@@ -14,7 +18,7 @@ import {
   accionResponderPregunta,
   accionVaciarEncargos,
 } from "@/lib/encargos/acciones";
-import { encargosDelAgente, esWebmaster } from "@/lib/encargos/encargos";
+import { agenteDeEncargos, encargosDelAgente } from "@/lib/encargos/encargos";
 import { abrirSesion, leerHistorial, listarSesiones } from "@/lib/motor/simulador";
 import { hayModeloReal } from "@/lib/motor/modelo";
 import { avisosDelSitio } from "@/lib/sitio/avisos-sitio";
@@ -39,16 +43,20 @@ export default async function PaginaProbar({
   const seccion = seccionDe(agente.tipo);
   const nombreAgente = agente.spec.identidad.nombre || agente.nombre;
 
-  // El Webmaster no se prueba conversando: se le encargan cambios reales en el
-  // sitio y los ejecuta el worker. Por el simulador solo podía escalar a una
-  // persona, que es justo lo que no tiene que hacer. Ver lib/encargos.
-  if (await esWebmaster(marco.actual.workspaceId, id)) {
+  // Los agentes por encargo no se prueban conversando: se les encarga trabajo
+  // real y lo ejecuta el worker. Por el simulador solo podían escalar a una
+  // persona, que es justo lo que no tienen que hacer. Ver lib/encargos.
+  const porEncargo = await agenteDeEncargos(marco.actual.workspaceId, id);
+  if (porEncargo) {
+    const esWeb = porEncargo === "webmaster";
     const [sitio, encargos, avisos] = await Promise.all([
-      sitioDelEspacio(marco.actual.workspaceId),
+      // Marketing no trabaja sobre el WordPress: sus cuentas de anuncios se
+      // conectan aparte y todavía no hay adaptador de ninguna plataforma.
+      esWeb ? sitioDelEspacio(marco.actual.workspaceId) : Promise.resolve(null),
       encargosDelAgente(marco.actual.workspaceId, id),
       // Lo que vio vigilando por su cuenta: se lee aquí porque es donde la
       // persona mira cuando piensa en su web.
-      avisosDelSitio(marco.actual.workspaceId),
+      esWeb ? avisosDelSitio(marco.actual.workspaceId) : Promise.resolve([]),
     ]);
     return (
       <MarcoApp
@@ -61,6 +69,7 @@ export default async function PaginaProbar({
       >
         <EncargosWebmaster
           nombreAgente={nombreAgente}
+          oficio={esWeb ? OFICIO_WEBMASTER : OFICIO_MARKETING}
           sitio={sitio && sitio.estado === "active" ? { nombre: sitio.nombre, url: sitio.url } : null}
           encargos={encargos}
           avisos={avisos.map((a) => ({

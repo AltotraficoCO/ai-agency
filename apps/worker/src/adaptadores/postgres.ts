@@ -86,7 +86,8 @@ export class AprobacionesPostgres implements ApprovalPort {
   async request(input: {
     workspaceId: string;
     taskId: string;
-    siteId: string;
+    /** Null desde 0029: un encargo puede no colgar de ninguna conexión. */
+    siteId: string | null;
     huella: string;
     toolSlug: string;
     motivo: string;

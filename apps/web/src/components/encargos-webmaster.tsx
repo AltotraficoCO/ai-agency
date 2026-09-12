@@ -37,6 +37,82 @@ import { RegistroTrabajo } from "@/components/conversacion/registro-trabajo";
 
 const FOTO_WEBMASTER = "/agentes/webmaster-plastilina.webp";
 
+/**
+ * Lo que cambia de un agente por encargo a otro.
+ *
+ * La pantalla es la misma —historial, encargos, aprobaciones, registro de
+ * trabajo en vivo— porque la forma de trabajar es la misma. Lo que no puede ser
+ * igual son las palabras: a un agente de publicidad no se le dice «conecta tu
+ * sitio web», y sus ejemplos no son cambiar el pie de página.
+ */
+export type OficioEncargos = {
+  readonly foto: string;
+  /** Lo que se lee mientras trabaja: «Trabajando en tu web…». */
+  readonly trabajando: string;
+  /** De qué depende para poder trabajar. */
+  readonly conexion: {
+    /** Cómo se nombra lo conectado: «Trabaja en misitio.com». */
+    readonly conectado: (nombre: string) => string;
+    readonly sinConectar: string;
+    readonly aviso: (nombreAgente: string) => string;
+    readonly ctaTexto: string;
+    readonly ctaHref: string;
+    /** Si sin ello no puede hacer absolutamente nada. */
+    readonly bloquea: boolean;
+  };
+  readonly ejemplos: readonly string[];
+  readonly placeholder: (nombreAgente: string) => string;
+  readonly invitacion: string;
+};
+
+export const OFICIO_WEBMASTER: OficioEncargos = {
+  foto: FOTO_WEBMASTER,
+  trabajando: "Trabajando en tu web…",
+  conexion: {
+    conectado: (nombre) => `Trabaja en ${nombre}`,
+    sinConectar: "Sin sitio conectado",
+    aviso: (agente) => `Conecta tu sitio para que ${agente} pueda hacer cambios en él.`,
+    ctaTexto: "Conectar mi sitio",
+    ctaHref: "/ajustes/sitio",
+    // Sin WordPress no hay nada que tocar: mejor decirlo antes de encargar.
+    bloquea: true,
+  },
+  ejemplos: [
+    "Cambia el teléfono del pie de página por 300 123 4567",
+    "Añade un enlace a Instagram en el pie de página",
+    "Crea una página de contacto con un formulario",
+    "Revisa si hay plugins sin actualizar",
+  ],
+  placeholder: (agente) => `¿Qué quieres que ${agente} cambie en tu sitio?`,
+  invitacion:
+    "Lo hace él mismo en tu sitio, guarda una copia antes y te pide permiso en lo delicado. Verás cada paso mientras trabaja.",
+};
+
+export const OFICIO_MARKETING: OficioEncargos = {
+  foto: "/agentes/marketing-plastilina.webp",
+  trabajando: "Revisando tus campañas…",
+  conexion: {
+    conectado: (nombre) => `Mira tus cuentas de ${nombre}`,
+    sinConectar: "Sin plataformas conectadas",
+    aviso: (agente) =>
+      `Conecta Google Ads o Facebook para que ${agente} pueda ver tus campañas. Mientras tanto puede responder con lo que sepa de tu negocio.`,
+    ctaTexto: "Conectar mis plataformas",
+    ctaHref: "/canales",
+    // Sin plataformas igual puede mirar y explicar qué le falta: encargar no
+    // se bloquea, porque una respuesta honesta vale más que un botón apagado.
+    bloquea: false,
+  },
+  ejemplos: [
+    "¿Cómo van mis campañas esta semana?",
+    "¿En qué estoy tirando el dinero?",
+    "Pausa la campaña que no trae clientes",
+    "Súbele el presupuesto a la que mejor funciona",
+  ],
+  placeholder: (agente) => `¿Qué quieres que revise ${agente}?`,
+  invitacion:
+    "Mira lo que gastas en anuncios, te dice qué está trayendo clientes y qué no, y te propone los cambios. Nunca mueve tu dinero sin que lo apruebes.",
+};
+
 const EN_CURSO = new Set<EncargoVista["estado"]>(["queued", "running"]);
 
 const ETIQUETAS: Record<EncargoVista["estado"], { texto: string; tono: TonoHistorial }> = {
@@ -47,13 +123,6 @@ const ETIQUETAS: Record<EncargoVista["estado"], { texto: string; tono: TonoHisto
   failed: { texto: "Falló", tono: "error" },
   cancelled: { texto: "Cancelado", tono: "neutral" },
 };
-
-const EJEMPLOS = [
-  "Cambia el teléfono del pie de página por 300 123 4567",
-  "Añade un enlace a Instagram en el pie de página",
-  "Crea una página de contacto con un formulario",
-  "Revisa si hay plugins sin actualizar",
-];
 
 type Acciones = {
   decidir: (aprobacionId: string, aprobada: boolean) => Promise<Resultado>;
@@ -79,6 +148,7 @@ export function EncargosWebmaster({
   sitio,
   encargos,
   avisos = [],
+  oficio = OFICIO_WEBMASTER,
   encargar,
   decidir,
   responder,
@@ -86,8 +156,11 @@ export function EncargosWebmaster({
   vaciar,
 }: {
   nombreAgente: string;
+  /** Lo que tiene conectado: el sitio del Webmaster, las cuentas de Marketing. */
   sitio: { nombre: string; url: string } | null;
   encargos: EncargoVista[];
+  /** Qué agente por encargo es. Por defecto, el Webmaster. */
+  oficio?: OficioEncargos;
   /** Lo que el Webmaster vio al vigilar el sitio, de lo más reciente a lo más viejo. */
   avisos?: AvisoDelSitio[];
   encargar: (datos: FormData) => Promise<Resultado>;
@@ -190,7 +263,7 @@ export function EncargosWebmaster({
         {/* ── Quién trabaja y dónde ──────────────────────────────────────── */}
         <div className="shrink-0 border-b-2 border-[var(--border-subtle)]">
           <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-6 py-3">
-            <FotoWebmaster size={44} trabajando={trabajando} />
+            <FotoAgente src={oficio.foto} size={44} trabajando={trabajando} />
             <div className="flex min-w-0 flex-1 flex-col">
               <p className="truncate font-display text-base font-semibold text-fg">{nombreAgente}</p>
               {sitio ? (
@@ -201,17 +274,17 @@ export function EncargosWebmaster({
                   className="inline-flex w-fit items-center gap-1.5 truncate text-2xs text-fg-muted transition-colors hover:text-primary-fg"
                 >
                   <Globe size={12} aria-hidden />
-                  Trabaja en {sitio.nombre}
+                  {oficio.conexion.conectado(sitio.nombre)}
                   <ExternalLink size={11} aria-hidden />
                 </a>
               ) : (
-                <p className="text-2xs text-warning-fg">Sin sitio conectado</p>
+                <p className="text-2xs text-warning-fg">{oficio.conexion.sinConectar}</p>
               )}
             </div>
             {trabajando ? (
               <span className="strappy-pop-in inline-flex items-center gap-2 rounded-full border-2 border-[color-mix(in_oklab,var(--brand),transparent_60%)] bg-primary-soft px-3 py-1 text-sm font-semibold text-primary-fg">
                 <IndicadorEscribiendo etiqueta={`${nombreAgente} está trabajando`} />
-                Trabajando en tu web…
+                {oficio.trabajando}
               </span>
             ) : esperaRespuesta ? (
               <Badge tone="aviso">
@@ -226,11 +299,9 @@ export function EncargosWebmaster({
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 py-6">
             {!sitio && (
               <div className="flex flex-col gap-3 rounded-xl border-2 border-warning/40 bg-warning-soft px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-warning-fg">
-                  Conecta tu sitio para que {nombreAgente} pueda hacer cambios en él.
-                </p>
+                <p className="text-sm text-warning-fg">{oficio.conexion.aviso(nombreAgente)}</p>
                 <Button asChild size="sm" className="w-fit">
-                  <Link href="/ajustes/sitio">Conectar mi sitio</Link>
+                  <Link href={oficio.conexion.ctaHref}>{oficio.conexion.ctaTexto}</Link>
                 </Button>
               </div>
             )}
@@ -251,20 +322,17 @@ export function EncargosWebmaster({
 
             {encargos.length === 0 && (
               <div className="strappy-slide-up flex flex-col items-center gap-4 py-10 text-center">
-                <FotoWebmaster size={112} trabajando={false} />
+                <FotoAgente src={oficio.foto} size={112} trabajando={false} />
                 <div className="flex flex-col gap-1">
-                  <p className="font-display text-xl font-semibold text-fg">Encárgale un cambio a {nombreAgente}</p>
-                  <p className="max-w-[52ch] text-base text-fg-secondary">
-                    Lo hace él mismo en tu sitio, guarda una copia antes y te pide permiso en lo delicado. Verás
-                    cada paso mientras trabaja.
-                  </p>
+                  <p className="font-display text-xl font-semibold text-fg">Encárgale algo a {nombreAgente}</p>
+                  <p className="max-w-[52ch] text-base text-fg-secondary">{oficio.invitacion}</p>
                 </div>
                 <div className="flex flex-wrap justify-center gap-2">
-                  {EJEMPLOS.map((ejemplo) => (
+                  {oficio.ejemplos.map((ejemplo) => (
                     <button
                       key={ejemplo}
                       type="button"
-                      disabled={!sitio}
+                      disabled={oficio.conexion.bloquea && !sitio}
                       onClick={() => usarEjemplo(ejemplo)}
                       className="cursor-pointer rounded-full border-2 border-border bg-raised px-3.5 py-2 text-sm text-fg-secondary shadow-e1 transition-[color,border-color,transform] duration-[var(--dur-base)] ease-[var(--ease-spring)] hover:-translate-y-0.5 hover:border-[color-mix(in_oklab,var(--brand),transparent_50%)] hover:text-fg active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -281,6 +349,7 @@ export function EncargosWebmaster({
                   key={encargo.id}
                   encargo={encargo}
                   nombreAgente={nombreAgente}
+                  foto={oficio.foto}
                   resaltado={seleccionado === encargo.id}
                   decidir={decidir}
                   responder={responder}
@@ -310,9 +379,11 @@ export function EncargosWebmaster({
                     if (texto.trim()) formulario.current?.requestSubmit();
                   }
                 }}
-                disabled={!sitio || pendiente}
+                disabled={(oficio.conexion.bloquea && !sitio) || pendiente}
                 placeholder={
-                  sitio ? `¿Qué quieres que ${nombreAgente} cambie en tu sitio?` : "Conecta tu sitio para encargar cambios"
+                  sitio || !oficio.conexion.bloquea
+                    ? oficio.placeholder(nombreAgente)
+                    : "Conecta tu sitio para encargar cambios"
                 }
                 className="min-h-12 flex-1 resize-none border-0 bg-transparent shadow-none focus-visible:outline-none"
               />
@@ -320,7 +391,7 @@ export function EncargosWebmaster({
                 type="submit"
                 loading={pendiente}
                 loadingLabel="Encargando"
-                disabled={!sitio || !texto.trim()}
+                disabled={(oficio.conexion.bloquea && !sitio) || !texto.trim()}
                 aria-label="Encargar"
               >
                 <Send size={16} aria-hidden />
@@ -373,7 +444,15 @@ function AvisoDeVigilancia({ aviso }: { aviso: AvisoDelSitio }) {
   );
 }
 
-function FotoWebmaster({ size, trabajando }: { size: number; trabajando: boolean }) {
+function FotoAgente({
+  src,
+  size,
+  trabajando,
+}: {
+  src: string;
+  size: number;
+  trabajando: boolean;
+}) {
   return (
     <span className="relative inline-grid shrink-0 place-items-center" style={{ width: size, height: size }}>
       {trabajando ? (
@@ -389,7 +468,7 @@ function FotoWebmaster({ size, trabajando }: { size: number; trabajando: boolean
         )}
       >
         <Image
-          src={FOTO_WEBMASTER}
+          src={src}
           alt=""
           width={size * 3}
           height={size * 3}
@@ -403,11 +482,17 @@ function FotoWebmaster({ size, trabajando }: { size: number; trabajando: boolean
 function Encargo({
   encargo,
   nombreAgente,
+  foto,
   resaltado,
   decidir,
   responder,
   eliminar,
-}: { encargo: EncargoVista; nombreAgente: string; resaltado: boolean } & Acciones) {
+}: {
+  encargo: EncargoVista;
+  nombreAgente: string;
+  foto: string;
+  resaltado: boolean;
+} & Acciones) {
   const router = useRouter();
   const [borrando, setBorrando] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -455,10 +540,10 @@ function Encargo({
         </div>
       </div>
 
-      {/* Lo que hace o contesta el Webmaster */}
+      {/* Lo que hace o contesta el agente */}
       <div className="flex items-start gap-2.5">
         <span className="mt-1">
-          <FotoWebmaster size={32} trabajando={encargo.estado === "running"} />
+          <FotoAgente src={foto} size={32} trabajando={encargo.estado === "running"} />
         </span>
         <div className="flex min-w-0 max-w-[88%] flex-1 flex-col gap-3 rounded-2xl rounded-tl-md border-2 border-[var(--border-subtle)] bg-raised px-4 py-3 shadow-e1">
           <div className="flex items-center gap-2">

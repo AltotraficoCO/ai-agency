@@ -11,9 +11,11 @@
     "probar-sitio": "tsx scripts/probar-sitio.ts"
   },
   "dependencies": {
+    "@strappy/agentes": "workspace:*",
     "@strappy/analysis": "workspace:*",
     "@strappy/core": "workspace:*",
     "@strappy/db": "workspace:*",
+    "@strappy/marketing": "workspace:*",
     "@strappy/tools": "workspace:*",
     "@strappy/webmaster": "workspace:*",
     "ai": "6.0.271",

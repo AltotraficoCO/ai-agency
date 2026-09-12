@@ -1,11 +1,15 @@
 /**
  * Consumidor de tareas por encargo.
  *
- * Reclama una tarea, arma el contexto del sitio, ejecuta el bucle de
- * herramientas del Webmaster y escribe el desenlace: resumen legible, lista de
- * acciones, capturas de verificación e identificadores de backup.
+ * Reclama una tarea, arma el contexto del agente que le toca, ejecuta su bucle
+ * de herramientas y escribe el desenlace: resumen legible, lista de acciones,
+ * capturas de verificación e identificadores de backup.
  *
  * Decisiones que no son de estilo:
+ *  - **Quién ejecuta se lee, no se adivina.** Antes se deducía del tipo del
+ *    sitio, que solo valía mientras el único agente por encargo fuera el
+ *    Webmaster. Ahora la fila dice `agente` (ver migración 0029) y sin valor se
+ *    trata como Webmaster, que es lo que eran todos los encargos de antes.
  *  - Las credenciales se descifran aquí y viven solo en el contexto que se
  *    inyecta a las herramientas. Nunca entran al prompt.
  *  - Mientras la tarea corre se renueva el arrendamiento. Una tarea de nueve
@@ -20,6 +24,7 @@
 import { randomUUID } from "node:crypto";
 import type { LanguageModel, ModelMessage, ToolApprovalResponse } from "ai";
 import type { RateTable } from "@strappy/core";
+import type { ResultadoTarea } from "@strappy/agentes";
 import {
   agentePara,
   ejecutarTareaWebmaster,
@@ -29,7 +34,14 @@ import {
   type SitioContext,
   type WpCreds,
 } from "@strappy/webmaster";
-import type { MotorTarea, PuertosWorker, SitioConectado, TareaReclamada } from "../ports.js";
+import { ejecutarTareaMarketing, marketing, type CuentasContext } from "@strappy/marketing";
+import type {
+  CuentasDeMarketing,
+  MotorTarea,
+  PuertosWorker,
+  SitioConectado,
+  TareaReclamada,
+} from "../ports.js";
 import { RegistroDePasos } from "./pasos.js";
 import type { Consumidor } from "./tipos.js";
 
@@ -66,6 +78,11 @@ function esDefinitivo(mensaje: string): boolean {
   return /credencial|indescifrable|no está conectado|desconocid|inválid|APP_ENCRYPTION_KEY|créditos disponibles|OPENROUTER_API_KEY|AI_GATEWAY_API_KEY/i.test(
     mensaje,
   );
+}
+
+/** Quién ejecuta el encargo. Sin valor, el Webmaster: es lo que eran todos. */
+function agenteDeLaTarea(tarea: TareaReclamada): string {
+  return (tarea.agente ?? "webmaster").trim() || "webmaster";
 }
 
 export class ConsumidorDeTareas implements Consumidor {
@@ -115,7 +132,7 @@ export class ConsumidorDeTareas implements Consumidor {
     // Una clave por intento: reanudar tras una aprobación es otro gasto, pero
     // reintentar el cobro de ESTE intento no debe cobrarlo dos veces.
     const intento = randomUUID();
-    // Lo que el Webmaster va haciendo, guardado en vivo para que la web lo enseñe.
+    // Lo que el agente va haciendo, guardado en vivo para que la web lo enseñe.
     const registro = new RegistroDePasos({
       previos: tarea.pasos,
       guardar: (pasos) => puertos.cola.registrarPasos({ taskId: tarea.id, workerId, pasos }),
@@ -129,16 +146,6 @@ export class ConsumidorDeTareas implements Consumidor {
     }, this.#o.latidoMs);
 
     try {
-      const sitio = await puertos.sitios.cargar({
-        workspaceId: tarea.workspaceId,
-        siteId: tarea.siteId,
-      });
-      if (!sitio) {
-        throw new Error(
-          "El sitio no está conectado. El cliente debe conectarlo antes de que pueda trabajar en él.",
-        );
-      }
-
       const motor = await this.#motor(tarea);
       if (motor.saldo && (await motor.saldo()) <= 0) {
         throw new Error(
@@ -146,45 +153,11 @@ export class ConsumidorDeTareas implements Consumidor {
         );
       }
 
-      const agent = agentePara(sitio.tipo);
-      decir(
-        `"${tarea.titulo}" → ${agent.slug} @ ${sitio.url} · ${motor.modelId}${motor.modo ? ` (${motor.modo})` : ""}` +
-          (sitio.primerContacto ? " (simulación)" : ""),
-      );
-
-      const navegador = await this.#abrirNavegador(sitio, decir);
-      const contextoSitio: SitioContext = {
-        siteId: sitio.id,
-        taskId: tarea.id,
-        tipo: sitio.tipo,
-        ...(sitio.tipo === "custom"
-          ? { conector: sitio.credenciales as ConectorCreds }
-          : { wp: sitio.credenciales as WpCreds }),
-        backups: puertos.backups,
-        approvals: puertos.aprobaciones,
-        ...(navegador ? { browser: navegador } : {}),
-        ...(this.#o.referencias ? { referencias: this.#o.referencias } : {}),
-        ...(this.#o.fetchSitio ? { fetch: this.#o.fetchSitio } : {}),
-        primerContacto: sitio.primerContacto,
-      };
-
-      const resultado = await ejecutarTareaWebmaster({
-        agent,
-        model: motor.model,
-        modelId: motor.modelId,
-        rates: motor.rates,
-        workspaceId: tarea.workspaceId,
-        ...(tarea.agentId ? { agentId: tarea.agentId } : {}),
-        agentName: sitio.agentName,
-        sitio: contextoSitio,
-        tarea: { id: tarea.id, titulo: tarea.titulo, detalle: tarea.detalle },
-        ...(tarea.mensajes ? { mensajesPrevios: tarea.mensajes as ModelMessage[] } : {}),
-        ...(tarea.aprobaciones
-          ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] }
-          : {}),
-        onEvento: decir,
-        alAvanzar: (paso) => registro.anotar(paso),
-      });
+      const quien = agenteDeLaTarea(tarea);
+      const resultado =
+        quien === "marketing"
+          ? await this.#ejecutarMarketing(tarea, motor, registro, decir)
+          : await this.#ejecutarWebmaster(tarea, motor, registro, decir);
       await registro.cerrar(resultado.estado);
 
       if (motor.cobrar) {
@@ -199,81 +172,7 @@ export class ConsumidorDeTareas implements Consumidor {
           .catch((e) => decir(`no se pudo cobrar: ${e instanceof Error ? e.message : String(e)}`));
       }
 
-      // Con simulación no se tocó el sitio, así que sigue siendo primer
-      // contacto: el próximo encargo ejecuta de verdad solo si esta vez se
-      // ejecutó de verdad.
-      if (!resultado.evidencia.simulacion && resultado.estado !== "fallida") {
-        await puertos.sitios.marcarTocado({
-          workspaceId: tarea.workspaceId,
-          siteId: sitio.id,
-        });
-      }
-
-      switch (resultado.estado) {
-        case "completada": {
-          await puertos.cola.completar({
-            taskId: tarea.id,
-            workerId,
-            resumen: resultado.resumen,
-            evidencia: resultado.evidencia,
-            creditos: resultado.evidencia.creditos,
-          });
-          await puertos.notificaciones?.avisar({
-            workspaceId: tarea.workspaceId,
-            taskId: tarea.id,
-            tipo: "resultado",
-            texto: resultado.resumen,
-          });
-          decir(`listo · ${resultado.evidencia.acciones.length} acciones, ${resultado.evidencia.creditos} créditos`);
-          break;
-        }
-        case "esperando_aprobacion": {
-          await puertos.cola.suspender({
-            taskId: tarea.id,
-            workerId,
-            resumen: resultado.resumen,
-            evidencia: resultado.evidencia,
-            creditos: resultado.evidencia.creditos,
-            mensajes: resultado.mensajes,
-          });
-          await puertos.notificaciones?.avisar({
-            workspaceId: tarea.workspaceId,
-            taskId: tarea.id,
-            tipo: "aprobacion",
-            texto: resultado.resumen,
-          });
-          decir(`en espera · ${resultado.evidencia.aprobacionesPendientes.length} aprobaciones`);
-          break;
-        }
-        case "fallida": {
-          await puertos.cola.fallar({
-            taskId: tarea.id,
-            workerId,
-            error: resultado.error,
-            motivo: resultado.motivo,
-            evidencia: resultado.evidencia,
-            // Un freno por fallo repetido volvería a tropezar igual, y empezar
-            // de cero podría duplicar lo que ya se creó.
-            reintentable:
-              resultado.motivo !== "timeout" &&
-              resultado.motivo !== "tope_acciones" &&
-              !esDefinitivo(resultado.error),
-          });
-          await puertos.notificaciones?.avisar({
-            workspaceId: tarea.workspaceId,
-            taskId: tarea.id,
-            tipo: "error",
-            texto:
-              resultado.motivo === "timeout"
-                ? `La tarea "${tarea.titulo}" se pasó del tiempo permitido. No dejé cambios sin backup.`
-                : resultado.motivo === "tope_acciones"
-                  ? `Detuve "${tarea.titulo}" porque repetía el mismo fallo. No dejé cambios sin backup: revisa el registro de trabajo y pídemelo de nuevo.`
-                  : `Algo falló ejecutando "${tarea.titulo}". No dejé cambios sin backup: puedes pedírmelo de nuevo.`,
-          });
-          decir(`fallo (${resultado.motivo}): ${resultado.error}`);
-          break;
-        }
-      }
+      await this.#cerrarTarea(tarea, resultado, decir);
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : String(error);
       await registro.cerrar("fallida");
@@ -291,6 +190,217 @@ export class ConsumidorDeTareas implements Consumidor {
     } finally {
       clearInterval(latido);
       await this.cerrar();
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // El Webmaster: igual que siempre
+  // -------------------------------------------------------------------------
+
+  async #ejecutarWebmaster(
+    tarea: TareaReclamada,
+    motor: MotorTarea,
+    registro: RegistroDePasos,
+    decir: (m: string) => void,
+  ): Promise<ResultadoTarea> {
+    const { puertos } = this.#o;
+    if (!tarea.siteId) {
+      throw new Error(
+        "El sitio no está conectado. El cliente debe conectarlo antes de que pueda trabajar en él.",
+      );
+    }
+    const sitio = await puertos.sitios.cargar({
+      workspaceId: tarea.workspaceId,
+      siteId: tarea.siteId,
+    });
+    if (!sitio) {
+      throw new Error(
+        "El sitio no está conectado. El cliente debe conectarlo antes de que pueda trabajar en él.",
+      );
+    }
+
+    const agent = agentePara(sitio.tipo);
+    decir(
+      `"${tarea.titulo}" → ${agent.slug} @ ${sitio.url} · ${motor.modelId}${motor.modo ? ` (${motor.modo})` : ""}` +
+        (sitio.primerContacto ? " (simulación)" : ""),
+    );
+
+    const navegador = await this.#abrirNavegador(sitio, decir);
+    const contextoSitio: SitioContext = {
+      siteId: sitio.id,
+      taskId: tarea.id,
+      tipo: sitio.tipo,
+      ...(sitio.tipo === "custom"
+        ? { conector: sitio.credenciales as ConectorCreds }
+        : { wp: sitio.credenciales as WpCreds }),
+      backups: puertos.backups,
+      approvals: puertos.aprobaciones,
+      ...(navegador ? { browser: navegador } : {}),
+      ...(this.#o.referencias ? { referencias: this.#o.referencias } : {}),
+      ...(this.#o.fetchSitio ? { fetch: this.#o.fetchSitio } : {}),
+      primerContacto: sitio.primerContacto,
+    };
+
+    const resultado = await ejecutarTareaWebmaster({
+      agent,
+      model: motor.model,
+      modelId: motor.modelId,
+      rates: motor.rates,
+      workspaceId: tarea.workspaceId,
+      ...(tarea.agentId ? { agentId: tarea.agentId } : {}),
+      agentName: sitio.agentName,
+      sitio: contextoSitio,
+      tarea: { id: tarea.id, titulo: tarea.titulo, detalle: tarea.detalle },
+      ...(tarea.mensajes ? { mensajesPrevios: tarea.mensajes as ModelMessage[] } : {}),
+      ...(tarea.aprobaciones ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] } : {}),
+      onEvento: decir,
+      alAvanzar: (paso) => registro.anotar(paso),
+    });
+
+    // Con simulación no se tocó el sitio, así que sigue siendo primer
+    // contacto: el próximo encargo ejecuta de verdad solo si esta vez se
+    // ejecutó de verdad.
+    if (!resultado.evidencia.simulacion && resultado.estado !== "fallida") {
+      await puertos.sitios.marcarTocado({ workspaceId: tarea.workspaceId, siteId: sitio.id });
+    }
+    return resultado;
+  }
+
+  // -------------------------------------------------------------------------
+  // Marketing
+  // -------------------------------------------------------------------------
+
+  async #ejecutarMarketing(
+    tarea: TareaReclamada,
+    motor: MotorTarea,
+    registro: RegistroDePasos,
+    decir: (m: string) => void,
+  ): Promise<ResultadoTarea> {
+    const { puertos } = this.#o;
+    const cuentas: CuentasDeMarketing = puertos.cuentas
+      ? await puertos.cuentas.cargar({
+          workspaceId: tarea.workspaceId,
+          conexionId: tarea.siteId,
+        })
+      : {
+          conexionId: tarea.siteId,
+          ads: [],
+          negocio: "tu negocio",
+          agentName: marketing.label,
+        };
+
+    decir(
+      `"${tarea.titulo}" → ${marketing.slug} · ${cuentas.ads.length} plataforma(s) · ` +
+        `${motor.modelId}${motor.modo ? ` (${motor.modo})` : ""}` +
+        (cuentas.primerContacto ? " (simulación)" : ""),
+    );
+
+    const contexto: CuentasContext = {
+      conexionId: cuentas.conexionId ?? "",
+      taskId: tarea.id,
+      ads: cuentas.ads,
+      ...(cuentas.analytics ? { analytics: cuentas.analytics } : {}),
+      approvals: puertos.aprobaciones,
+      // El backup solo tiene dónde colgarse si hay conexión: sin ella no hay
+      // nada que revertir todavía.
+      ...(cuentas.conexionId ? { backups: puertos.backups } : {}),
+      ...(cuentas.primerContacto ? { primerContacto: true } : {}),
+    };
+
+    return ejecutarTareaMarketing({
+      agent: marketing,
+      model: motor.model,
+      modelId: motor.modelId,
+      rates: motor.rates,
+      workspaceId: tarea.workspaceId,
+      ...(tarea.agentId ? { agentId: tarea.agentId } : {}),
+      agentName: cuentas.agentName,
+      negocio: cuentas.negocio,
+      cuentas: contexto,
+      tarea: { id: tarea.id, titulo: tarea.titulo, detalle: tarea.detalle },
+      ...(tarea.mensajes ? { mensajesPrevios: tarea.mensajes as ModelMessage[] } : {}),
+      ...(tarea.aprobaciones ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] } : {}),
+      onEvento: decir,
+      alAvanzar: (paso) => registro.anotar(paso),
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Cierre, igual para cualquier agente
+  // -------------------------------------------------------------------------
+
+  async #cerrarTarea(
+    tarea: TareaReclamada,
+    resultado: ResultadoTarea,
+    decir: (m: string) => void,
+  ): Promise<void> {
+    const { puertos, workerId } = this.#o;
+    switch (resultado.estado) {
+      case "completada": {
+        await puertos.cola.completar({
+          taskId: tarea.id,
+          workerId,
+          resumen: resultado.resumen,
+          evidencia: resultado.evidencia,
+          creditos: resultado.evidencia.creditos,
+        });
+        await puertos.notificaciones?.avisar({
+          workspaceId: tarea.workspaceId,
+          taskId: tarea.id,
+          tipo: "resultado",
+          texto: resultado.resumen,
+        });
+        decir(
+          `listo · ${resultado.evidencia.acciones.length} acciones, ${resultado.evidencia.creditos} créditos`,
+        );
+        break;
+      }
+      case "esperando_aprobacion": {
+        await puertos.cola.suspender({
+          taskId: tarea.id,
+          workerId,
+          resumen: resultado.resumen,
+          evidencia: resultado.evidencia,
+          creditos: resultado.evidencia.creditos,
+          mensajes: resultado.mensajes,
+        });
+        await puertos.notificaciones?.avisar({
+          workspaceId: tarea.workspaceId,
+          taskId: tarea.id,
+          tipo: "aprobacion",
+          texto: resultado.resumen,
+        });
+        decir(`en espera · ${resultado.evidencia.aprobacionesPendientes.length} aprobaciones`);
+        break;
+      }
+      case "fallida": {
+        await puertos.cola.fallar({
+          taskId: tarea.id,
+          workerId,
+          error: resultado.error,
+          motivo: resultado.motivo,
+          evidencia: resultado.evidencia,
+          // Un freno por fallo repetido volvería a tropezar igual, y empezar
+          // de cero podría duplicar lo que ya se creó.
+          reintentable:
+            resultado.motivo !== "timeout" &&
+            resultado.motivo !== "tope_acciones" &&
+            !esDefinitivo(resultado.error),
+        });
+        await puertos.notificaciones?.avisar({
+          workspaceId: tarea.workspaceId,
+          taskId: tarea.id,
+          tipo: "error",
+          texto:
+            resultado.motivo === "timeout"
+              ? `La tarea "${tarea.titulo}" se pasó del tiempo permitido. No dejé cambios sin backup.`
+              : resultado.motivo === "tope_acciones"
+                ? `Detuve "${tarea.titulo}" porque repetía el mismo fallo. No dejé cambios sin backup: revisa el registro de trabajo y pídemelo de nuevo.`
+                : `Algo falló ejecutando "${tarea.titulo}". No dejé cambios sin backup: puedes pedírmelo de nuevo.`,
+        });
+        decir(`fallo (${resultado.motivo}): ${resultado.error}`);
+        break;
+      }
     }
   }
 

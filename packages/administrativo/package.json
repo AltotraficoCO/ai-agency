@@ -1,30 +1,24 @@
 {
-  "name": "@strappy/webmaster",
+  "name": "@strappy/administrativo",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./crypto": "./src/crypto.ts",
-    "./aprobacion": "./src/aprobacion.ts",
-    "./wordpress": "./src/wordpress/client.ts",
+    "./pasos": "./src/pasos.ts",
     "./testing": "./src/testing/index.ts",
-    "./pasos": "./src/pasos.ts"
+    "./alegra": "./src/adaptadores/alegra.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run"
   },
   "dependencies": {
-    "@strappy/agentes": "workspace:*",
     "@strappy/core": "workspace:*",
     "@strappy/tools": "workspace:*",
-    "ai": "6.0.271",
-    "playwright-core": "1.63.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@ai-sdk/provider": "3.0.15",
     "vitest": "^4.1.11"
   }
 }

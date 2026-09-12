@@ -12,8 +12,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@strappy/agentes": "workspace:*",
     "@strappy/core": "workspace:*",
     "@strappy/tools": "workspace:*",
+    "ai": "6.0.271",
     "zod": "^4.4.3"
   },
   "devDependencies": {

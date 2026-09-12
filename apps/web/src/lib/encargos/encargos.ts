@@ -70,19 +70,47 @@ export type EncargoVista = {
 
 type ResultadoEncargo = { ok: true } | { ok: false; error: string };
 
+/**
+ * Los agentes que trabajan por encargo y no conversando.
+ *
+ * El Webmaster fue el primero; Marketing es el segundo y no se prueba en un
+ * chat: se le encargan revisiones de campañas y propone cambios que una persona
+ * aprueba. La lista vive aquí y no repartida por la interfaz para que añadir el
+ * tercero (el administrativo) sea una línea.
+ */
+export const AGENTES_POR_ENCARGO = ["webmaster", "marketing"] as const;
+
+export type AgenteDeEncargos = (typeof AGENTES_POR_ENCARGO)[number];
+
+/**
+ * Qué agente por encargo es este agente contratado, o null si conversa.
+ *
+ * Es el mismo slug del catálogo que guarda `agent_subscriptions`, y el mismo
+ * que el worker lee de `agent_tasks.agente` para saber qué bucle ejecutar: un
+ * solo vocabulario de punta a punta.
+ */
+export async function agenteDeEncargos(
+  workspaceId: string,
+  agentId: string,
+): Promise<AgenteDeEncargos | null> {
+  return conEspacio(workspaceId, async (scope) => {
+    const { rows } = await scope.query<{ slug: string }>(
+      `select catalog_slug as slug from public.agent_subscriptions
+        where workspace_id = $1 and agent_id = $2
+          and catalog_slug = any($3::text[]) and status <> 'cancelled'
+        limit 1`,
+      [workspaceId, agentId, [...AGENTES_POR_ENCARGO]],
+    );
+    const slug = rows[0]?.slug;
+    return AGENTES_POR_ENCARGO.includes(slug as AgenteDeEncargos)
+      ? (slug as AgenteDeEncargos)
+      : null;
+  });
+}
+
 /** ¿Este agente es un Webmaster contratado? Solo a esos se les encargan cambios en el sitio. */
 export async function esWebmaster(workspaceId: string, agentId: string): Promise<boolean> {
-  return conEspacio(workspaceId, async (scope) => {
-    const { rows } = await scope.query<{ es: boolean }>(
-      `select exists (
-         select 1 from public.agent_subscriptions
-          where workspace_id = $1 and agent_id = $2
-            and catalog_slug = 'webmaster' and status <> 'cancelled'
-       ) as es`,
-      [workspaceId, agentId],
-    );
-    return rows[0]?.es === true;
-  });
+  return (await agenteDeEncargos(workspaceId, agentId)) === "webmaster";
 }
 
 /** Los últimos encargos, del más antiguo al más reciente, como se lee un chat. */
@@ -153,6 +181,8 @@ export async function crearEncargo(input: {
   agentId: string;
   usuarioId: string;
   texto: string;
+  /** Quién lo ejecutará. Sin valor, el Webmaster: era el único que había. */
+  agente?: AgenteDeEncargos;
 }): Promise<ResultadoEncargo> {
   const texto = input.texto.trim();
   if (texto.length < 3) return { ok: false, error: "Cuéntale al Webmaster qué quieres cambiar en tu sitio." };
@@ -161,28 +191,59 @@ export async function crearEncargo(input: {
   }
 
   return conEspacio(input.workspaceId, async (scope) => {
-    const sitio = await scope.query<{ id: string }>(
+    const quien = input.agente ?? "webmaster";
+    // Cada oficio trabaja sobre lo suyo: el Webmaster sobre el WordPress
+    // conectado, Marketing sobre las cuentas de anuncios.
+    const proveedores = quien === "marketing" ? ["google_ads", "meta_ads"] : ["wordpress"];
+    const conexion = await scope.query<{ id: string }>(
       `select id from public.connections
-        where workspace_id = $1 and provider = 'wordpress' and status = 'active'
+        where workspace_id = $1 and provider = any($2::text[]) and status = 'active'
         order by updated_at desc
         limit 1`,
-      [input.workspaceId],
+      [input.workspaceId, proveedores],
     );
-    const siteId = sitio.rows[0]?.id;
-    if (!siteId) {
+    const siteId = conexion.rows[0]?.id ?? null;
+    // El Webmaster sin sitio no puede hacer nada: mejor decirlo antes de cobrar
+    // un encargo. Marketing sí puede: mira lo que haya y explica qué le falta.
+    if (!siteId && quien === "webmaster") {
       return {
         ok: false,
         error: "Primero conecta tu sitio en Ajustes → Sitio web: sin acceso a tu WordPress no puedo hacer cambios.",
       };
     }
 
-    await scope.query(
-      `insert into public.agent_tasks (workspace_id, agent_id, site_id, titulo, detalle, created_by)
-       values ($1, $2, $3, $4, $5, $6)`,
-      [input.workspaceId, input.agentId, siteId, tituloDe(texto), texto, input.usuarioId],
-    );
+    const valores = [
+      input.workspaceId,
+      input.agentId,
+      siteId,
+      tituloDe(texto),
+      texto,
+      input.usuarioId,
+    ];
+    try {
+      await scope.query(
+        `insert into public.agent_tasks (workspace_id, agent_id, site_id, titulo, detalle, created_by, agente)
+         values ($1, $2, $3, $4, $5, $6, $7)`,
+        [...valores, quien],
+      );
+    } catch (error) {
+      // Si la migración 0029 todavía no está aplicada, la columna `agente` no
+      // existe: el encargo se crea igual y el worker lo trata como Webmaster,
+      // que es lo que era antes de que hubiera más de un agente por encargo.
+      if (!esColumnaInexistente(error)) throw error;
+      await scope.query(
+        `insert into public.agent_tasks (workspace_id, agent_id, site_id, titulo, detalle, created_by)
+         values ($1, $2, $3, $4, $5, $6)`,
+        valores,
+      );
+    }
     return { ok: true };
   });
+}
+
+/** `undefined_column` de Postgres: la migración que la añade aún no corrió. */
+function esColumnaInexistente(error: unknown): boolean {
+  return (error as { code?: string } | null)?.code === "42703";
 }
 
 /**

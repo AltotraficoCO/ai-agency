@@ -26,8 +26,15 @@ export class ColaEnMemoria implements TaskQueuePort {
     this.#ahora = o.now ?? (() => Date.now());
   }
 
-  encolar(t: Omit<TareaReclamada, "intentos"> & { intentos?: number }): TareaEnMemoria {
-    const fila: TareaEnMemoria = { ...t, intentos: t.intentos ?? 0, estado: "queued" };
+  encolar(
+    t: Omit<TareaReclamada, "intentos" | "siteId"> & { intentos?: number; siteId?: string | null },
+  ): TareaEnMemoria {
+    const fila: TareaEnMemoria = {
+      ...t,
+      siteId: t.siteId ?? null,
+      intentos: t.intentos ?? 0,
+      estado: "queued",
+    };
     this.tareas.push(fila);
     return fila;
   }
