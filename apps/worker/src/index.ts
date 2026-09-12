@@ -12,6 +12,7 @@ import { ColaPostgres } from "./queue/postgres.js";
 import { AprobacionesPostgres, BackupsPostgres, SitiosPostgres } from "./adaptadores/postgres.js";
 import { CuentasPostgres } from "./adaptadores/cuentas.js";
 import { LibrosPostgres } from "./adaptadores/libros.js";
+import { VelocidadPostgres } from "./adaptadores/velocidad.js";
 import { NominaPostgres } from "./adaptadores/nomina.js";
 import { EstudioPostgres } from "./adaptadores/estudio.js";
 import { MensajeriaWhatsApp } from "./adaptadores/mensajeria.js";
@@ -82,6 +83,9 @@ async function main(): Promise<void> {
         sitios: new SitiosPostgres(pool, config.claveMaestra),
         pool,
       }),
+      // Con qué mide el Velocista. Sin PAGESPEED_API_KEY el agente dice que no
+      // pudo medir, en vez de inventarse un tiempo de carga.
+      velocidad: new VelocidadPostgres(pool, config.claveMaestra, config.pagespeedApiKey),
       // Quién más trabaja para el cliente: con esto un agente puede pedirle
       // ayuda a otro, y solo a los que están contratados.
       nomina: new NominaPostgres(pool),

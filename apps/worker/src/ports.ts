@@ -21,6 +21,10 @@ import type {
 } from "@strappy/webmaster";
 import type { AdsPort, AnalyticsPort } from "@strappy/marketing";
 import type { ContabilidadPort } from "@strappy/administrativo";
+import type {
+  RendimientoPort as VelocistaRendimientoPort,
+  SitioPort as VelocistaSitioPort,
+} from "@strappy/velocista";
 
 // ---------------------------------------------------------------------------
 // Driver SQL
@@ -280,6 +284,36 @@ export type TenantScopeMinimo = {
   assertSameWorkspace(otro: string): void;
 };
 
+// Velocidad del sitio (Velocista)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lo que el Velocista necesita para trabajar en un espacio.
+ *
+ * El medidor va aparte del sitio a propósito: se puede medir una web sin tener
+ * sus credenciales —la velocidad se mide desde fuera, como la mide un
+ * visitante—, pero para revisar sus imágenes o instalar caché sí hace falta el
+ * WordPress conectado. Sin clave de medición, `rendimiento.disponible` es false
+ * y el agente lo dice en vez de inventarse un tiempo.
+ */
+export type VelocidadDelSitio = {
+  readonly conexionId: string | null;
+  readonly sitio?: VelocistaSitioPort;
+  readonly rendimiento?: VelocistaRendimientoPort;
+  /** Nombre del negocio: el agente habla de él por su nombre. */
+  readonly negocio: string;
+  /** Nombre con el que el cliente conoce a su agente. */
+  readonly agentName: string;
+  /** Primer contacto con el sitio: mide y propone, no instala nada. */
+  readonly primerContacto?: boolean;
+  /** Credenciales descifradas: se tapan en todo lo que lea el cliente. */
+  readonly secretos?: readonly string[];
+};
+
+export interface VelocistaPort {
+  cargar(input: { workspaceId: string; conexionId: string | null }): Promise<VelocidadDelSitio>;
+}
+
 // ---------------------------------------------------------------------------
 // Vigilancia proactiva del sitio
 // ---------------------------------------------------------------------------
@@ -449,6 +483,8 @@ export type PuertosWorker = {
   readonly libros?: LibrosPort;
   /** Sin él, el Diseñador dice que hoy no puede dibujar. */
   readonly estudio?: EstudioPort;
+  /** Sin él, un encargo de velocidad dice que no hay con qué medir. */
+  readonly velocidad?: VelocistaPort;
   /** Sin él, ningún agente puede pedirle ayuda a un compañero. */
   readonly nomina?: NominaPort;
 };
