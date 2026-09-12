@@ -95,16 +95,28 @@ const CONEXIONES_POR_AGENTE: Record<string, readonly { clave: string; nombre: st
     ],
     marketing: [
       {
-        clave: "conocimiento",
-        nombre: "Conocimiento",
-        descripcion: "Tu propuesta de valor y tus productos, para redactar con criterio.",
-        ruta: "/conocimiento",
+        clave: "google_ads",
+        nombre: "Google Ads",
+        descripcion: "Para ver en qué se va tu inversión y proponerte cambios.",
+        ruta: "/ajustes/canales",
       },
       {
-        clave: "whatsapp",
-        nombre: "WhatsApp",
-        descripcion: "Por dónde salen las campañas.",
+        clave: "meta_ads",
+        nombre: "Facebook e Instagram",
+        descripcion: "Tus campañas de Meta, con el mismo criterio que las de Google.",
         ruta: "/ajustes/canales",
+      },
+      {
+        clave: "analytics",
+        nombre: "Google Analytics",
+        descripcion: "Para saber qué hace la gente en tu web después de hacer clic.",
+        ruta: "/ajustes/canales",
+      },
+      {
+        clave: "conocimiento",
+        nombre: "Conocimiento",
+        descripcion: "Tu propuesta de valor y tus productos, para escribir con criterio.",
+        ruta: "/conocimiento",
       },
     ],
   };
@@ -143,19 +155,19 @@ const CAPACIDADES_POR_AGENTE: Record<string, readonly CapacidadAgente[]> = {
   ],
   marketing: [
     {
-      icono: "redactar",
-      titulo: "Redacta tus campañas",
-      detalle: "Contenidos y mensajes listos para enviar, con tu tono.",
+      icono: "medir",
+      titulo: "Vigila en qué se va tu inversión",
+      detalle: "Cuánto cuesta cada cliente que llega por Google, Facebook e Instagram.",
     },
     {
       icono: "segmentar",
-      titulo: "Agrupa a tus contactos",
-      detalle: "Por lo que aprendió de cada uno en las conversaciones.",
+      titulo: "Encuentra el dinero que se pierde",
+      detalle: "Te dice qué campaña gasta sin traer clientes y cuál es la que mejor funciona.",
     },
     {
-      icono: "medir",
-      titulo: "Mide los resultados",
-      detalle: "Te cuenta qué funcionó y qué conviene cambiar.",
+      icono: "aprobacion",
+      titulo: "Propone y espera tu visto bueno",
+      detalle: "Nunca mueve tu presupuesto sin que tú lo apruebes con un botón.",
     },
   ],
 };

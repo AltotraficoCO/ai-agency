@@ -249,6 +249,22 @@ importers:
         specifier: ^4.1.11
         version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.12))
 
+  packages/marketing:
+    dependencies:
+      '@strappy/core':
+        specifier: workspace:*
+        version: link:../core
+      '@strappy/tools':
+        specifier: workspace:*
+        version: link:../tools
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@22.20.1)(vite@8.2.2(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.12))
+
   packages/rag:
     dependencies:
       '@ai-sdk/openai-compatible':
