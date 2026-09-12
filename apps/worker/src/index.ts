@@ -11,6 +11,8 @@ import { leerConfig } from "./config.js";
 import { ColaPostgres } from "./queue/postgres.js";
 import { AprobacionesPostgres, BackupsPostgres, SitiosPostgres } from "./adaptadores/postgres.js";
 import { CuentasPostgres } from "./adaptadores/cuentas.js";
+import { NominaPostgres } from "./adaptadores/nomina.js";
+import { MensajeriaWhatsApp } from "./adaptadores/mensajeria.js";
 import { MotorPorPlan } from "./adaptadores/motor.js";
 import { ConsumidorDeTareas } from "./consumers/tareas.js";
 import { ConsumidorDeVigilancia } from "./consumers/vigilancia.js";
@@ -67,6 +69,9 @@ async function main(): Promise<void> {
       // Las cuentas de publicidad del espacio. Mientras los accesos de Google
       // y Meta no estén aprobados llega sin plataformas, y el agente lo dice.
       cuentas: new CuentasPostgres(pool),
+      // Quién más trabaja para el cliente: con esto un agente puede pedirle
+      // ayuda a otro, y solo a los que están contratados.
+      nomina: new NominaPostgres(pool),
     },
     workerId: config.workerId,
     motorPara: (tarea) => motor.para(tarea),
@@ -82,10 +87,27 @@ async function main(): Promise<void> {
   // La vigilancia no gasta créditos ni escribe en el sitio: son comprobaciones.
   // Va como un consumidor más para que comparta el apagado ordenado y no sea
   // otro proceso que alguien tenga que acordarse de arrancar.
+  // El aviso se guarda siempre y se ve en Strappy; además, si el cliente
+  // configuró un número, se lo mandamos por su propio WhatsApp. Que el envío
+  // falle no puede tumbar la ronda: por eso solo se registra.
+  const mensajeria = new MensajeriaWhatsApp(pool, config.claveMaestra);
   const vigilante = new ConsumidorDeVigilancia({
     vigilancia: new VigilanciaPostgres(pool),
     sitios: new SitiosPostgres(pool, config.claveMaestra),
     workerId: config.workerId,
+    alAvisar: async ({ workspaceId, sitioUrl, aviso }) => {
+      const envio = await mensajeria.avisarAlDueno({
+        workspaceId,
+        titulo: aviso.titulo,
+        cuerpo: aviso.cuerpo,
+        ...(aviso.propuesta ? { propuesta: aviso.propuesta } : {}),
+      });
+      log(
+        envio.enviado
+          ? `[aviso] ${sitioUrl} · avisado por WhatsApp`
+          : `[aviso] ${sitioUrl} · sin WhatsApp: ${envio.motivo}`,
+      );
+    },
     navegadorPara: (sitio: SitioConectado) =>
       crearNavegadorPlaywright({
         baseUrl: sitio.url.startsWith("http") ? sitio.url : `https://${sitio.url}`,

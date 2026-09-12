@@ -6,6 +6,7 @@ import { MarcoApp } from "@/components/marco-app";
 import { AsistenteContratacion } from "@/components/negocio/asistente-contratacion";
 import { RetratoAgente } from "@/components/negocio/contratar/retrato-agente";
 import { datosDelMarco } from "@/lib/marco";
+import { accionCancelarAgente } from "@/lib/negocio/acciones";
 import { fichaDelCatalogo } from "@/lib/negocio/catalogo";
 
 export const dynamic = "force-dynamic";
@@ -67,6 +68,31 @@ export default async function PaginaFicha({ params }: { params: Promise<{ slug: 
               <p className="pt-1 text-sm text-fg-muted">Sin cuota. Pagas los créditos que gaste.</p>
             </div>
           </div>
+
+          {/*
+            Dar de baja vive aquí, discreto y sin confirmación aparatosa: no
+            borra nada. El contrato se cancela, el agente deja de atender y sus
+            instrucciones y su conocimiento siguen ahí por si vuelve.
+          */}
+          {ficha.contratado ? (
+            <form
+              action={async (datos: FormData) => {
+                "use server";
+                await accionCancelarAgente(datos);
+              }}
+            >
+              <input type="hidden" name="slug" value={ficha.slug} />
+              <button
+                type="submit"
+                className="w-full cursor-pointer rounded-lg border border-border px-3 py-2 text-sm text-fg-muted transition-colors hover:border-peligro hover:text-peligro"
+              >
+                Dar de baja
+              </button>
+              <p className="pt-2 text-xs text-fg-muted">
+                Deja de trabajar para ti. Guardamos sus instrucciones por si lo vuelves a contratar.
+              </p>
+            </form>
+          ) : null}
         </aside>
 
         <AsistenteContratacion ficha={ficha} />

@@ -12,7 +12,7 @@
 import { revalidatePath } from "next/cache";
 import { exigirUsuarioActual } from "@/lib/identidad";
 import { conEspacio, consultar } from "@/lib/db/pool";
-import { contratarAgente } from "./catalogo";
+import { cancelarAgente, contratarAgente } from "./catalogo";
 import { limitesAAjustes, type LimitesGasto } from "./limites";
 
 const PAPELES_DE_MANDO = new Set(["owner", "admin"]);
@@ -51,6 +51,32 @@ export async function accionContratar(datos: FormData): Promise<Resultado> {
   revalidatePath("/agentes");
   // El agente queda en borrador: el siguiente paso es PROBARLO, no publicarlo.
   return { ok: true, destino: `/agentes/${resultado.agenteId}/probar` };
+}
+
+/**
+ * Dar de baja un agente contratado.
+ *
+ * No borra nada: el contrato se cancela y el agente pasa a borrador, así que
+ * sus instrucciones y su conocimiento siguen ahí si el cliente lo vuelve a
+ * contratar. Lo que sí se apaga es la vigilancia del sitio cuando el que se va
+ * es el Webmaster.
+ */
+export async function accionCancelarAgente(datos: FormData): Promise<Resultado> {
+  const usuario = await exigirUsuarioActual();
+  if (!PAPELES_DE_MANDO.has(usuario.rol)) {
+    return { ok: false, error: "Solo el dueño o un administrador pueden dar de baja a un agente." };
+  }
+
+  const slug = String(datos.get("slug") ?? "");
+  if (!slug) return { ok: false, error: "Falta el agente que quieres dar de baja." };
+
+  const resultado = await cancelarAgente({ workspaceId: usuario.workspaceId, slug });
+  if (!resultado.ok) return { ok: false, error: resultado.motivo };
+
+  revalidatePath("/contratar");
+  revalidatePath(`/contratar/${slug}`);
+  revalidatePath("/agentes");
+  return { ok: true, mensaje: "El agente ya no trabaja para ti. Puedes volver a contratarlo cuando quieras." };
 }
 
 // ── Espacio ─────────────────────────────────────────────────────────────────

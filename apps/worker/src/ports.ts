@@ -9,6 +9,7 @@
  */
 import type { LanguageModel, ToolApprovalResponse } from "ai";
 import type { RateTable } from "@strappy/core";
+import type { Companero } from "@strappy/agentes";
 import type {
   ApprovalPort,
   Aviso,
@@ -262,6 +263,47 @@ export interface NotificacionPort {
 // Todo lo que el consumidor de tareas necesita
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// La plantilla del cliente
+// ---------------------------------------------------------------------------
+
+/**
+ * Quién más trabaja para este cliente. Con esto un agente puede encargarle una
+ * parte a otro; sin esto, cada uno trabaja solo, que es como trabajaban antes.
+ */
+export interface NominaPort {
+  companeros(input: { workspaceId: string; exceptoSlug: string }): Promise<readonly Companero[]>;
+}
+
+// ---------------------------------------------------------------------------
+// Avisar al dueño por su propio WhatsApp
+// ---------------------------------------------------------------------------
+
+export type ResultadoEnvio =
+  | { readonly enviado: true }
+  | { readonly enviado: false; readonly motivo: string };
+
+/**
+ * Mandar un mensaje al dueño del negocio, no a sus clientes.
+ *
+ * Va aparte del canal de conversaciones a propósito: aquí no hay contacto ni
+ * hilo, es el agente avisando a su jefe. Y cuesta dinero del cliente —Meta le
+ * cobra a él cada conversación—, así que quien lo implemente tiene que poder
+ * negarse a enviar y decir por qué.
+ */
+export interface MensajeriaPort {
+  avisarAlDueno(input: {
+    workspaceId: string;
+    titulo: string;
+    cuerpo: string;
+    propuesta?: string;
+  }): Promise<ResultadoEnvio>;
+}
+
+// ---------------------------------------------------------------------------
+// Todo lo que el consumidor de tareas necesita
+// ---------------------------------------------------------------------------
+
 export type PuertosWorker = {
   readonly cola: TaskQueuePort;
   readonly sitios: SitePort;
@@ -270,4 +312,6 @@ export type PuertosWorker = {
   readonly notificaciones?: NotificacionPort;
   /** Sin él, un encargo de Marketing dice que falta conectar las plataformas. */
   readonly cuentas?: CuentasPort;
+  /** Sin él, ningún agente puede pedirle ayuda a un compañero. */
+  readonly nomina?: NominaPort;
 };

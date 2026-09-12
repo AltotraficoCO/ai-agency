@@ -20,9 +20,12 @@
  */
 import type { LanguageModel, ModelMessage, ToolApprovalResponse } from "ai";
 import {
+  bloqueDeCompaneros,
   ejecutarTareaDeAgente,
   filtrarHerramientas,
   type CapturaEvidencia,
+  type ColaboracionPort,
+  type Companero,
   type OficioDelAgente,
 } from "@strappy/agentes";
 import { redactSecrets, type ToolDef } from "@strappy/tools";
@@ -84,6 +87,12 @@ export type EjecucionInput = {
    * esperando un clic (`esperando`). Un fallo aquí nunca para el trabajo.
    */
   readonly alAvanzar?: (paso: PasoTrabajo) => void;
+  /** Compañeros contratados a los que puede pedir ayuda. Vacío: trabaja solo. */
+  readonly companeros?: readonly Companero[];
+  /** Quién ejecuta el encargo del compañero. Sin esto no se puede delegar. */
+  readonly colaboracion?: ColaboracionPort;
+  /** Agentes que ya intervinieron en esta cadena. Vacío si lo pidió una persona. */
+  readonly cadena?: readonly string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -125,12 +134,15 @@ export async function ejecutarTareaWebmaster(input: EjecucionInput): Promise<Res
     herramientas: herramientasDe(agent),
     maxAcciones: agent.maxAcciones,
     timeoutMs: agent.timeoutMs,
-    sistema: agent.prompt({
-      agentName: input.agentName,
-      siteUrl: urlVisible(sitio),
-      modoSimulacion: simulacion,
-    }),
+    sistema:
+      agent.prompt({
+        agentName: input.agentName,
+        siteUrl: urlVisible(sitio),
+        modoSimulacion: simulacion,
+      }) + bloqueDeCompaneros(input.companeros ?? []),
     contexto,
+    ...(input.colaboracion ? { colaboracion: input.colaboracion } : {}),
+    ...(input.cadena ? { cadena: input.cadena } : {}),
     etiquetaDePaso,
     detalleDePaso,
     limpiarSecretos: (texto) => limpiarSecretos(texto, sitio),

@@ -14,8 +14,11 @@
  */
 import type { LanguageModel, ModelMessage, ToolApprovalResponse } from "ai";
 import {
+  bloqueDeCompaneros,
   ejecutarTareaDeAgente,
   filtrarHerramientas,
+  type ColaboracionPort,
+  type Companero,
   type OficioDelAgente,
   type ResultadoTarea,
   type TareaEncargo,
@@ -54,6 +57,12 @@ export type EjecucionMarketing = {
   readonly abortSignal?: AbortSignal;
   readonly onEvento?: (mensaje: string) => void;
   readonly alAvanzar?: (paso: import("./pasos.js").PasoTrabajo) => void;
+  /** Compañeros contratados a los que puede pedir ayuda. Vacío: trabaja solo. */
+  readonly companeros?: readonly Companero[];
+  /** Quién ejecuta el encargo del compañero. Sin esto no se puede delegar. */
+  readonly colaboracion?: ColaboracionPort;
+  /** Agentes que ya intervinieron en esta cadena. Vacío si lo pidió una persona. */
+  readonly cadena?: readonly string[];
 };
 
 export async function ejecutarTareaMarketing(input: EjecucionMarketing): Promise<ResultadoTarea> {
@@ -76,12 +85,15 @@ export async function ejecutarTareaMarketing(input: EjecucionMarketing): Promise
     herramientas: herramientasDe(agent),
     maxAcciones: agent.maxAcciones,
     timeoutMs: agent.timeoutMs,
-    sistema: agent.prompt({
-      agentName: input.agentName,
-      negocio: input.negocio,
-      modoSimulacion: simulacion,
-    }),
+    sistema:
+      agent.prompt({
+        agentName: input.agentName,
+        negocio: input.negocio,
+        modoSimulacion: simulacion,
+      }) + bloqueDeCompaneros(input.companeros ?? []),
     contexto,
+    ...(input.colaboracion ? { colaboracion: input.colaboracion } : {}),
+    ...(input.cadena ? { cadena: input.cadena } : {}),
     etiquetaDePaso,
     detalleDePaso,
     // Las credenciales de las plataformas nunca entran en el contexto en claro:

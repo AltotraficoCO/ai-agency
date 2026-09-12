@@ -400,6 +400,71 @@ export async function contratarAgente(entrada: {
       [entrada.workspaceId, entrada.slug, agenteId, JSON.stringify(entrada.ajustes), entrada.usuarioId],
     );
 
+    // Recontratar al Webmaster devuelve la vigilancia del sitio. El worker
+    // también daría de alta los sitios que falten, pero esperar a su ronda
+    // dejaría al cliente sin vigilancia durante minutos justo cuando acaba de
+    // pedirla.
+    if (entrada.slug === "webmaster") {
+      await scope.query(
+        `update public.site_monitor
+            set activa = true, proxima_en = now(), updated_at = now()
+          where workspace_id = $1 and not activa`,
+        [entrada.workspaceId],
+      );
+    }
+
     return { ok: true, agenteId };
+  });
+}
+
+export type ResultadoBaja = { readonly ok: true } | { readonly ok: false; readonly motivo: string };
+
+/**
+ * Da de baja un agente contratado.
+ *
+ * Lo que se cancela es el CONTRATO, no el agente: sus instrucciones, su
+ * conocimiento y su historial se quedan donde están, porque volver a
+ * contratarlo es lo más normal del mundo y perder esa configuración sería
+ * castigar al cliente por probar. El agente pasa a borrador para que deje de
+ * atender, que es lo que el cliente espera al despedirlo.
+ *
+ * Y apaga la vigilancia del sitio si el que se va es el Webmaster: seguir
+ * comprobando la web de alguien que ya no lo tiene contratado es trabajo que
+ * nadie pidió y gasto que nadie paga.
+ */
+export async function cancelarAgente(entrada: {
+  workspaceId: string;
+  slug: string;
+}): Promise<ResultadoBaja> {
+  return conEspacio(entrada.workspaceId, async (scope) => {
+    const contrato = await scope.query<{ agent_id: string | null }>(
+      `update public.agent_subscriptions
+          set status = 'cancelled', cancelled_at = now()
+        where workspace_id = $1 and catalog_slug = $2 and status <> 'cancelled'
+      returning agent_id`,
+      [entrada.workspaceId, entrada.slug],
+    );
+    if (contrato.rows.length === 0) {
+      return { ok: false, motivo: "Ese agente no está contratado en este espacio." };
+    }
+
+    const agenteId = contrato.rows[0]?.agent_id;
+    if (agenteId) {
+      await scope.query(
+        `update public.agents set status = 'draft', updated_at = now()
+          where workspace_id = $1 and id = $2`,
+        [entrada.workspaceId, agenteId],
+      );
+    }
+
+    if (entrada.slug === "webmaster") {
+      await scope.query(
+        `update public.site_monitor set activa = false, updated_at = now()
+          where workspace_id = $1 and activa`,
+        [entrada.workspaceId],
+      );
+    }
+
+    return { ok: true };
   });
 }

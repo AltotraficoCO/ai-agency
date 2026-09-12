@@ -24,7 +24,12 @@
 import { randomUUID } from "node:crypto";
 import type { LanguageModel, ModelMessage, ToolApprovalResponse } from "ai";
 import type { RateTable } from "@strappy/core";
-import type { ResultadoTarea } from "@strappy/agentes";
+import type {
+  ColaboracionPort,
+  Companero,
+  EncargoDelegado,
+  ResultadoTarea,
+} from "@strappy/agentes";
 import {
   agentePara,
   ejecutarTareaWebmaster,
@@ -154,16 +159,16 @@ export class ConsumidorDeTareas implements Consumidor {
       }
 
       const quien = agenteDeLaTarea(tarea);
-      const resultado =
-        quien === "marketing"
-          ? await this.#ejecutarMarketing(tarea, motor, registro, decir)
-          : await this.#ejecutarWebmaster(tarea, motor, registro, decir);
+      // Lo que gasten los compañeros a los que este agente pida ayuda. El
+      // cliente pidió UN trabajo: ve UN cargo, con el reparto en el registro.
+      const extra = { creditos: 0 };
+      const resultado = await this.#ejecutarAgente(quien, tarea, motor, registro, decir, [], extra);
       await registro.cerrar(resultado.estado);
 
       if (motor.cobrar) {
         await motor
           .cobrar({
-            creditos: resultado.evidencia.creditos,
+            creditos: resultado.evidencia.creditos + extra.creditos,
             clave: `${tarea.id}:${intento}`,
             detalle: { estado: resultado.estado, acciones: resultado.evidencia.acciones.length },
           })
@@ -194,6 +199,114 @@ export class ConsumidorDeTareas implements Consumidor {
   }
 
   // -------------------------------------------------------------------------
+  // Quién ejecuta, y con quién puede contar
+  // -------------------------------------------------------------------------
+
+  /**
+   * Enruta al oficio que toca. Un compañero entra por aquí igual que el primero.
+   *
+   * Con una diferencia que importa: un encargo del cliente sin `agente` es del
+   * Webmaster, porque eso eran todos antes de la 0029. Pero una DELEGACIÓN
+   * nombra a su destinatario, así que un slug que este worker no sabe ejecutar
+   * —el administrativo, mientras no tenga su bucle— se rechaza y se dice. Caer
+   * al Webmaster sería poner a un agente a hacer el trabajo de otro, con las
+   * herramientas de otro, sobre el sitio del cliente.
+   */
+  async #ejecutarAgente(
+    quien: string,
+    tarea: TareaReclamada,
+    motor: MotorTarea,
+    registro: RegistroDePasos,
+    decir: (m: string) => void,
+    cadena: readonly string[],
+    extra: { creditos: number },
+    encargo?: { titulo: string; detalle: string },
+  ): Promise<ResultadoTarea> {
+    if (quien === "marketing") {
+      return this.#ejecutarMarketing(tarea, motor, registro, decir, cadena, extra, encargo);
+    }
+    if (encargo && quien !== "webmaster") {
+      // Se devuelve como fallo del compañero, no como excepción: el que pidió
+      // ayuda tiene que poder terminar su parte y contarlo. Tumbar un encargo
+      // que el cliente ya aprobó por esto sería desproporcionado.
+      decir(`no puedo delegar en "${quien}": ese oficio todavía no se ejecuta aquí`);
+      return {
+        estado: "fallida",
+        motivo: "error",
+        error: `Todavía no puedo encargarle trabajo a "${quien}" desde otro agente.`,
+        evidencia: {
+          acciones: [],
+          capturas: [],
+          backups: [],
+          aprobacionesPendientes: [],
+          pasos: 0,
+          uso: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+          creditos: 0,
+          modelo: motor.modelId,
+          simulacion: false,
+        },
+      };
+    }
+    return this.#ejecutarWebmaster(tarea, motor, registro, decir, cadena, extra, encargo);
+  }
+
+  /**
+   * Con quién puede contar el agente y cómo se le encarga trabajo a uno.
+   *
+   * El compañero se ejecuta con SU contexto y SUS aprobaciones: aquí solo se
+   * enruta. Comparte el `taskId` a propósito, para que el cliente vea un único
+   * encargo con todo lo que pasó dentro, y sus créditos se suman al mismo cargo.
+   */
+  #colaboracion(
+    quien: string,
+    tarea: TareaReclamada,
+    motor: MotorTarea,
+    registro: RegistroDePasos,
+    decir: (m: string) => void,
+    cadena: readonly string[],
+    extra: { creditos: number },
+  ): ColaboracionPort | null {
+    const nomina = this.#o.puertos.nomina;
+    if (!nomina) return null;
+
+    const puerto: ColaboracionPort = {
+      companeros: () => nomina.companeros({ workspaceId: tarea.workspaceId, exceptoSlug: quien }),
+      encargar: async (input: EncargoDelegado): Promise<ResultadoTarea> => {
+        decir(`${quien} le pide ayuda a ${input.slug}: "${input.titulo}"`);
+        const resultado = await this.#ejecutarAgente(
+          input.slug,
+          tarea,
+          motor,
+          registro,
+          decir,
+          [...cadena, quien],
+          extra,
+          { titulo: input.titulo, detalle: input.detalle },
+        );
+        extra.creditos += resultado.evidencia.creditos;
+        decir(
+          `${input.slug} terminó (${resultado.estado}) · ${resultado.evidencia.creditos} créditos`,
+        );
+        return resultado;
+      },
+    };
+    return puerto;
+  }
+
+  /** La nómina, ya resuelta, para ofrecérsela al modelo en su prompt. */
+  async #companeros(quien: string, workspaceId: string): Promise<readonly Companero[]> {
+    const nomina = this.#o.puertos.nomina;
+    if (!nomina) return [];
+    try {
+      return await nomina.companeros({ workspaceId, exceptoSlug: quien });
+    } catch {
+      // Quedarse sin compañeros es trabajar solo, que es lo de siempre. No es
+      // motivo para tumbar un encargo que el cliente ya aprobó.
+      return [];
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // El Webmaster: igual que siempre
   // -------------------------------------------------------------------------
 
@@ -202,6 +315,9 @@ export class ConsumidorDeTareas implements Consumidor {
     motor: MotorTarea,
     registro: RegistroDePasos,
     decir: (m: string) => void,
+    cadena: readonly string[] = [],
+    extra: { creditos: number } = { creditos: 0 },
+    encargo?: { titulo: string; detalle: string },
   ): Promise<ResultadoTarea> {
     const { puertos } = this.#o;
     if (!tarea.siteId) {
@@ -241,6 +357,17 @@ export class ConsumidorDeTareas implements Consumidor {
       primerContacto: sitio.primerContacto,
     };
 
+    const colaboracion = this.#colaboracion(
+      "webmaster",
+      tarea,
+      motor,
+      registro,
+      decir,
+      cadena,
+      extra,
+    );
+    const companeros = await this.#companeros("webmaster", tarea.workspaceId);
+
     const resultado = await ejecutarTareaWebmaster({
       agent,
       model: motor.model,
@@ -250,7 +377,10 @@ export class ConsumidorDeTareas implements Consumidor {
       ...(tarea.agentId ? { agentId: tarea.agentId } : {}),
       agentName: sitio.agentName,
       sitio: contextoSitio,
-      tarea: { id: tarea.id, titulo: tarea.titulo, detalle: tarea.detalle },
+      tarea: encargo
+        ? { id: tarea.id, titulo: encargo.titulo, detalle: encargo.detalle }
+        : { id: tarea.id, titulo: tarea.titulo, detalle: tarea.detalle },
+      ...(companeros.length > 0 && colaboracion ? { companeros, colaboracion, cadena } : {}),
       ...(tarea.mensajes ? { mensajesPrevios: tarea.mensajes as ModelMessage[] } : {}),
       ...(tarea.aprobaciones ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] } : {}),
       onEvento: decir,
@@ -275,6 +405,9 @@ export class ConsumidorDeTareas implements Consumidor {
     motor: MotorTarea,
     registro: RegistroDePasos,
     decir: (m: string) => void,
+    cadena: readonly string[] = [],
+    extra: { creditos: number } = { creditos: 0 },
+    encargo?: { titulo: string; detalle: string },
   ): Promise<ResultadoTarea> {
     const { puertos } = this.#o;
     const cuentas: CuentasDeMarketing = puertos.cuentas
@@ -307,6 +440,17 @@ export class ConsumidorDeTareas implements Consumidor {
       ...(cuentas.primerContacto ? { primerContacto: true } : {}),
     };
 
+    const colaboracionM = this.#colaboracion(
+      "marketing",
+      tarea,
+      motor,
+      registro,
+      decir,
+      cadena,
+      extra,
+    );
+    const companerosM = await this.#companeros("marketing", tarea.workspaceId);
+
     return ejecutarTareaMarketing({
       agent: marketing,
       model: motor.model,
@@ -317,7 +461,12 @@ export class ConsumidorDeTareas implements Consumidor {
       agentName: cuentas.agentName,
       negocio: cuentas.negocio,
       cuentas: contexto,
-      tarea: { id: tarea.id, titulo: tarea.titulo, detalle: tarea.detalle },
+      tarea: encargo
+        ? { id: tarea.id, titulo: encargo.titulo, detalle: encargo.detalle }
+        : { id: tarea.id, titulo: tarea.titulo, detalle: tarea.detalle },
+      ...(companerosM.length > 0 && colaboracionM
+        ? { companeros: companerosM, colaboracion: colaboracionM, cadena }
+        : {}),
       ...(tarea.mensajes ? { mensajesPrevios: tarea.mensajes as ModelMessage[] } : {}),
       ...(tarea.aprobaciones ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] } : {}),
       onEvento: decir,

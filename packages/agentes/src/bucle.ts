@@ -37,6 +37,7 @@ import {
   type ToolInvocationLog,
 } from "@strappy/tools";
 import { creditsForUsage, normalizeUsage, type RateTable } from "@strappy/core";
+import { crearHerramientaDeColaboracion, type ColaboracionPort } from "./colaboracion.js";
 import { extraerResumen, quitarRazonamiento, recortar } from "./texto.js";
 import type {
   AccionRegistrada,
@@ -114,6 +115,19 @@ export type OficioDelAgente = {
   readonly motivoAprobacion?: string;
   /** Evidencia visual recogida por las herramientas del oficio, si tiene. */
   capturas?(): readonly CapturaEvidencia[];
+  /**
+   * Con quién puede contar este agente dentro de la empresa del cliente.
+   *
+   * Sin esto el agente trabaja solo, que es como trabajaba hasta ahora. Con
+   * esto puede encargarle una parte a un compañero contratado, y el armazón le
+   * añade la herramienta para hacerlo.
+   */
+  readonly colaboracion?: ColaboracionPort;
+  /**
+   * Los agentes que ya intervinieron en esta cadena, del primero al actual.
+   * Vacío cuando el encargo lo pidió una persona.
+   */
+  readonly cadena?: readonly string[];
 };
 
 export type EjecucionAgente = {
@@ -321,12 +335,24 @@ export async function ejecutarTareaDeAgente(input: EjecucionAgente): Promise<Res
 
   // El freno va por fuera del registro: el paso muestra el error real del
   // sistema del cliente y solo el modelo lee el aviso de «no lo repitas».
+  // Pedir ayuda a un compañero es una herramienta más: pasa por el registro de
+  // trabajo, por el freno y por el tope de acciones, igual que las demás. Se
+  // añade aquí y no en el catálogo de cada paquete porque el puerto lleva el
+  // espacio del cliente y la cadena de llamadas, y eso no puede viajar por un
+  // catálogo compartido donde el modelo podría influir.
+  const herramientas = oficio.colaboracion
+    ? [
+        ...oficio.herramientas,
+        crearHerramientaDeColaboracion({
+          puerto: oficio.colaboracion,
+          slugPropio: oficio.slug,
+          cadena: oficio.cadena ?? [],
+        }) as (typeof oficio.herramientas)[number],
+      ]
+    : oficio.herramientas;
+
   const tools: ToolSet = conFrenoDeRepeticiones(
-    conRegistroDePasos(
-      toAiToolSet(oficio.herramientas, { onInvocation: anotar }),
-      oficio,
-      avisar,
-    ),
+    conRegistroDePasos(toAiToolSet(herramientas, { onInvocation: anotar }), oficio, avisar),
     (nombre, entrada) => oficio.huella(nombre, entrada),
     (f) => {
       freno ??= f;

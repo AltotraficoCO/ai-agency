@@ -18,6 +18,7 @@
     "@strappy/marketing": "workspace:*",
     "@strappy/tools": "workspace:*",
     "@strappy/webmaster": "workspace:*",
+    "@strappy/whatsapp": "workspace:*",
     "ai": "6.0.271",
     "pg": "^8.23.0",
     "zod": "^4.4.3"

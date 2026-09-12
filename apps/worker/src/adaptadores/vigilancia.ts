@@ -133,6 +133,32 @@ export class VigilanciaPostgres implements VigilanciaPort {
        returning site_id`,
       [],
     );
+
+    // Red de seguridad: dar de baja al Webmaster ya apaga la vigilancia en el
+    // mismo clic, pero un contrato puede caerse por otras vías —una baja por
+    // impago, una fila tocada a mano, un sitio desconectado— y seguir
+    // comprobando la web de quien ya no lo tiene contratado es trabajo que
+    // nadie pidió y gasto que nadie paga. Esto lo corrige en la ronda
+    // siguiente. No borra la fila: conserva lo que la vigilancia recuerda del
+    // sitio, así que recontratar no empieza de cero ni dispara avisos viejos.
+    await this.pool.query(
+      `update public.site_monitor m
+          set activa = false, updated_at = now()
+        where m.activa
+          and not exists (
+            select 1
+              from public.connections c
+              join public.agent_subscriptions s
+                on s.workspace_id = c.workspace_id
+               and s.catalog_slug = 'webmaster'
+               and s.status = 'active'
+             where c.id = m.site_id
+               and c.provider = 'wordpress'
+               and c.status = 'active'
+          )`,
+      [],
+    );
+
     return rows.length;
   }
 }

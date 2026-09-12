@@ -11,4 +11,5 @@
 export * from "./tipos.js";
 export * from "./texto.js";
 export * from "./huella.js";
+export * from "./colaboracion.js";
 export * from "./bucle.js";
