@@ -18,6 +18,7 @@
     "@strappy/db": "workspace:*",
     "@strappy/marketing": "workspace:*",
     "@strappy/tools": "workspace:*",
+    "@strappy/velocista": "workspace:*",
     "@strappy/webmaster": "workspace:*",
     "@strappy/whatsapp": "workspace:*",
     "ai": "6.0.271",

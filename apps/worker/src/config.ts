@@ -23,6 +23,12 @@ const esquema = z.object({
   WORKER_CHROME_PATH: z.string().min(1).optional(),
   /** Host del almacén de referencias del cliente. Vacío = no se admiten. */
   WORKER_REFERENCIAS_HOST: z.string().min(1).optional(),
+  /**
+   * Clave de PageSpeed Insights, con la que mide el Velocista. Es NUESTRA y es
+   * gratuita (25.000 consultas al día, sin trámite de aprobación). Sin ella el
+   * agente dice que no pudo medir, que es preferible a inventarse un tiempo.
+   */
+  PAGESPEED_API_KEY: z.string().min(1).optional(),
   WORKER_TABLA_TAREAS: z.string().min(1).default("public.agent_tasks"),
 });
 
@@ -33,6 +39,7 @@ export type ConfigWorker = {
   readonly pollMs: number;
   readonly chromePath?: string;
   readonly referenciasHost?: string;
+  readonly pagespeedApiKey?: string;
   readonly tablaTareas: string;
 };
 
@@ -52,6 +59,7 @@ export function leerConfig(env: NodeJS.ProcessEnv = process.env): ConfigWorker {
     pollMs: c.WORKER_POLL_MS,
     ...(c.WORKER_CHROME_PATH ? { chromePath: c.WORKER_CHROME_PATH } : {}),
     ...(c.WORKER_REFERENCIAS_HOST ? { referenciasHost: c.WORKER_REFERENCIAS_HOST } : {}),
+    ...(c.PAGESPEED_API_KEY ? { pagespeedApiKey: c.PAGESPEED_API_KEY } : {}),
     tablaTareas: c.WORKER_TABLA_TAREAS,
   };
 }

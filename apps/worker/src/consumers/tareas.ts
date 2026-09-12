@@ -45,6 +45,12 @@ import {
   ejecutarTareaAdministrativa,
   type LibrosContext,
 } from "@strappy/administrativo";
+import {
+  ejecutarTareaVelocista,
+  velocista,
+  type Medicion,
+  type VelocidadContext,
+} from "@strappy/velocista";
 import type {
   CuentasDeMarketing,
   LibrosDelNegocio,
@@ -52,6 +58,7 @@ import type {
   PuertosWorker,
   SitioConectado,
   TareaReclamada,
+  VelocidadDelSitio,
 } from "../ports.js";
 import { RegistroDePasos } from "./pasos.js";
 import type { Consumidor } from "./tipos.js";
@@ -233,6 +240,9 @@ export class ConsumidorDeTareas implements Consumidor {
     }
     if (quien === "administrativo") {
       return this.#ejecutarAdministrativo(tarea, motor, registro, decir, cadena, extra, encargo);
+    }
+    if (quien === "velocista") {
+      return this.#ejecutarVelocista(tarea, motor, registro, decir, cadena, extra, encargo);
     }
     if (quien !== "webmaster") {
       // Se devuelve como fallo del compañero, no como excepción: el que pidió
@@ -553,6 +563,90 @@ export class ConsumidorDeTareas implements Consumidor {
       ...(libros.secretos ? { secretos: libros.secretos } : {}),
       ...(companerosA.length > 0 && colaboracionA
         ? { companeros: companerosA, colaboracion: colaboracionA, cadena }
+        : {}),
+      ...(tarea.mensajes ? { mensajesPrevios: tarea.mensajes as ModelMessage[] } : {}),
+      ...(tarea.aprobaciones ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] } : {}),
+      onEvento: decir,
+      alAvanzar: (paso) => registro.anotar(paso),
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // El Velocista
+  // -------------------------------------------------------------------------
+
+  async #ejecutarVelocista(
+    tarea: TareaReclamada,
+    motor: MotorTarea,
+    registro: RegistroDePasos,
+    decir: (m: string) => void,
+    cadena: readonly string[] = [],
+    extra: { creditos: number } = { creditos: 0 },
+    encargo?: { titulo: string; detalle: string },
+  ): Promise<ResultadoTarea> {
+    const { puertos } = this.#o;
+    const velocidad: VelocidadDelSitio = puertos.velocidad
+      ? await puertos.velocidad.cargar({
+          workspaceId: tarea.workspaceId,
+          conexionId: tarea.siteId,
+        })
+      : {
+          conexionId: tarea.siteId,
+          negocio: "tu negocio",
+          agentName: velocista.label,
+        };
+
+    decir(
+      `"${tarea.titulo}" → ${velocista.slug} · ` +
+        `${velocidad.sitio ? velocidad.sitio.url : "sin sitio conectado"} · ` +
+        `${velocidad.rendimiento?.disponible ? velocidad.rendimiento.fuente : "sin medidor"} · ` +
+        `${motor.modelId}${motor.modo ? ` (${motor.modo})` : ""}` +
+        (velocidad.primerContacto ? " (simulación)" : ""),
+    );
+
+    // El historial vive UNA sola vez por encargo: es lo que permite comparar el
+    // antes y el después dentro de la misma tarea.
+    const historial: Medicion[] = [];
+    const contexto: VelocidadContext = {
+      conexionId: velocidad.conexionId ?? "",
+      taskId: tarea.id,
+      ...(velocidad.sitio ? { sitio: velocidad.sitio } : {}),
+      ...(velocidad.rendimiento ? { rendimiento: velocidad.rendimiento } : {}),
+      approvals: puertos.aprobaciones,
+      // El backup solo tiene dónde colgarse si hay conexión: sin ella no hay
+      // nada que revertir todavía.
+      ...(velocidad.conexionId ? { backups: puertos.backups } : {}),
+      ...(velocidad.primerContacto ? { primerContacto: true } : {}),
+      historial,
+    };
+
+    const colaboracionV = this.#colaboracion(
+      "velocista",
+      tarea,
+      motor,
+      registro,
+      decir,
+      cadena,
+      extra,
+    );
+    const companerosV = await this.#companeros("velocista", tarea.workspaceId);
+
+    return ejecutarTareaVelocista({
+      agent: velocista,
+      model: motor.model,
+      modelId: motor.modelId,
+      rates: motor.rates,
+      workspaceId: tarea.workspaceId,
+      ...(tarea.agentId ? { agentId: tarea.agentId } : {}),
+      agentName: velocidad.agentName,
+      negocio: velocidad.negocio,
+      velocidad: contexto,
+      tarea: encargo
+        ? { id: tarea.id, titulo: encargo.titulo, detalle: encargo.detalle }
+        : { id: tarea.id, titulo: tarea.titulo, detalle: tarea.detalle },
+      ...(velocidad.secretos ? { secretos: velocidad.secretos } : {}),
+      ...(companerosV.length > 0 && colaboracionV
+        ? { companeros: companerosV, colaboracion: colaboracionV, cadena }
         : {}),
       ...(tarea.mensajes ? { mensajesPrevios: tarea.mensajes as ModelMessage[] } : {}),
       ...(tarea.aprobaciones ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] } : {}),
