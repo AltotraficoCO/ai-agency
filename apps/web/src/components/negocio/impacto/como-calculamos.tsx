@@ -1,7 +1,6 @@
 import { Calculator, ChevronDown } from "lucide-react";
 import { Card } from "@strappy/ui";
 import {
-  CREDITOS_POR_USD,
   MAXIMO_POR_ENCARGO,
   MINIMO_POR_ENCARGO,
   TRABAJOS,
@@ -57,8 +56,8 @@ export function ComoCalculamos({ ajustes }: { ajustes: AjustesImpacto }) {
               {ajustes.personalizada ? "" : ", la de partida"}).
             </li>
             <li>
-              <span className="font-medium text-fg">3. Lo que costó.</span> Los créditos que gastaron esos encargos:{" "}
-              {new Intl.NumberFormat("es-CO").format(CREDITOS_POR_USD)} créditos = 1 USD.
+              <span className="font-medium text-fg">3. Lo que costó.</span> Los créditos que gastaron esos encargos,
+              llevados a dinero al precio de tus créditos.
             </li>
             <li>
               <span className="font-medium text-fg">4. Retorno.</span> Dinero ahorrado ÷ lo que costó. Si tu moneda no

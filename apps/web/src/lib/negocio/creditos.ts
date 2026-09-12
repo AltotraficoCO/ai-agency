@@ -164,6 +164,13 @@ export function fraseDeProyeccion(p: Proyeccion): string {
   )}).`;
 }
 
-/** La equivalencia que traduce la unidad. Aparece en cada pantalla de consumo. */
+/**
+ * Qué es un crédito, en lenguaje de USO y no de precio.
+ *
+ * Aquí NO se publica la equivalencia crédito → dólar: el precio de cada modelo
+ * cambia y enseñar la tabla de conversión invita a hacer la cuenta del margen.
+ * El cliente compra créditos a un precio que ya conoce por su plan o su
+ * recarga; lo que necesita en estas pantallas es saber cuánto le rinden.
+ */
 export const QUE_ES_UN_CREDITO =
-  "1 crédito ≈ una respuesta corta de la IA. 1.000 créditos = 1 USD.";
+  "1 crédito ≈ una respuesta corta de la IA. Cada tarea consume los créditos que necesita.";

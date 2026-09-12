@@ -97,8 +97,8 @@ export default async function PaginaAnalitica({ searchParams }: { searchParams: 
           <Info size={16} strokeWidth={2} className="mt-0.5 shrink-0 text-fg-muted" aria-hidden />
           <span>
             <strong className="font-medium text-fg">Cómo leer estos números.</strong> 1 crédito ≈ una respuesta
-            corta de la IA; 1.000 créditos = 1 USD. Lo que Meta te cobra por WhatsApp va aparte, en la pestaña
-            Consumo.
+            corta de la IA: cada tarea consume los que necesita. Lo que Meta te cobra por WhatsApp va aparte, en
+            la pestaña Consumo.
           </span>
         </p>
       </div>

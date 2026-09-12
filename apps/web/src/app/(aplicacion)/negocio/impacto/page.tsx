@@ -139,7 +139,7 @@ export default async function PaginaImpacto({ searchParams }: { searchParams: Pa
                 }`}
                 delta={variacion(actual.costeUsd, anterior.costeUsd)}
                 anterior={formatearDinero(anterior.costeUsd, "USD")}
-                explicacion="Créditos gastados por esos encargos. 1.000 créditos = 1 USD."
+                explicacion="Lo que consumieron esos encargos, en créditos y llevado a dinero."
               />
             </section>
 
