@@ -36,8 +36,9 @@ type Traductor = (valor: string) => InstruccionesDeAjustes | null;
 /**
  * Qué frase genera cada respuesta, por agente y por campo.
  *
- * Las claves son las de `CAMPOS_POR_AGENTE`. Si un campo no está aquí, su
- * respuesta no se escribe: se prefiere callar a inventarle una regla al agente.
+ * Las claves son las de los `campos` de cada agente, en `catalogo-contenido.ts`.
+ * Si un campo no está aquí, su respuesta no se escribe: se prefiere callar a
+ * inventarle una regla al agente.
  */
 const TRADUCTORES: Record<string, Record<string, Traductor>> = {
   administrativo: {
