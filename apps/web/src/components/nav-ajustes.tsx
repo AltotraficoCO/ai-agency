@@ -14,6 +14,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BellRing,
   Building2,
   CreditCard,
   Globe,
@@ -33,6 +34,12 @@ const SECCIONES: readonly Seccion[] = [
   { href: "/ajustes/equipo", etiqueta: "Equipo", descripcion: "Quién entra y qué puede hacer", icono: Users },
   { href: "/ajustes/canales", etiqueta: "Canales", descripcion: "Tu número de WhatsApp", icono: MessageCircle },
   { href: "/ajustes/sitio", etiqueta: "Sitio web", descripcion: "El WordPress del Webmaster", icono: Globe },
+  {
+    href: "/ajustes/avisos",
+    etiqueta: "Avisos",
+    descripcion: "Dónde te avisa el Webmaster",
+    icono: BellRing,
+  },
   {
     href: "/ajustes/contabilidad",
     etiqueta: "Contabilidad",
