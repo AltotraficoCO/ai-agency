@@ -8,7 +8,7 @@
  * `packages/db/migrations/0015_tareas_webmaster.sql`.
  */
 import type { LanguageModel, ToolApprovalResponse } from "ai";
-import type { ModelMode, RateTable } from "@strappy/core";
+import type { Cadencia, ModelMode, RateTable } from "@strappy/core";
 import type { EstiloDeMarca, ImagenesPort, MediosPort } from "@strappy/disenador";
 import type { Companero } from "@strappy/agentes";
 import type {
@@ -379,6 +379,58 @@ export interface MensajeriaPort {
     cuerpo: string;
     propuesta?: string;
   }): Promise<ResultadoEnvio>;
+}
+
+// ---------------------------------------------------------------------------
+// Todo lo que el consumidor de tareas necesita
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Trabajo programado
+// ---------------------------------------------------------------------------
+
+/** Un trabajo repetido al que le toca la hora. */
+export type ProgramadoReclamado = {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly agentId: string;
+  /** Slug del catálogo: quién lo ejecutará (`webmaster`, `administrativo`…). */
+  readonly agente: string;
+  readonly titulo: string;
+  readonly detalle: string;
+  readonly cadencia: Cadencia;
+  /** Para cuándo estaba previsto. Si se llegó muy tarde, se salta. */
+  readonly previstaEn: Date;
+};
+
+/**
+ * La cola del trabajo programado.
+ *
+ * No ejecuta agentes: crea encargos. Cuando llega la hora, `lanzar` inserta una
+ * fila en `agent_tasks` y a partir de ahí es un encargo como cualquier otro, con
+ * su enrutado, sus aprobaciones, su registro en vivo y su cobro.
+ */
+export interface ProgramadorPort {
+  /** Reclama el programado que vence antes. Null si no toca ninguno. */
+  reclamar(input: { workerId: string; arrendamientoMs: number }): Promise<ProgramadoReclamado | null>;
+  /** Crea el encargo y programa la siguiente. Devuelve el id del encargo. */
+  lanzar(input: {
+    id: string;
+    workerId: string;
+    programado: ProgramadoReclamado;
+    proxima: Date;
+  }): Promise<string | null>;
+  /** Solo programa la siguiente: esta se saltó por llegar demasiado tarde. */
+  reprogramar(input: { id: string; workerId: string; proxima: Date }): Promise<void>;
+  /**
+   * Se apaga sola y se explica por qué (`sin_creditos`, `agente_de_baja`). Un
+   * programado que falla cada mañana es peor que uno apagado con su motivo.
+   */
+  pausar(input: { id: string; workerId: string; motivo: string }): Promise<void>;
+  /** Créditos disponibles del espacio: sin saldo no se crean encargos. */
+  saldo(workspaceId: string): Promise<number>;
+  /** Apaga los programados de agentes que ya no están contratados. */
+  sincronizar(): Promise<number>;
 }
 
 // ---------------------------------------------------------------------------

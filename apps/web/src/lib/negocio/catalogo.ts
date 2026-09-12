@@ -430,6 +430,21 @@ export async function contratarAgente(entrada: {
       );
     }
 
+    // Recontratar devuelve el trabajo programado que se apagó al despedirlo.
+    // SOLO ese: lo que el cliente pausó a mano sigue pausado, porque lo apagó
+    // él y reactivárselo sin pedirlo sería empezar a gastarle créditos.
+    // `proxima_en` no se toca: si quedó muy atrás, el worker se la salta y
+    // programa la siguiente, que es lo que hace con cualquier atraso.
+    await scope
+      .query(
+        `update public.agent_schedules
+            set activa = true, motivo_pausa = null, updated_at = now()
+          where workspace_id = $1 and agente = $2
+            and not activa and motivo_pausa = 'agente_de_baja'`,
+        [entrada.workspaceId, entrada.slug],
+      )
+      .catch(() => undefined);
+
     return { ok: true, agenteId };
   });
 }
@@ -481,6 +496,20 @@ export async function cancelarAgente(entrada: {
         [entrada.workspaceId],
       );
     }
+
+    // Y se calla su trabajo programado: seguir encargando en nombre de un
+    // agente despedido es gasto que nadie pidió. Se apaga, no se borra, con el
+    // motivo escrito, para poder devolverlo tal cual si lo recontratan.
+    await scope
+      .query(
+        `update public.agent_schedules
+            set activa = false, motivo_pausa = 'agente_de_baja', updated_at = now()
+          where workspace_id = $1 and agente = $2 and activa`,
+        [entrada.workspaceId, entrada.slug],
+      )
+      // Si la migración 0034 todavía no está aplicada, la tabla no existe: dar
+      // de baja no puede fallar por eso.
+      .catch(() => undefined);
 
     return { ok: true };
   });

@@ -8,3 +8,4 @@ export * from "./engine/index.js";
 export * from "./credits/index.js";
 export * from "./channels/index.js";
 export * from "./engine/cartera.js";
+export * from "./schedule/cadencia.js";
