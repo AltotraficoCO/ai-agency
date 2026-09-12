@@ -30,7 +30,16 @@ export class Runner {
       if (this.#parando) break;
       try {
         const trabajo = c.tick();
-        this.#enVuelo = trabajo.then(() => undefined);
+        // El rechazo se absorbe AQUI a proposito. `trabajo` ya se espera abajo
+        // dentro del try, asi que el error se registra; pero esta promesa
+        // derivada es otra, y si quedara rechazada sin nadie que la mire, Node
+        // mata el proceso entero. Paso de verdad: un consumidor consulto una
+        // tabla que aun no existia y dejo sin servicio al Webmaster, que es lo
+        // unico que factura. Un consumidor que falla no puede tumbar a los demas.
+        this.#enVuelo = trabajo.then(
+          () => undefined,
+          () => undefined,
+        );
         if (await trabajo) hubo = true;
       } catch (e) {
         this.#o.log?.(`[${c.nombre}] ${e instanceof Error ? e.message : String(e)}`);

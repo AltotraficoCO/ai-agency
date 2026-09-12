@@ -363,3 +363,43 @@ describe("runner", () => {
     expect(terminados).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+
+describe("un consumidor que falla no puede tumbar al worker", () => {
+  it("los demas siguen trabajando y el error queda registrado", async () => {
+    // Paso de verdad (sep-2026): el consumidor de trabajo programado consulto
+    // una tabla cuya migracion aun no se habia aplicado. El error se registraba
+    // Y ADEMAS el proceso moria, porque la promesa derivada que guarda el
+    // trabajo en vuelo quedaba rechazada sin que nadie la mirase. El Webmaster,
+    // que es lo unico que factura, se quedo sin servicio por un fallo ajeno.
+    const hechos: string[] = [];
+    const registro: string[] = [];
+    const runner = new Runner({
+      consumidores: [
+        {
+          nombre: "roto",
+          async tick(): Promise<boolean> {
+            throw new Error('relation "public.agent_schedules" does not exist');
+          },
+        },
+        {
+          nombre: "sano",
+          async tick(): Promise<boolean> {
+            hechos.push("sano");
+            return true;
+          },
+        },
+      ],
+      log: (m) => registro.push(m),
+    });
+
+    await expect(runner.vuelta()).resolves.toBe(true);
+    expect(hechos).toEqual(["sano"]);
+    expect(registro.join(" ")).toContain("agent_schedules");
+
+    // Si quedara un rechazo sin observar, Node mataria el proceso al vaciar la
+    // cola de microtareas. Esperar una vuelta del bucle de eventos lo destapa.
+    await new Promise((r) => setTimeout(r, 10));
+  });
+});
