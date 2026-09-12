@@ -45,8 +45,14 @@ import {
   ejecutarTareaAdministrativa,
   type LibrosContext,
 } from "@strappy/administrativo";
+import {
+  disenador,
+  ejecutarTareaDisenador,
+  type DisenoContext,
+} from "@strappy/disenador";
 import type {
   CuentasDeMarketing,
+  EstudioDeDiseno,
   LibrosDelNegocio,
   MotorTarea,
   PuertosWorker,
@@ -233,6 +239,9 @@ export class ConsumidorDeTareas implements Consumidor {
     }
     if (quien === "administrativo") {
       return this.#ejecutarAdministrativo(tarea, motor, registro, decir, cadena, extra, encargo);
+    }
+    if (quien === "disenador") {
+      return this.#ejecutarDisenador(tarea, motor, registro, decir, cadena, extra, encargo);
     }
     if (quien !== "webmaster") {
       // Se devuelve como fallo del compañero, no como excepción: el que pidió
@@ -475,6 +484,93 @@ export class ConsumidorDeTareas implements Consumidor {
         : { id: tarea.id, titulo: tarea.titulo, detalle: tarea.detalle },
       ...(companerosM.length > 0 && colaboracionM
         ? { companeros: companerosM, colaboracion: colaboracionM, cadena }
+        : {}),
+      ...(tarea.mensajes ? { mensajesPrevios: tarea.mensajes as ModelMessage[] } : {}),
+      ...(tarea.aprobaciones ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] } : {}),
+      onEvento: decir,
+      alAvanzar: (paso) => registro.anotar(paso),
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // El Diseñador
+  // -------------------------------------------------------------------------
+
+  /**
+   * El compañero más pedido de la oficina.
+   *
+   * Dos cosas propias suyas: el estudio se arma con el MODO de la tarea (el
+   * modelo de imagen sale de `model_tiers`, fila `imagen`, igual que el de
+   * texto sale de `negocio`), y su conexión es el sitio del cliente, que es
+   * donde acaban las imágenes que publica.
+   */
+  async #ejecutarDisenador(
+    tarea: TareaReclamada,
+    motor: MotorTarea,
+    registro: RegistroDePasos,
+    decir: (m: string) => void,
+    cadena: readonly string[] = [],
+    extra: { creditos: number } = { creditos: 0 },
+    encargo?: { titulo: string; detalle: string },
+  ): Promise<ResultadoTarea> {
+    const { puertos } = this.#o;
+    const estudio: EstudioDeDiseno = puertos.estudio
+      ? await puertos.estudio.cargar({
+          workspaceId: tarea.workspaceId,
+          siteId: tarea.siteId,
+          taskId: tarea.id,
+          modo: motor.modo ?? "lite",
+        })
+      : {
+          conexionId: tarea.siteId,
+          negocio: "tu negocio",
+          agentName: disenador.label,
+        };
+
+    decir(
+      `"${tarea.titulo}" → ${disenador.slug} · ` +
+        `${estudio.imagenes ? estudio.imagenes.modelo : "sin generador de imágenes"} · ` +
+        `${estudio.medios ? estudio.medios.sitio : "sin sitio donde publicar"}` +
+        (estudio.estilo ? " · con los colores del sitio" : " · sin colores medidos") +
+        (estudio.primerContacto ? " (simulación)" : ""),
+    );
+
+    const contexto: DisenoContext = {
+      conexionId: estudio.conexionId ?? "",
+      taskId: tarea.id,
+      ...(estudio.imagenes ? { imagenes: estudio.imagenes } : {}),
+      ...(estudio.medios ? { medios: estudio.medios } : {}),
+      ...(estudio.estilo ? { estilo: estudio.estilo } : {}),
+      approvals: puertos.aprobaciones,
+      ...(estudio.primerContacto ? { primerContacto: true } : {}),
+    };
+
+    const colaboracionD = this.#colaboracion(
+      "disenador",
+      tarea,
+      motor,
+      registro,
+      decir,
+      cadena,
+      extra,
+    );
+    const companerosD = await this.#companeros("disenador", tarea.workspaceId);
+
+    return ejecutarTareaDisenador({
+      agent: disenador,
+      model: motor.model,
+      modelId: motor.modelId,
+      rates: motor.rates,
+      workspaceId: tarea.workspaceId,
+      ...(tarea.agentId ? { agentId: tarea.agentId } : {}),
+      agentName: estudio.agentName,
+      negocio: estudio.negocio,
+      diseno: contexto,
+      tarea: encargo
+        ? { id: tarea.id, titulo: encargo.titulo, detalle: encargo.detalle }
+        : { id: tarea.id, titulo: tarea.titulo, detalle: tarea.detalle },
+      ...(companerosD.length > 0 && colaboracionD
+        ? { companeros: companerosD, colaboracion: colaboracionD, cadena }
         : {}),
       ...(tarea.mensajes ? { mensajesPrevios: tarea.mensajes as ModelMessage[] } : {}),
       ...(tarea.aprobaciones ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] } : {}),

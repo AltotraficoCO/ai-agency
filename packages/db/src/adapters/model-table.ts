@@ -16,6 +16,7 @@ const TAREA_A_FILA: Record<ModelTask, string> = {
   builder: 'build',
   title: 'title',
   business_agent: 'negocio',
+  image: 'imagen',
 };
 
 export async function cargarTablaDeModelos(db: SqlExecutor | TenantScope): Promise<ModelTable> {

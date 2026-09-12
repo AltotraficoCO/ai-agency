@@ -66,6 +66,20 @@ export type EncargoVista = {
   aprobaciones: AprobacionVista[];
   /** Registro de trabajo, del primero al último. Vacío si todavía no empezó. */
   pasos: PasoTrabajo[];
+  /**
+   * Lo que el agente produjo y se puede VER: hoy, las imágenes del Diseñador.
+   *
+   * Sale de la evidencia del encargo. Sin esto, un agente que hace imágenes
+   * entrega «te preparé la portada» sin portada, y el cliente tiene que
+   * creérselo: media promesa del producto se pierde en el último metro.
+   */
+  imagenes: ImagenDelEncargo[];
+};
+
+export type ImagenDelEncargo = {
+  /** `data:` listo para un `img`, porque la imagen vive en la evidencia. */
+  src: string;
+  titulo: string;
 };
 
 type ResultadoEncargo = { ok: true } | { ok: false; error: string };
@@ -78,7 +92,12 @@ type ResultadoEncargo = { ok: true } | { ok: false; error: string };
  * aprueba. La lista vive aquí y no repartida por la interfaz para que añadir el
  * tercero (el administrativo) sea una línea.
  */
-export const AGENTES_POR_ENCARGO = ["webmaster", "marketing", "administrativo"] as const;
+export const AGENTES_POR_ENCARGO = [
+  "webmaster",
+  "marketing",
+  "administrativo",
+  "disenador",
+] as const;
 
 /**
  * Sobre qué conexión trabaja cada oficio.
@@ -90,6 +109,10 @@ const PROVEEDORES_POR_AGENTE: Record<string, readonly string[]> = {
   webmaster: ["wordpress"],
   marketing: ["google_ads", "meta_ads"],
   administrativo: ["alegra"],
+  // El Diseñador dibuja con nuestra propia cartera de modelos: no necesita que
+  // el cliente conecte nada. El sitio le sirve para publicar y para medir los
+  // colores de la marca, pero sin él sigue pudiendo trabajar y entregar.
+  disenador: ["wordpress"],
 };
 
 export type AgenteDeEncargos = (typeof AGENTES_POR_ENCARGO)[number];
@@ -140,6 +163,7 @@ export async function encargosDelAgente(workspaceId: string, agentId: string): P
       aprobaciones: AprobacionVista[];
       pasos: unknown;
       mensajes: unknown;
+      capturas: unknown;
     }>(
       // `to_jsonb(t)->'pasos'` y no `t.pasos`: si la migración 0018 aún no
       // está aplicada, la columna no existe y la página tiene que seguir viva.
@@ -148,6 +172,7 @@ export async function encargosDelAgente(workspaceId: string, agentId: string): P
       `select t.id, t.titulo, t.detalle, t.estado, t.resumen, t.error,
               t.creditos::text as creditos, t.created_at,
               coalesce(to_jsonb(t)->'pasos', '[]'::jsonb) as pasos,
+              coalesce(t.evidencia->'capturas', '[]'::jsonb) as capturas,
               case when coalesce(jsonb_array_length(to_jsonb(t)->'pasos'), 0) = 0
                    then t.mensajes end as mensajes,
               coalesce((
@@ -183,9 +208,39 @@ export async function encargosDelAgente(workspaceId: string, agentId: string): P
         creadoEl,
         aprobaciones: r.aprobaciones,
         pasos: guardados.length > 0 ? guardados : pasosDesdeMensajes(r.mensajes, creadoEl),
+        imagenes: imagenesDeEvidencia(r.capturas),
       };
     });
   });
+}
+
+/**
+ * Las imágenes de la evidencia, listas para pintarse.
+ *
+ * Se filtra por tipo de imagen y se acota el tamaño a propósito: la evidencia la
+ * escribe un agente y acaba en el HTML de una página del cliente. Un `mimeType`
+ * inventado ahí dentro sería un `data:` con el contenido que quisiera quien
+ * controlara al agente.
+ */
+const IMAGEN_VALIDA = /^image\/(png|jpeg|webp|gif)$/;
+/** ~6 MB en base64. Más que eso no es una portada: es un problema. */
+const MAXIMO_BASE64 = 8_000_000;
+
+export function imagenesDeEvidencia(capturas: unknown): ImagenDelEncargo[] {
+  if (!Array.isArray(capturas)) return [];
+  const salida: ImagenDelEncargo[] = [];
+  for (const c of capturas) {
+    if (!c || typeof c !== "object") continue;
+    const { mimeType, base64, titulo } = c as Record<string, unknown>;
+    if (typeof mimeType !== "string" || !IMAGEN_VALIDA.test(mimeType)) continue;
+    if (typeof base64 !== "string" || base64.length === 0 || base64.length > MAXIMO_BASE64) continue;
+    if (!/^[A-Za-z0-9+/=\s]+$/.test(base64)) continue;
+    salida.push({
+      src: `data:${mimeType};base64,${base64.replace(/\s+/g, "")}`,
+      titulo: typeof titulo === "string" && titulo.trim() ? titulo.trim().slice(0, 120) : "Imagen",
+    });
+  }
+  return salida;
 }
 
 export async function crearEncargo(input: {

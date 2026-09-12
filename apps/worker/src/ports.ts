@@ -8,7 +8,8 @@
  * `packages/db/migrations/0015_tareas_webmaster.sql`.
  */
 import type { LanguageModel, ToolApprovalResponse } from "ai";
-import type { RateTable } from "@strappy/core";
+import type { ModelMode, RateTable } from "@strappy/core";
+import type { EstiloDeMarca, ImagenesPort, MediosPort } from "@strappy/disenador";
 import type { Companero } from "@strappy/agentes";
 import type {
   ApprovalPort,
@@ -230,6 +231,56 @@ export interface LibrosPort {
 }
 
 // ---------------------------------------------------------------------------
+// El estudio del Diseñador
+// ---------------------------------------------------------------------------
+
+/**
+ * Lo que el Diseñador necesita para trabajar en un espacio: con qué dibuja,
+ * con qué colores y dónde publica.
+ *
+ * Sin generador (falta la clave de la cartera) o sin sitio conectado llega a
+ * medias y el agente lo explica con sus palabras, igual que hacen el de
+ * Marketing y el financiero.
+ */
+export type EstudioDeDiseno = {
+  /** Conexión del encargo, si la hay: sobre ella cuelgan las aprobaciones. */
+  readonly conexionId: string | null;
+  readonly imagenes?: ImagenesPort;
+  readonly medios?: MediosPort;
+  /** Colores y tipografías medidos del sitio real, si se pudieron leer. */
+  readonly estilo?: EstiloDeMarca;
+  readonly negocio: string;
+  readonly agentName: string;
+  /** Primer contacto: diseña, pero no sube nada al sitio. */
+  readonly primerContacto?: boolean;
+};
+
+export interface EstudioPort {
+  cargar(input: {
+    workspaceId: string;
+    siteId: string | null;
+    taskId: string;
+    modo: ModelMode;
+  }): Promise<EstudioDeDiseno>;
+}
+
+/**
+ * Lo mínimo que los adaptadores de `@strappy/db` piden como ámbito de tenant.
+ *
+ * El worker se conecta con el rol de servicio y cruza espacios al reclamar, así
+ * que aquí el ámbito es solo la etiqueta del espacio con la que se lee y se
+ * cobra. Se declara con esta forma para no arrastrar el tipo entero de la base.
+ */
+export type TenantScopeMinimo = {
+  readonly workspaceId: string;
+  query<T = Record<string, unknown>>(
+    text: string,
+    values?: readonly unknown[],
+  ): Promise<{ rows: T[] }>;
+  assertSameWorkspace(otro: string): void;
+};
+
+// ---------------------------------------------------------------------------
 // Vigilancia proactiva del sitio
 // ---------------------------------------------------------------------------
 
@@ -344,6 +395,8 @@ export type PuertosWorker = {
   readonly cuentas?: CuentasPort;
   /** Sin él, un encargo financiero dice que falta conectar la facturación. */
   readonly libros?: LibrosPort;
+  /** Sin él, el Diseñador dice que hoy no puede dibujar. */
+  readonly estudio?: EstudioPort;
   /** Sin él, ningún agente puede pedirle ayuda a un compañero. */
   readonly nomina?: NominaPort;
 };

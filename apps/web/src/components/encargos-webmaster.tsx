@@ -568,6 +568,40 @@ function Encargo({
           {encargo.resumen && encargo.aprobaciones.length === 0 && (
             <p className="whitespace-pre-wrap text-md text-fg">{encargo.resumen}</p>
           )}
+
+          {/*
+            Lo que el agente hizo y se puede ver: hoy, las imágenes del
+            Diseñador. Sin esto entregaría «te preparé la portada» sin portada,
+            y el cliente tendría que creérselo.
+          */}
+          {(encargo.imagenes ?? []).length > 0 && (
+            <ul className="grid grid-cols-2 gap-2">
+              {(encargo.imagenes ?? []).map((imagen, i) => (
+                <li key={`${encargo.id}-img-${i}`} className="min-w-0">
+                  <a
+                    href={imagen.src}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block overflow-hidden rounded-xl border-2 border-[var(--border-subtle)] transition-[box-shadow] hover:shadow-e2"
+                    title="Abrir la imagen en grande"
+                  >
+                    {/* Es un `data:` de la evidencia, no una URL remota: el
+                        optimizador de Next no puede con ella. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={imagen.src}
+                      alt={imagen.titulo}
+                      className="block h-auto w-full bg-sunken object-cover"
+                      loading="lazy"
+                    />
+                  </a>
+                  <p className="mt-1 truncate text-2xs text-fg-muted" title={imagen.titulo}>
+                    {imagen.titulo}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
           {encargo.estado === "failed" && encargo.error && (
             <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger-fg">{encargo.error}</p>
           )}

@@ -601,6 +601,61 @@ export async function subirMediaDesdeUrl(
   return { id: m.id, url: m.source_url };
 }
 
+/**
+ * Sube a la biblioteca una imagen que ya tenemos en memoria.
+ *
+ * Existe para el Diseñador: sus imágenes nacen en la cartera de modelos y nunca
+ * llegan a tener una URL pública, así que `subirMediaDesdeUrl` no vale. Y
+ * alojarlas en un sitio temporal solo para que WordPress las descargue sería
+ * inventar un punto de fallo —y una fuga— donde no hace falta.
+ *
+ * El texto alternativo se escribe en una segunda llamada porque la de subida
+ * solo acepta el binario: WordPress no deja mandar metadatos en el mismo envío.
+ * Si esa segunda falla, la imagen ya está subida y se devuelve igual: perder el
+ * texto alternativo es peor que perder la imagen, pero mucho menos que fallar
+ * entero y dejar un archivo huérfano.
+ */
+export async function subirMediaDesdeBytes(
+  c: WpCreds,
+  entrada: { bytes: Uint8Array; mimeType: string; nombre: string; alt?: string },
+  o: WpClientOptions = {},
+): Promise<{ id: number; url: string; altGuardado: boolean }> {
+  const f = o.fetch ?? globalThis.fetch;
+  // Se copia a un array propio, igual que en `subirMediaDesdeUrl`: el cuerpo de
+  // una petición pide bytes respaldados por un `ArrayBuffer` concreto, y el que
+  // llega desde fuera puede venir sobre cualquier búfer. Sin esta copia compila
+  // en el paquete y falla al comprobarlo desde la web, que trae otros tipos.
+  const cuerpo = new Uint8Array(Buffer.from(entrada.bytes));
+  const res = await f(`${baseUrl(c)}/wp-json/wp/v2/media`, {
+    method: "POST",
+    headers: {
+      Authorization: authHeader(c),
+      "content-type": entrada.mimeType,
+      "content-disposition": `attachment; filename="${entrada.nombre}"`,
+    },
+    body: cuerpo,
+    signal: señal(60_000, o.abortSignal),
+  });
+  const m = (await exigirOk(res, "Fallo al subir la imagen")) as {
+    id: number;
+    source_url: string;
+  };
+
+  let altGuardado = false;
+  if (entrada.alt) {
+    try {
+      const meta = await wp(c, o, `/wp/v2/media/${m.id}`, {
+        method: "POST",
+        body: JSON.stringify({ alt_text: entrada.alt, title: entrada.alt }),
+      });
+      altGuardado = meta.ok;
+    } catch {
+      altGuardado = false;
+    }
+  }
+  return { id: m.id, url: m.source_url, altGuardado };
+}
+
 export async function crearUsuario(
   c: WpCreds,
   datos: { username: string; email: string; role: string },

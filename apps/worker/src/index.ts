@@ -13,6 +13,7 @@ import { AprobacionesPostgres, BackupsPostgres, SitiosPostgres } from "./adaptad
 import { CuentasPostgres } from "./adaptadores/cuentas.js";
 import { LibrosPostgres } from "./adaptadores/libros.js";
 import { NominaPostgres } from "./adaptadores/nomina.js";
+import { EstudioPostgres } from "./adaptadores/estudio.js";
 import { MensajeriaWhatsApp } from "./adaptadores/mensajeria.js";
 import { MotorPorPlan } from "./adaptadores/motor.js";
 import { ConsumidorDeTareas } from "./consumers/tareas.js";
@@ -73,6 +74,12 @@ async function main(): Promise<void> {
       // Los libros del negocio. Sin sistema de facturación conectado llega sin
       // contabilidad y el agente financiero lo explica en vez de fallar.
       libros: new LibrosPostgres(pool, config.claveMaestra),
+      // Con qué dibuja el Diseñador, con qué colores y dónde publica. El
+      // modelo de imagen sale de `model_tiers`, como todos los demás.
+      estudio: new EstudioPostgres({
+        sitios: new SitiosPostgres(pool, config.claveMaestra),
+        pool,
+      }),
       // Quién más trabaja para el cliente: con esto un agente puede pedirle
       // ayuda a otro, y solo a los que están contratados.
       nomina: new NominaPostgres(pool),

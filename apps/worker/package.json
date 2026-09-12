@@ -16,6 +16,7 @@
     "@strappy/analysis": "workspace:*",
     "@strappy/core": "workspace:*",
     "@strappy/db": "workspace:*",
+    "@strappy/disenador": "workspace:*",
     "@strappy/marketing": "workspace:*",
     "@strappy/tools": "workspace:*",
     "@strappy/webmaster": "workspace:*",

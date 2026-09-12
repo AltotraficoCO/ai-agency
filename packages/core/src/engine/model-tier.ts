@@ -22,7 +22,13 @@ export type ModelTask =
    * aparte de `builder` porque viven en otra máquina con otra clave de la
    * cartera, que no tiene por qué permitir los mismos modelos que la web.
    */
-  | "business_agent";
+  | "business_agent"
+  /**
+   * Dibujar una imagen. No es una variante de las demás: el modelo es otro, se
+   * paga por pieza y no por tokens de conversación, y un agente puede necesitar
+   * los dos a la vez (el Diseñador piensa con uno y dibuja con otro).
+   */
+  | "image";
 
 export type ModelChoice = {
   readonly primary: string;
@@ -56,6 +62,10 @@ export const DEFAULT_MODEL_TABLE: ModelTable = {
       // con evaluaciones sobre conversaciones reales, no por intuicion.
       builder: ["zai/glm-4.7-flash", "deepseek/deepseek-v4-flash"],
       business_agent: ["anthropic/claude-sonnet-5", "deepseek/deepseek-v4-flash"],
+      // Sin cadena de respaldo a proposito: si el modelo de imagen falla, es
+      // mejor que el agente lo diga a que entregue una pieza de otro modelo,
+      // con otro aspecto, sin avisar.
+      image: ["google/gemini-3.1-flash-image"],
     },
     max: {
       conversation: ["anthropic/claude-sonnet-5", "anthropic/claude-opus-5"],
@@ -65,6 +75,9 @@ export const DEFAULT_MODEL_TABLE: ModelTable = {
       title: ["anthropic/claude-sonnet-5"],
       builder: ["anthropic/claude-opus-5", "anthropic/claude-sonnet-5"],
       business_agent: ["anthropic/claude-sonnet-5", "deepseek/deepseek-v4-flash"],
+      // Mismo modelo que en lite: la calidad de una portada no mejora por pagar
+      // el doble, y quien decide si vale es el cliente mirandola.
+      image: ["google/gemini-3.1-flash-image"],
     },
   },
   defaults: {
