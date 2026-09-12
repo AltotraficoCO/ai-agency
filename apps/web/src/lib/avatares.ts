@@ -43,3 +43,27 @@ export function elegirAvatar(usados: readonly (string | null)[], azar: () => num
   const opciones = libres.length > 0 ? libres : AVATARES_WHATSAPP;
   return opciones[Math.floor(azar() * opciones.length)] ?? AVATAR_POR_DEFECTO;
 }
+
+/**
+ * Las caras que puede tener un agente CONTRATADO del catálogo.
+ *
+ * El catálogo trae una por defecto (`catalog_agents.avatar_url`, migración
+ * 0037), pero la cara del agente es del cliente: le pone la que quiera de esta
+ * lista y se guarda en SU agente, nunca en el catálogo, que es global y lo ven
+ * todos los espacios.
+ *
+ * Son las mismas piezas de plastilina que ya existen: los dos personajes
+ * propios y la serie de WhatsApp. Añadir una cara nueva es meterla aquí y en
+ * `public/`, sin tocar ninguna pantalla.
+ */
+export const CARAS_DE_AGENTE = [
+  "/agentes/webmaster-plastilina.webp",
+  "/agentes/marketing-plastilina.webp",
+  ...AVATARES_WHATSAPP,
+] as const;
+
+export type CaraDeAgente = (typeof CARAS_DE_AGENTE)[number];
+
+export function esCaraDeAgente(ruta: unknown): ruta is CaraDeAgente {
+  return typeof ruta === "string" && (CARAS_DE_AGENTE as readonly string[]).includes(ruta);
+}

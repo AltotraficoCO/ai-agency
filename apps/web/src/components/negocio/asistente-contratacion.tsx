@@ -122,11 +122,18 @@ export function AsistenteContratacion({ ficha }: { ficha: FichaCatalogo }) {
 
           <dl className="grid gap-3 rounded-lg border border-[var(--border-subtle)] p-4 sm:grid-cols-2">
             <div className="flex flex-col gap-0.5">
-              <dt className="text-sm text-fg-muted">Coste fijo al mes</dt>
+              <dt className="text-sm text-fg-muted">Tenerlo contratado</dt>
+              {/*
+                «Incluido en tu plan» sonaba a que el plan es el que te da
+                derecho a este agente, y no es así: contratarlo no cuesta nada y
+                se paga lo que gaste. Es la misma promesa que ya dice el
+                catálogo, y decirla distinta aquí es sembrar la duda justo en la
+                pantalla donde se decide.
+              */}
               <dd className="text-base font-medium text-fg">
                 {ficha.creditosMensuales > 0
-                  ? `${dolares(ficha.costeUsd)} además de tu plan`
-                  : "Incluido en tu plan"}
+                  ? `${dolares(ficha.costeUsd)} al mes, además de tu plan`
+                  : "Sin cuota"}
               </dd>
             </div>
             <div className="flex flex-col gap-0.5">

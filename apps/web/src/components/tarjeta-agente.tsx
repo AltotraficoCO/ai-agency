@@ -43,6 +43,23 @@ const PROPIO: Papel = {
   halo: "radial-gradient(circle, rgba(57,255,20,0.22) 0%, rgba(57,255,20,0) 70%)",
 };
 
+const SIN_CARA: Papel = {
+  nombre: "Agente",
+  halo: "radial-gradient(circle, rgba(57,255,20,0.22) 0%, rgba(57,255,20,0) 70%)",
+};
+
+/**
+ * La cara que se pinta, con el dato por delante.
+ *
+ * `PAPELES` solo conoce a los agentes que alguien recordó añadir a mano, así
+ * que los nuevos salían con el robot. Desde la migración 0037 la cara viene del
+ * catálogo, y si el cliente se la cambió, de su propio agente: esa gana.
+ */
+function conCara(base: Papel, avatar?: string | null): Papel {
+  const imagen = avatar ?? base.imagen;
+  return imagen ? { ...base, imagen } : { nombre: base.nombre, halo: base.halo };
+}
+
 /** Hover común: se eleva un poco y el borde se tiñe de marca. Sin mover el layout. */
 const TARJETA =
   "group relative flex aspect-[4/5] cursor-pointer flex-col rounded-xl border p-4 transition-[transform,border-color,background-color,box-shadow] duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:-translate-y-0.5 hover:shadow-e2 motion-reduce:hover:translate-y-0";
@@ -60,10 +77,8 @@ export type DatosTarjetaAgente = {
 
 export function TarjetaAgente({ agente, destino }: { agente: DatosTarjetaAgente; destino: string }) {
   const router = useRouter();
-  const papel = (agente.catalogo ? PAPELES[agente.catalogo] : undefined) ?? {
-    ...PROPIO,
-    imagen: agente.avatar || AVATAR_POR_DEFECTO,
-  };
+  const base = agente.catalogo ? (PAPELES[agente.catalogo] ?? SIN_CARA) : PROPIO;
+  const papel = conCara(base, agente.avatar);
   const estado = agente.activo ? "Activo" : agente.estado === "paused" ? "En pausa" : "Borrador";
 
   return (
@@ -175,6 +190,8 @@ export type DatosTarjetaCatalogo = {
   nombre: string;
   tagline: string | null;
   costeUsd: number;
+  /** La cara del catálogo (`catalog_agents.avatar_url`). */
+  avatar?: string | null;
 };
 
 const usd = new Intl.NumberFormat("es-CO", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -185,7 +202,7 @@ const usd = new Intl.NumberFormat("es-CO", { style: "currency", currency: "USD",
  * encima recupera el color, y toda la tarjeta lleva a contratarlo.
  */
 export function TarjetaCatalogo({ ficha }: { ficha: DatosTarjetaCatalogo }) {
-  const papel = PAPELES[ficha.slug] ?? PROPIO;
+  const papel = conCara(PAPELES[ficha.slug] ?? SIN_CARA, ficha.avatar);
 
   return (
     <Link

@@ -18,7 +18,7 @@ import {
 } from "@strappy/db/spec";
 import { exigirUsuarioActual } from "./identidad";
 import { conEspacio } from "./db/pool";
-import { esAvatarWhatsapp } from "./avatares";
+import { esAvatarWhatsapp, esCaraDeAgente } from "./avatares";
 
 export type ResultadoAccion = { ok: true } | { ok: false; error: string };
 
@@ -143,6 +143,44 @@ export async function cambiarFotoAgente(agentId: string, foto: string): Promise<
 
     revalidatePath(`/agentes/${agentId}/instrucciones`);
     revalidatePath("/whatsapp/agentes");
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: mensaje(error) };
+  }
+}
+
+/**
+ * Cambia la cara de un agente CONTRATADO del catálogo.
+ *
+ * Va aparte de la de WhatsApp porque son dos cosas distintas: aquella es la
+ * foto de un agente que creó la persona; esta es cambiarle la cara a un puesto
+ * del catálogo. Se guarda en SU agente y nunca en `catalog_agents`, que es una
+ * tabla global: si se escribiera ahí, un cliente le cambiaría la cara al
+ * Webmaster de todos los demás espacios.
+ */
+export async function cambiarCaraAgente(agentId: string, cara: string): Promise<ResultadoAccion> {
+  try {
+    const usuario = await exigirUsuarioActual();
+    if (!PAPELES_QUE_EDITAN.has(usuario.rol)) {
+      return { ok: false, error: "Tu papel en este espacio no permite cambiar agentes." };
+    }
+    if (!esCaraDeAgente(cara)) return { ok: false, error: "Esa imagen no está entre las disponibles." };
+
+    const cambiado = await conEspacio(usuario.workspaceId, async (scope) => {
+      const { rows } = await scope.query<{ id: string; catalog_slug: string | null }>(
+        `update public.agents set avatar_url = $3, updated_at = now()
+          where workspace_id = $1 and id = $2 and agent_type <> 'conversational'
+          returning id, catalog_slug`,
+        [scope.workspaceId, agentId, cara],
+      );
+      return rows[0] ?? null;
+    });
+    if (!cambiado) return { ok: false, error: "Ese agente no existe en tu espacio." };
+
+    revalidatePath("/contratar");
+    if (cambiado.catalog_slug) revalidatePath(`/contratar/${cambiado.catalog_slug}`);
+    revalidatePath("/agentes");
+    revalidatePath(`/agentes/${agentId}`);
     return { ok: true };
   } catch (error) {
     return { ok: false, error: mensaje(error) };

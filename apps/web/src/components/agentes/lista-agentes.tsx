@@ -246,6 +246,7 @@ export async function ListaAgentes(props: PropsListaAgentes) {
                     nombre: ficha.nombre,
                     tagline: ficha.tagline,
                     costeUsd: ficha.costeUsd,
+                    avatar: ficha.avatar,
                   }}
                 />
               ))}

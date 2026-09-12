@@ -23,11 +23,18 @@ const COMO_FUNCIONA = [
 ] as const;
 
 /**
- * El catálogo, ordenado por departamentos.
+ * El catálogo, departamento por departamento y hacia abajo.
  *
  * Contratar aquí es mirar una empresa y decidir a quién falta, así que la
  * pantalla se lee como una plantilla: los mismos departamentos y el mismo orden
  * que el menú, con quien ya trabaja para ti antes que quien puedes contratar.
+ *
+ * **Cada agente es una FILA ancha, no una tarjeta en rejilla.** Con rejilla, las
+ * tarjetas se estiraban para cuadrar y un departamento de un solo agente dejaba
+ * dos huecos; y con catorce agentes, que es a donde vamos, la pantalla se
+ * convertía en un muro. En fila cabe lo que importa —quién es, qué hace, qué
+ * necesita conectado— sin recortar nada, y la lista crece hacia abajo sin
+ * deformarse.
  *
  * Cada ficha dice QUÉ HACE y QUÉ NECESITA CONECTADO. Ese segundo punto es el que
  * evita la decepción: contratar un Webmaster sin el sitio conectado deja al
@@ -51,7 +58,7 @@ export default async function PaginaContratar() {
       pendientes={marco.pendientes}
       titulo="Contratar agente"
     >
-      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-8">
+      <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-8">
         <EncabezadoPagina
           titulo="Agentes listos para trabajar"
           descripcion="Contrata los que quieras: no cuestan nada por tenerlos. Solo pagas los créditos que gasten cuando trabajen."
@@ -110,11 +117,13 @@ export default async function PaginaContratar() {
                 <p className="text-base text-fg-secondary">{grupo.descripcion}</p>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              <ul className="flex flex-col gap-4">
                 {[...grupo.contratados, ...grupo.disponibles].map((ficha, indice) => (
-                  <TarjetaDelCatalogo key={ficha.slug} ficha={ficha} indice={indice} />
+                  <li key={ficha.slug}>
+                    <FilaDelCatalogo ficha={ficha} indice={indice} />
+                  </li>
                 ))}
-              </div>
+              </ul>
             </section>
           );
         })}
@@ -124,18 +133,19 @@ export default async function PaginaContratar() {
 }
 
 /**
- * Una ficha del catálogo.
+ * Un agente del catálogo, en una fila que se lee de izquierda a derecha:
+ * quién es, qué hace, qué necesita y qué puedes hacer con él.
  *
- * Toda la tarjeta lleva a la ficha; los botones van por encima con su propio
+ * Toda la fila lleva a su ficha; los botones van por encima con su propio
  * enlace para no anidar elementos interactivos.
  */
-function TarjetaDelCatalogo({ ficha, indice }: { ficha: FichaCatalogo; indice: number }) {
+function FilaDelCatalogo({ ficha, indice }: { ficha: FichaCatalogo; indice: number }) {
   const pendientes = ficha.conexiones.filter((c) => !c.lista).length;
   const destinoFicha = `/contratar/${ficha.slug}`;
 
   return (
     <article
-      className="strappy-slide-up group relative flex flex-col overflow-hidden rounded-xl border border-border bg-raised shadow-e1 transition-[transform,border-color,box-shadow] duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:-translate-y-0.5 hover:border-[color-mix(in_oklab,var(--brand),transparent_55%)] hover:shadow-e2 motion-reduce:hover:translate-y-0"
+      className="strappy-slide-up group relative flex flex-col gap-5 overflow-hidden rounded-xl border border-border bg-raised p-5 shadow-e1 transition-[transform,border-color,box-shadow] duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:-translate-y-0.5 hover:border-[color-mix(in_oklab,var(--brand),transparent_55%)] hover:shadow-e2 motion-reduce:hover:translate-y-0 sm:flex-row sm:items-start sm:gap-6"
       style={{ animationDelay: `${indice * 60}ms` }}
     >
       <Link
@@ -144,24 +154,31 @@ function TarjetaDelCatalogo({ ficha, indice }: { ficha: FichaCatalogo; indice: n
         className="absolute inset-0 z-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--border-focus)]"
       />
 
-      <div className="pointer-events-none relative flex h-48 items-center justify-center border-b border-[var(--border-subtle)] bg-inset">
-        <RetratoAgente slug={ficha.slug} tamano={168} />
+      <div className="pointer-events-none relative flex shrink-0 items-center gap-4 sm:flex-col sm:gap-2">
+        <span className="grid place-items-center rounded-xl bg-inset p-2">
+          <RetratoAgente
+            slug={ficha.slug}
+            imagen={ficha.avatar}
+            tamano={104}
+            apagado={!ficha.contratado}
+          />
+        </span>
         {ficha.contratado ? (
-          <Badge tone="exito" className="absolute left-3 top-3 gap-1">
+          <Badge tone="exito" className="gap-1">
             <Check size={12} strokeWidth={2.5} aria-hidden />
             En tu equipo
           </Badge>
         ) : null}
       </div>
 
-      <div className="pointer-events-none relative flex flex-1 flex-col gap-5 p-5">
+      <div className="pointer-events-none relative flex min-w-0 flex-1 flex-col gap-4">
         <div className="flex flex-col gap-1">
           <h3 className="text-xl font-semibold tracking-tight text-fg">{ficha.nombre}</h3>
           {ficha.tagline ? <p className="text-base text-fg-secondary">{ficha.tagline}</p> : null}
         </div>
 
         {ficha.capacidades.length > 0 ? (
-          <ul className="flex flex-col gap-2.5" aria-label="Qué hace">
+          <ul className="grid gap-2.5 md:grid-cols-3" aria-label={`Qué hace ${ficha.nombre}`}>
             {ficha.capacidades.slice(0, 3).map((capacidad) => {
               const Icono = ICONO_CAPACIDAD[capacidad.icono];
               return (
@@ -178,14 +195,14 @@ function TarjetaDelCatalogo({ ficha, indice }: { ficha: FichaCatalogo; indice: n
           <p className="text-base text-fg-secondary">{ficha.descripcion}</p>
         ) : null}
 
-        {ficha.conexiones.length > 0 ? (
-          <div className="flex flex-col gap-2">
-            <p className="text-2xs font-medium uppercase tracking-wide text-fg-muted">
-              Necesita conectado
-            </p>
-            <ul className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {ficha.conexiones.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-2xs font-medium uppercase tracking-wide text-fg-muted">
+                Necesita conectado
+              </span>
               {ficha.conexiones.map((c) => (
-                <li
+                <span
                   key={c.clave}
                   className={
                     c.lista
@@ -200,36 +217,39 @@ function TarjetaDelCatalogo({ ficha, indice }: { ficha: FichaCatalogo; indice: n
                   )}
                   {c.nombre}
                   <span className="sr-only">{c.lista ? ": listo" : ": por conectar"}</span>
-                </li>
+                </span>
               ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {/* El aviso va ANTES de los botones para que queden alineados abajo en todas las tarjetas. */}
-        <div className="mt-auto flex flex-col gap-3 pt-1">
+            </div>
+          ) : null}
           {!ficha.contratado && pendientes > 0 ? (
             <p className="text-sm text-fg-muted">Puedes contratarlo ya y conectar lo que falta después.</p>
           ) : null}
-          <div className="pointer-events-auto relative z-10 flex flex-wrap items-center gap-2">
-            {ficha.contratado && ficha.agenteId ? (
-              <>
-                <EnlaceBoton href={`/agentes/${ficha.agenteId}`} className="flex-1">
-                  Abrir {ficha.nombre}
-                  <ArrowRight size={16} aria-hidden />
-                </EnlaceBoton>
-                <EnlaceBoton href={destinoFicha} variant="ghost">
-                  Ver ficha
-                </EnlaceBoton>
-              </>
-            ) : (
-              <EnlaceBoton href={destinoFicha} className="flex-1">
-                Contratar {ficha.nombre}
-                <ArrowRight size={16} aria-hidden />
-              </EnlaceBoton>
-            )}
-          </div>
         </div>
+      </div>
+
+      {/* Los botones, siempre en el mismo sitio: la columna de la derecha. */}
+      <div className="pointer-events-auto relative z-10 flex shrink-0 flex-col gap-2 sm:w-44">
+        {ficha.contratado && ficha.agenteId ? (
+          <>
+            <EnlaceBoton href={`/agentes/${ficha.agenteId}`}>
+              Abrir
+              <ArrowRight size={16} aria-hidden />
+            </EnlaceBoton>
+            <EnlaceBoton href={destinoFicha} variant="secondary">
+              Ver ficha
+            </EnlaceBoton>
+          </>
+        ) : (
+          <>
+            <EnlaceBoton href={destinoFicha}>
+              Contratar
+              <ArrowRight size={16} aria-hidden />
+            </EnlaceBoton>
+            <EnlaceBoton href={destinoFicha} variant="ghost">
+              Ver ficha
+            </EnlaceBoton>
+          </>
+        )}
       </div>
     </article>
   );

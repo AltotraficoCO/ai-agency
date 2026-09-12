@@ -48,7 +48,11 @@ export type IconoCapacidad =
   | "humano"
   | "redactar"
   | "segmentar"
-  | "medir";
+  | "medir"
+  | "imagen"
+  | "velocidad"
+  | "factura"
+  | "dinero";
 
 export type CapacidadAgente = {
   readonly icono: IconoCapacidad;
@@ -63,6 +67,12 @@ export type FichaCatalogo = {
   readonly descripcion: string | null;
   readonly categoria: string;
   readonly tipo: string;
+  /**
+   * La cara del agente. Sale del catálogo (`catalog_agents.avatar_url`) y, si
+   * el cliente se la cambió a SU agente, de ahí: la elección es suya, y el
+   * catálogo es global para todos los espacios.
+   */
+  readonly avatar: string | null;
   readonly herramientas: readonly { slug: string; nombre: string }[];
   /** Lo que sabe hacer, dicho como lo entiende un dueño de negocio. */
   readonly capacidades: readonly CapacidadAgente[];
@@ -127,6 +137,30 @@ const CONEXIONES_POR_AGENTE: Record<string, readonly { clave: string; nombre: st
         ruta: "/ajustes/contabilidad",
       },
     ],
+    reportes: [
+      {
+        clave: "contabilidad",
+        nombre: "Alegra",
+        descripcion: "De ahí saca lo que entró, lo que salió y lo que te deben.",
+        ruta: "/ajustes/contabilidad",
+      },
+    ],
+    velocista: [
+      {
+        clave: "sitio",
+        nombre: "Tu sitio web",
+        descripcion: "La página que va a medir y acelerar.",
+        ruta: "/ajustes/sitio",
+      },
+    ],
+    disenador: [
+      {
+        clave: "sitio",
+        nombre: "Tu sitio web",
+        descripcion: "De ahí toma los colores de tu marca y ahí sube las imágenes.",
+        ruta: "/ajustes/sitio",
+      },
+    ],
   };
 
 /**
@@ -178,7 +212,101 @@ const CAPACIDADES_POR_AGENTE: Record<string, readonly CapacidadAgente[]> = {
       detalle: "Nunca mueve tu presupuesto sin que tú lo apruebes con un botón.",
     },
   ],
+  disenador: [
+    {
+      icono: "imagen",
+      titulo: "Te hace las imágenes que hacen falta",
+      detalle: "Portadas de artículos, piezas para tus redes y cabeceras de páginas.",
+    },
+    {
+      icono: "plantilla",
+      titulo: "Usa los colores reales de tu marca",
+      detalle: "Los mide de tu propia web, para que no parezcan de plantilla.",
+    },
+    {
+      icono: "aprobacion",
+      titulo: "Te las enseña antes de subirlas",
+      detalle: "Y nunca reemplaza una imagen tuya sin que se lo pidas.",
+    },
+  ],
+  velocista: [
+    {
+      icono: "velocidad",
+      titulo: "Mide cuánto tarda tu web en abrir",
+      detalle: "En celular y en computador, con la misma vara con la que la mide Google.",
+    },
+    {
+      icono: "medir",
+      titulo: "Te dice qué la está frenando",
+      detalle: "Imágenes pesadas, falta de caché o el servidor, dicho sin tecnicismos.",
+    },
+    {
+      icono: "copia",
+      titulo: "Arregla y te enseña el antes y el después",
+      detalle: "Activa la caché con tu permiso, hace copia y vuelve a medir.",
+    },
+  ],
+  administrativo: [
+    {
+      icono: "dinero",
+      titulo: "Te dice cuánto te deben y desde cuándo",
+      detalle: "Ordenado por lo que más pesa, no por fecha: primero lo grande y viejo.",
+    },
+    {
+      icono: "factura",
+      titulo: "Emite facturas y registra pagos",
+      detalle: "En tu sistema de facturación, y nunca sin tu visto bueno.",
+    },
+    {
+      icono: "mensaje",
+      titulo: "Prepara los recordatorios de cobro",
+      detalle: "Escritos para cobrar sin ofender a un cliente que quieres conservar.",
+    },
+  ],
+  reportes: [
+    {
+      icono: "medir",
+      titulo: "Cómo va el negocio, en una página",
+      detalle: "Cuánto entró, cuánto salió, qué te deben y qué vence esta semana.",
+    },
+    {
+      icono: "segmentar",
+      titulo: "Lo compara con el periodo anterior",
+      detalle: "Para que el dato sea una noticia y no un número suelto.",
+    },
+    {
+      icono: "aprobacion",
+      titulo: "Solo mira: nunca toca tu contabilidad",
+      detalle: "No emite, no cobra y no modifica nada. Solo te cuenta.",
+    },
+  ],
 };
+
+/**
+ * Los bullets de un agente que todavía no tiene los suyos escritos a mano.
+ *
+ * El diccionario de arriba es la versión buena: está escrita en el idioma del
+ * dueño del negocio. Pero un agente nuevo que nadie recuerde añadir ahí salía
+ * con la tarjeta pelada, y eso fue exactamente lo que pasó con los cinco
+ * agentes que entraron en septiembre de 2026. Su ficha ya trae sus objetivos
+ * (`spec_template.goals`), así que de ahí sale un respaldo digno: no es tan
+ * bueno como el texto a mano, pero nunca deja una tarjeta vacía.
+ */
+function capacidadesDeRespaldo(spec: unknown): readonly CapacidadAgente[] {
+  const goals = (spec as { goals?: unknown } | null)?.goals;
+  if (!Array.isArray(goals)) return [];
+  return goals
+    .filter((g): g is string => typeof g === "string" && g.trim().length > 0)
+    .slice(0, 3)
+    .map((g) => {
+      const texto = g.trim();
+      return {
+        icono: "medir" as const,
+        titulo: texto.charAt(0).toUpperCase() + texto.slice(1),
+        detalle: "",
+      };
+    });
+}
 
 /**
  * Los 3-5 campos que se preguntan al contratar.
@@ -262,11 +390,14 @@ export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCata
         description: string | null;
         category: string;
         agent_type: string;
+        avatar_url: string | null;
+        spec_template: unknown;
         required_tools: string[];
         monthly_credits: number;
         setup_credits: number;
       }>(
         `select slug, name, tagline, description, category, agent_type,
+                avatar_url, spec_template,
                 required_tools, monthly_credits, setup_credits
            from public.catalog_agents
           where is_published
@@ -275,10 +406,14 @@ export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCata
           order by position asc, name asc`,
         [],
       ),
-      scope.query<{ catalog_slug: string; agent_id: string | null; status: string }>(
-        `select catalog_slug, agent_id, status
-           from public.agent_subscriptions
-          where workspace_id = $1 and status <> 'cancelled'`,
+      // La cara del agente contratado viene con el contrato: si el cliente se la
+      // cambió, gana sobre la del catálogo, que es global y la ven todos.
+      scope.query<{ catalog_slug: string; agent_id: string | null; status: string; avatar_url: string | null }>(
+        `select s.catalog_slug, s.agent_id, s.status, a.avatar_url
+           from public.agent_subscriptions s
+           left join public.agents a
+             on a.workspace_id = s.workspace_id and a.id = s.agent_id
+          where s.workspace_id = $1 and s.status <> 'cancelled'`,
         [workspaceId],
       ),
       scope.query<{ slug: string; name: string }>(
@@ -328,11 +463,12 @@ export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCata
         descripcion: f.description,
         categoria: f.category,
         tipo: f.agent_type,
+        avatar: contrato?.avatar_url ?? f.avatar_url,
         herramientas: (f.required_tools ?? []).map((slug) => ({
           slug,
           nombre: nombreHerramienta.get(slug) ?? slug,
         })),
-        capacidades: CAPACIDADES_POR_AGENTE[f.slug] ?? [],
+        capacidades: CAPACIDADES_POR_AGENTE[f.slug] ?? capacidadesDeRespaldo(f.spec_template),
         creditosMensuales: Number(f.monthly_credits ?? 0),
         costeUsd: creditosAUsd(Number(f.monthly_credits ?? 0)),
         creditosAlta: Number(f.setup_credits ?? 0),
