@@ -205,12 +205,12 @@ export class ConsumidorDeTareas implements Consumidor {
   /**
    * Enruta al oficio que toca. Un compañero entra por aquí igual que el primero.
    *
-   * Con una diferencia que importa: un encargo del cliente sin `agente` es del
-   * Webmaster, porque eso eran todos antes de la 0029. Pero una DELEGACIÓN
-   * nombra a su destinatario, así que un slug que este worker no sabe ejecutar
-   * —el administrativo, mientras no tenga su bucle— se rechaza y se dice. Caer
-   * al Webmaster sería poner a un agente a hacer el trabajo de otro, con las
-   * herramientas de otro, sobre el sitio del cliente.
+   * Un encargo sin `agente` es del Webmaster, porque eso eran todos antes de la
+   * 0029. Pero un slug NOMBRADO que este worker no sabe ejecutar —el
+   * administrativo, mientras no tenga su bucle— se rechaza y se dice, venga de
+   * una delegación o del cliente. Caer al Webmaster sería poner a un agente a
+   * hacer el trabajo de otro, con las herramientas de otro, sobre el sitio del
+   * cliente: el agente financiero acabaría tocando WordPress.
    */
   async #ejecutarAgente(
     quien: string,
@@ -225,7 +225,7 @@ export class ConsumidorDeTareas implements Consumidor {
     if (quien === "marketing") {
       return this.#ejecutarMarketing(tarea, motor, registro, decir, cadena, extra, encargo);
     }
-    if (encargo && quien !== "webmaster") {
+    if (quien !== "webmaster") {
       // Se devuelve como fallo del compañero, no como excepción: el que pidió
       // ayuda tiene que poder terminar su parte y contarlo. Tumbar un encargo
       // que el cliente ya aprobó por esto sería desproporcionado.
