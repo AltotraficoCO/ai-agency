@@ -7,7 +7,6 @@ import { AsistenteContratacion } from "@/components/negocio/asistente-contrataci
 import { RetratoAgente } from "@/components/negocio/contratar/retrato-agente";
 import { datosDelMarco } from "@/lib/marco";
 import { fichaDelCatalogo } from "@/lib/negocio/catalogo";
-import { dolares } from "@/lib/negocio/creditos";
 
 export const dynamic = "force-dynamic";
 
@@ -64,11 +63,8 @@ export default async function PaginaFicha({ params }: { params: Promise<{ slug: 
                 ) : null}
               </div>
               {ficha.tagline ? <p className="text-base text-fg-secondary">{ficha.tagline}</p> : null}
-              <p className="pt-1 text-sm text-fg-muted">
-                {ficha.creditosMensuales > 0
-                  ? `${dolares(ficha.costeUsd)} al mes además de tu plan`
-                  : "Incluido en tu plan"}
-              </p>
+              {/* Tenerlo contratado no cuesta nada: se paga lo que gaste trabajando. */}
+              <p className="pt-1 text-sm text-fg-muted">Sin cuota. Pagas los créditos que gaste.</p>
             </div>
           </div>
         </aside>

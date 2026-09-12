@@ -7,7 +7,10 @@ import { ICONO_CAPACIDAD } from "@/components/negocio/contratar/personajes";
 import { RetratoAgente } from "@/components/negocio/contratar/retrato-agente";
 import { datosDelMarco } from "@/lib/marco";
 import { catalogoDelEspacio, type FichaCatalogo } from "@/lib/negocio/catalogo";
-import { dolares } from "@/lib/negocio/creditos";
+import {
+  agruparPorDepartamento,
+  resumenDePlantilla,
+} from "@/lib/negocio/contratar-departamentos";
 
 export const metadata = { title: "Contratar agente" };
 export const dynamic = "force-dynamic";
@@ -20,18 +23,26 @@ const COMO_FUNCIONA = [
 ] as const;
 
 /**
- * El catálogo.
+ * El catálogo, ordenado por departamentos.
  *
- * Cada ficha dice tres cosas y en este orden: QUÉ HACE, QUÉ CUESTA y QUÉ
- * NECESITA CONECTADO. Ese tercer punto es el que evita la decepción: contratar
- * un Webmaster sin el sitio conectado deja al cliente con un agente que no
- * puede hacer nada y con la sensación de que el producto no funciona.
+ * Contratar aquí es mirar una empresa y decidir a quién falta, así que la
+ * pantalla se lee como una plantilla: los mismos departamentos y el mismo orden
+ * que el menú, con quien ya trabaja para ti antes que quien puedes contratar.
+ *
+ * Cada ficha dice QUÉ HACE y QUÉ NECESITA CONECTADO. Ese segundo punto es el que
+ * evita la decepción: contratar un Webmaster sin el sitio conectado deja al
+ * cliente con un agente que no puede hacer nada.
+ *
+ * Lo que NO dice es un precio por agente: contratar no cuesta nada por sí mismo,
+ * se pagan los créditos que gaste trabajando. Esa es la promesa del producto.
  *
  * Solo hay agentes del negocio: los de WhatsApp no se contratan, se crean.
  */
 export default async function PaginaContratar() {
   const marco = await datosDelMarco();
   const catalogo = await catalogoDelEspacio(marco.actual.workspaceId);
+  const grupos = agruparPorDepartamento(catalogo);
+  const plantilla = resumenDePlantilla(catalogo);
 
   return (
     <MarcoApp
@@ -43,7 +54,7 @@ export default async function PaginaContratar() {
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-8">
         <EncabezadoPagina
           titulo="Agentes listos para trabajar"
-          descripcion="Ya vienen construidos y saben hacer su trabajo. Eliges uno, conectas lo que falte y lo pruebas antes de que hable con nadie."
+          descripcion="Contrata los que quieras: no cuestan nada por tenerlos. Solo pagas los créditos que gasten cuando trabajen."
           acciones={
             <EnlaceBoton href="/" variant="secondary">
               <Sparkles size={16} aria-hidden />
@@ -51,6 +62,18 @@ export default async function PaginaContratar() {
             </EnlaceBoton>
           }
         />
+
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-raised px-3 py-1 text-sm text-fg-secondary shadow-e1">
+            <span className="font-medium text-fg tabular-nums">
+              {plantilla.contratados} de {plantilla.total}
+            </span>
+            puestos cubiertos
+          </span>
+          <span className="text-sm text-fg-muted">
+            Los mensajes de WhatsApp los cobra Meta directamente a tu cuenta.
+          </span>
+        </div>
 
         <ol className="grid gap-3 sm:grid-cols-3">
           {COMO_FUNCIONA.map((paso) => (
@@ -69,16 +92,32 @@ export default async function PaginaContratar() {
           ))}
         </ol>
 
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {catalogo.map((ficha, indice) => (
-            <TarjetaDelCatalogo key={ficha.slug} ficha={ficha} indice={indice} />
-          ))}
-        </div>
+        {grupos.map((grupo) => {
+          const total = grupo.contratados.length + grupo.disponibles.length;
+          return (
+            <section key={grupo.id} className="flex flex-col gap-4" aria-labelledby={`dep-${grupo.id}`}>
+              <div className="flex flex-col gap-1 border-b border-[var(--border-subtle)] pb-3">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h2 id={`dep-${grupo.id}`} className="text-xl font-semibold tracking-tight text-fg">
+                    {grupo.etiqueta}
+                  </h2>
+                  <span className="text-sm text-fg-muted tabular-nums">
+                    {grupo.contratados.length > 0
+                      ? `${grupo.contratados.length} en tu equipo · ${grupo.disponibles.length} por contratar`
+                      : `${total} por contratar`}
+                  </span>
+                </div>
+                <p className="text-base text-fg-secondary">{grupo.descripcion}</p>
+              </div>
 
-        <p className="text-sm text-fg-muted">
-          El consumo de estos agentes se cobra en créditos de IA, como el de los tuyos. Los mensajes de
-          WhatsApp los cobra Meta directamente a tu cuenta.
-        </p>
+              <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                {[...grupo.contratados, ...grupo.disponibles].map((ficha, indice) => (
+                  <TarjetaDelCatalogo key={ficha.slug} ficha={ficha} indice={indice} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </MarcoApp>
   );
@@ -110,17 +149,14 @@ function TarjetaDelCatalogo({ ficha, indice }: { ficha: FichaCatalogo; indice: n
         {ficha.contratado ? (
           <Badge tone="exito" className="absolute left-3 top-3 gap-1">
             <Check size={12} strokeWidth={2.5} aria-hidden />
-            Contratado
+            En tu equipo
           </Badge>
         ) : null}
-        <span className="absolute right-3 top-3 rounded-full border border-border bg-raised px-2.5 py-0.5 text-sm text-fg-secondary">
-          {ficha.creditosMensuales > 0 ? `${dolares(ficha.costeUsd)}/mes` : "Incluido en tu plan"}
-        </span>
       </div>
 
       <div className="pointer-events-none relative flex flex-1 flex-col gap-5 p-5">
         <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold tracking-tight text-fg">{ficha.nombre}</h2>
+          <h3 className="text-xl font-semibold tracking-tight text-fg">{ficha.nombre}</h3>
           {ficha.tagline ? <p className="text-base text-fg-secondary">{ficha.tagline}</p> : null}
         </div>
 
@@ -144,7 +180,9 @@ function TarjetaDelCatalogo({ ficha, indice }: { ficha: FichaCatalogo; indice: n
 
         {ficha.conexiones.length > 0 ? (
           <div className="flex flex-col gap-2">
-            <p className="text-2xs font-medium uppercase tracking-wide text-fg-muted">Necesita</p>
+            <p className="text-2xs font-medium uppercase tracking-wide text-fg-muted">
+              Necesita conectado
+            </p>
             <ul className="flex flex-wrap gap-1.5">
               {ficha.conexiones.map((c) => (
                 <li

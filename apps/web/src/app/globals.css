@@ -236,19 +236,23 @@
   .light {
     color-scheme: light;
 
-    --s-canvas:   #F4F4F5;
+    --s-canvas:   #F1F1F3;
     --s-page:     #FAFAFA;
     --s-nav:      #FFFFFF;
     --s-raised:   #FFFFFF;
     --s-overlay:  #FFFFFF;
-    --s-inset:    #F4F4F5;
-    --s-hover:    #F4F4F5;
-    --s-active:   #E4E4E7;
-    --s-selected: #ECFDE8;
+    --s-inset:    #F5F5F6;
+    /* El hover no puede ser el mismo gris que el hueco: si no, pasar por encima
+       de una fila no se nota y la interfaz parece muerta. */
+    --s-hover:    #ECECEF;
+    --s-active:   #E0E0E5;
+    --s-selected: #E7FBE1;
 
-    --border-subtle:  #F0F0F2;
-    --border-default: #E4E4E7;
-    --border-strong:  #D4D4D8;
+    /* Sobre blanco, un borde de #F0F0F2 no existe: las tarjetas de plastilina
+       se quedaban sin canto y todo se fundía con el fondo. */
+    --border-subtle:  #E7E7EB;
+    --border-default: #DCDCE2;
+    --border-strong:  #C3C3CB;
     --border-focus:   #22A30B;
 
     --fg-default:   #09090B;
@@ -259,11 +263,15 @@
     --fg-on-human:  #FFFFFF;
     --fg-inverse:   #FFFFFF;
 
-    /* El neón se queda en los botones, con texto negro; como texto sobre
-       blanco no se lee, así que ahí baja a un verde con contraste. */
-    --brand:        #39FF14;
-    --brand-hover:  #5BFF3A;
-    --brand-active: #2ED10F;
+    /* De día el neón puro quema: a plena luz, un botón #39FF14 sobre blanco
+       vibra y cansa, y es lo primero que se nota al abrir la herramienta por la
+       mañana. El botón baja un escalón —sigue siendo el verde de la marca, con
+       texto negro y contraste de sobra— y se ilumina al pasar por encima. Como
+       TEXTO sobre blanco ninguno de los dos se lee, y por eso `brand-fg` es
+       otro verde, más oscuro. De noche el neón se queda intacto. */
+    --brand:        #2ED10F;
+    --brand-hover:  #39FF14;
+    --brand-active: #22A30B;
     --brand-fg:     #15803D;
     --brand-soft:   #ECFDE8;
     --brand-ring:   #22A30B;
