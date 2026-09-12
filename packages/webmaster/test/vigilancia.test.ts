@@ -7,6 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  clasificarConsola,
   decidirAvisos,
   tocaComprobacionDiaria,
   type Chequeo,
@@ -182,11 +183,79 @@ describe("complementos y fallos de la página", () => {
     expect(aLaSemana.avisos).toHaveLength(1);
   });
 
-  it("los fallos de la portada se cuentan en cristiano", () => {
-    const { avisos } = decidirAvisos({}, { ...arriba(T(0)), consola: { errores: ["x is not defined"] } });
+  it("un error de programación se avisa desde el primero, en cristiano", () => {
+    const { avisos } = decidirAvisos(
+      {},
+      { ...arriba(T(0)), consola: { errores: ["[error] x is not defined"] } },
+    );
     expect(avisos).toHaveLength(1);
-    expect(avisos[0]!.cuerpo).toContain("botón");
+    expect(avisos[0]!.titulo).toContain("error de programación");
     expect(avisos[0]!.cuerpo).not.toContain("x is not defined");
+  });
+});
+
+/**
+ * El caso que lo motivó: un sitio sano (portada 200 en 170 ms, credenciales
+ * bien, certificado con 70 días) recibió «Hay un fallo en la portada» en su
+ * primera ronda por un solo 404 de un archivo que la plantilla pide de más.
+ */
+describe("archivos que no cargan frente a errores de programación", () => {
+  const consola = (...errores: string[]): Chequeo => ({ ...arriba(T(0)), consola: { errores } });
+  const recurso404 =
+    "[error] Failed to load resource: the server responded with a status of 404 ()";
+
+  it("un 404 suelto no genera ningún aviso", () => {
+    const { avisos, estado } = decidirAvisos({}, consola(recurso404));
+    expect(avisos).toEqual([]);
+    // Se midió, aunque no se avisara: no toca volver a abrir el navegador hoy.
+    expect(estado.consolaMedidaEn).toBe(T(0));
+    expect(estado.consolaAvisadaEn).toBeUndefined();
+  });
+
+  it("cuatro archivos que faltan siguen sin avisar; cinco sí", () => {
+    expect(decidirAvisos({}, consola(...Array(4).fill(recurso404))).avisos).toEqual([]);
+
+    const { avisos } = decidirAvisos({}, consola(...Array(5).fill(recurso404)));
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]!.titulo).toContain("faltan 5 archivos");
+    expect(avisos[0]!.severidad).toBe("aviso");
+  });
+
+  it("una excepción avisa aunque venga sola entre archivos que faltan", () => {
+    const { avisos } = decidirAvisos(
+      {},
+      consola(recurso404, "[error] Uncaught TypeError: t.init is not a function", recurso404),
+    );
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]!.titulo).toContain("un error de programación");
+    // Los archivos que faltan se cuentan, pero no se confunden con el error.
+    expect(avisos[0]!.cuerpo).toContain("2 archivos");
+  });
+
+  it("el aviso no afirma nada que no se haya medido", () => {
+    const { avisos } = decidirAvisos({}, consola("[error] Uncaught ReferenceError: jQuery is not defined"));
+    const texto = `${avisos[0]!.titulo} ${avisos[0]!.cuerpo}`;
+    // Desde fuera no se sabe qué dejó de funcionar: no se inventan síntomas.
+    expect(texto).not.toMatch(/botón|formulario|carrito|no envía|no responde/i);
+    // Y tampoco jerga: lo lee el dueño del negocio.
+    expect(texto).not.toMatch(/javascript|consola|TypeError|ReferenceError|404/i);
+  });
+
+  it("clasifica cada línea en su sitio", () => {
+    const c = clasificarConsola([
+      recurso404,
+      "[error] net::ERR_NAME_NOT_RESOLVED",
+      "[error] Uncaught TypeError: undefined is not a function",
+      "[error] algo raro que no encaja en ninguna",
+    ]);
+    expect(c.recursos).toBe(2);
+    expect(c.excepciones).toHaveLength(1);
+    expect(c.otros).toBe(1);
+  });
+
+  it("lo que no encaja en ninguna categoría no avisa por sí solo", () => {
+    const { avisos } = decidirAvisos({}, consola("[error] algo raro", "[error] otra cosa"));
+    expect(avisos).toEqual([]);
   });
 });
 

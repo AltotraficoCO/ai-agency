@@ -6,9 +6,11 @@
  * El worker las junta en su consumidor; la web solo lee los avisos.
  */
 export {
+  clasificarConsola,
   decidirAvisos,
   tocaComprobacionDiaria,
   type Aviso,
+  type ConsolaClasificada,
   type Chequeo,
   type Decision,
   type EstadoVigilancia,

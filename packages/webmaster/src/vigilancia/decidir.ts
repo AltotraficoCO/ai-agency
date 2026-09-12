@@ -121,6 +121,24 @@ export type Decision = {
 /** Umbrales de aviso del certificado, en días. De mayor a menor. */
 const UMBRALES_CERT = [15, 7, 3, 1] as const;
 
+/**
+ * Cuántos recursos tienen que faltar para que merezca un aviso.
+ *
+ * Un 404 suelto NO es un fallo del sitio: casi todos los WordPress piden algún
+ * icono, fuente o script de terceros que no está, y la página se ve perfecta.
+ * El primer día de vigilancia de un sitio sano avisamos de uno de estos y eso
+ * es exactamente lo que enseña a la gente a ignorar los avisos.
+ *
+ * Cinco es donde deja de parecer ruido: con cinco archivos sin cargar ya hay
+ * algo visible (imágenes rotas, una hoja de estilos que no llega) y sigue muy
+ * por debajo de lo que produce una plantilla normal.
+ *
+ * No se filtra por dominio ni por tipo de archivo a propósito: el navegador nos
+ * da el mensaje sin URL («Failed to load resource: the server responded with a
+ * status of 404 ()»), así que decir «falta una imagen tuya» sería inventar.
+ */
+const MIN_RECURSOS_PARA_AVISAR = 5;
+
 /** Cada cuánto se repite, como mucho, un aviso que no es un cambio de estado. */
 const DIAS_ENTRE_RECORDATORIOS = 7;
 
@@ -205,9 +223,12 @@ export function decidirAvisos(
   // --- Errores en la página -------------------------------------------------
   if (chequeo.consola) {
     estado = { ...estado, consolaMedidaEn: chequeo.en };
-    if (chequeo.consola.errores.length > 0 && tocaRecordar(previo.consolaAvisadaEn, chequeo.en)) {
+    const clasificado = clasificarConsola(chequeo.consola.errores);
+    const merece =
+      clasificado.excepciones.length > 0 || clasificado.recursos >= MIN_RECURSOS_PARA_AVISAR;
+    if (merece && tocaRecordar(previo.consolaAvisadaEn, chequeo.en)) {
       estado = { ...estado, consolaAvisadaEn: chequeo.en };
-      avisos.push(avisoConsola(sitio, chequeo.consola));
+      avisos.push(avisoConsola(sitio, clasificado));
     }
   }
 
@@ -338,7 +359,7 @@ function avisoCertificado(sitio: string, cert: MedidaCertificado): Aviso {
       ? `El candado de seguridad de ${sitio} está vencido`
       : `El candado de seguridad de ${sitio} vence en ${cert.diasRestantes} ${cert.diasRestantes === 1 ? "día" : "días"}`,
     cuerpo: caducado
-      ? "El navegador de tus clientes les está mostrando un aviso rojo de sitio no seguro antes de dejarles entrar. Es de lo que más ventas cuesta."
+      ? "El navegador les muestra a tus clientes un aviso de sitio no seguro antes de dejarles entrar, y muchos se van ahí mismo."
       : `Cuando venza, el navegador enseñará a tus clientes un aviso de sitio no seguro antes de dejarles entrar. Vence el ${fechaCorta(cert.caducaEn)}.`,
     propuesta:
       "Casi todos los hostings lo renuevan solos: si no pasó, escribe a tu proveedor de hosting para que lo renueve.",
@@ -353,7 +374,7 @@ function avisoPlugins(sitio: string, plugins: MedidaPlugins): Aviso {
     severidad: "aviso",
     titulo: `${n} ${n === 1 ? "complemento" : "complementos"} de ${sitio} sin actualizar`,
     cuerpo: [
-      "Los complementos desactualizados son la vía por la que entra la mayoría de los ataques a un WordPress.",
+      "Los complementos sin actualizar suelen ser la vía de entrada de los ataques a un WordPress.",
       lista ? `Pendientes: ${lista}${plugins.nombres.length > 3 ? "…" : ""}.` : "",
     ]
       .filter(Boolean)
@@ -362,15 +383,79 @@ function avisoPlugins(sitio: string, plugins: MedidaPlugins): Aviso {
   };
 }
 
-function avisoConsola(sitio: string, consola: MedidaConsola): Aviso {
-  const n = consola.errores.length;
+/**
+ * Qué había de verdad en la consola de la portada.
+ *
+ * Dos cosas muy distintas se mezclan ahí: el código de la página que revienta
+ * (una función que no existe, una promesa sin atender) y archivos que el
+ * navegador pidió y no llegaron. Lo primero rompe funcionalidad; lo segundo,
+ * casi siempre, es un icono que sobra en la plantilla.
+ */
+export type ConsolaClasificada = {
+  /** Excepciones de JavaScript: el código de la página falló al ejecutarse. */
+  readonly excepciones: readonly string[];
+  /** Archivos que el navegador pidió y no llegaron. */
+  readonly recursos: number;
+  /** Lo que no es ni una cosa ni la otra. Nunca avisa por sí solo. */
+  readonly otros: number;
+};
+
+/** Un archivo que no llegó, no un fallo del código. */
+const RECURSO_QUE_FALTA =
+  /failed to load resource|net::err_|err_(blocked|aborted|failed|name_not_resolved|connection)|the server responded with a status of/i;
+
+/** Una excepción de JavaScript de verdad. */
+const EXCEPCION_JS =
+  /uncaught|unhandled (promise )?rejection|(type|reference|syntax|range|eval|url)error|is not (defined|a function|iterable)|cannot read propert|cannot access|null is not an object|undefined is not an object/i;
+
+export function clasificarConsola(errores: readonly string[]): ConsolaClasificada {
+  const excepciones: string[] = [];
+  let recursos = 0;
+  let otros = 0;
+  for (const linea of errores) {
+    // El orden importa: «Failed to load resource… 404» contiene la palabra
+    // «error» y algún patrón suelto, pero es un archivo que falta, no una
+    // excepción. Lo que no llegó se descarta primero.
+    if (RECURSO_QUE_FALTA.test(linea)) recursos++;
+    else if (EXCEPCION_JS.test(linea)) excepciones.push(linea);
+    else otros++;
+  }
+  return { excepciones, recursos, otros };
+}
+
+/**
+ * El texto dice lo que se midió y nada más.
+ *
+ * Antes afirmaba que podía haber «un botón que no responde o un formulario que
+ * no envía» sin ninguna prueba de eso: desde fuera no se sabe qué dejó de
+ * funcionar, solo que algo falló.
+ */
+function avisoConsola(sitio: string, consola: ConsolaClasificada): Aviso {
+  const n = consola.excepciones.length;
+  if (n > 0) {
+    return {
+      clave: `consola:js:${n}`,
+      severidad: "aviso",
+      titulo: `${sitio} tiene ${n === 1 ? "un error" : `${n} errores`} de programación en la portada`,
+      cuerpo: [
+        `La página abre, pero ${n === 1 ? "una parte de su código falla" : "hay partes de su código que fallan"} al ejecutarse.`,
+        "Desde fuera no puedo saber qué deja de funcionar para tus clientes: hay que abrirla y comprobarlo.",
+        consola.recursos > 0
+          ? `Además, ${consola.recursos === 1 ? "un archivo que pide la página no llegó" : `${consola.recursos} archivos que pide la página no llegaron`}.`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+      propuesta: "Pídeme que la revise y te digo qué está fallando y si se puede arreglar.",
+    };
+  }
   return {
-    clave: `consola:${n}`,
+    clave: `consola:recursos:${consola.recursos}`,
     severidad: "aviso",
-    titulo: `Hay ${n === 1 ? "un fallo" : "fallos"} en la portada de ${sitio}`,
+    titulo: `A la portada de ${sitio} le faltan ${consola.recursos} archivos`,
     cuerpo:
-      "La página abre, pero algo dentro no está cargando bien. Suele verse como un botón que no responde, un formulario que no envía o una imagen que no aparece.",
-    propuesta: "Pídeme que lo revise y te digo qué es y si se puede arreglar.",
+      "La página abre, pero pide archivos que no llegan: imágenes, iconos o estilos. Puede que algo se vea roto o descolocado.",
+    propuesta: "Pídeme que la revise y te digo cuáles faltan y si se pueden reponer.",
   };
 }
 

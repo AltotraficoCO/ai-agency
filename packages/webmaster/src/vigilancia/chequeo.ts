@@ -234,7 +234,10 @@ async function medirConsola(navegador: BrowserPort): Promise<Chequeo["consola"]>
   try {
     await navegador.ir("/", false);
     const { consola } = await navegador.consola();
-    const errores = consola.filter((l) => /error/i.test(l));
+    // Solo lo que el navegador marcó como error. Filtrar por la palabra
+    // «error» colaba advertencias que la mencionan («deprecated: … error
+    // handling»), y una advertencia nunca es un fallo del sitio.
+    const errores = consola.filter((l) => l.startsWith("[error]"));
     return { errores };
   } catch {
     return undefined;
