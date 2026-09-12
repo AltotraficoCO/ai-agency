@@ -51,9 +51,9 @@ export default async function PaginaInstrucciones({
   );
 }
 
-/** Un agente de WhatsApp vuelve a su módulo; uno por encargo, a los del negocio. */
+/** Un agente de WhatsApp vuelve a Comunicaciones; uno por encargo, a tu equipo. */
 function seccionDe(tipo: string) {
   return tipo === "conversational"
     ? { href: rutas.agentesWhatsapp, etiqueta: "Agentes de WhatsApp", ruta: rutas.agentesWhatsapp }
-    : { href: rutas.agentes, etiqueta: "Agentes del negocio", ruta: rutas.agentes };
+    : { href: rutas.agentes, etiqueta: "Tu equipo", ruta: rutas.agentes };
 }

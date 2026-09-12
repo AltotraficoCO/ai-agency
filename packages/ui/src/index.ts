@@ -112,9 +112,11 @@ export {
   destinoAjustes,
   destinoContratar,
   destinosPrincipales,
+  entradaDeGrupo,
   esGrupoNav,
   etiquetaEstadoCanal,
   menuPrincipal,
+  rutaDeDepartamento,
   rutas,
   todosLosDestinos,
   type DestinoNav,
@@ -124,6 +126,15 @@ export {
   type IndicadorNav,
   type Ruta,
 } from "./layout/navigation";
+export {
+  DEPARTAMENTOS,
+  DEPARTAMENTOS_CON_PANTALLA,
+  DEPARTAMENTO_POR_DEFECTO,
+  departamentoDeCategoria,
+  esDepartamentoConPantalla,
+  type DepartamentoId,
+  type FichaDepartamento,
+} from "./layout/departamentos";
 
 export { ThemeProvider, type ThemeProviderProps } from "./theme/theme-provider";
 export { ThemeToggle } from "./theme/theme-toggle";

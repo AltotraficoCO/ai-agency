@@ -13,6 +13,7 @@ import { useGruposMenu } from "./grupos-menu";
 import {
   destinoAjustes,
   destinoContratar,
+  entradaDeGrupo,
   esGrupoNav,
   etiquetaEstadoCanal,
   menuPrincipal,
@@ -179,8 +180,38 @@ export function Sidebar({
             </Tooltip>
           ) : null}
 
-          {menuPrincipal.map((entrada) =>
-            esGrupoNav(entrada) ? (
+          {menuPrincipal.map((entrada) => {
+            if (!esGrupoNav(entrada)) {
+              return (
+                <DestinoIcono
+                  key={entrada.id}
+                  destino={entrada}
+                  activo={entrada.href === rutaActiva}
+                  pendientes={pendientes}
+                  estadoCanales={estadoCanales}
+                  linkComponent={linkComponent}
+                />
+              );
+            }
+
+            // Plegado no hay títulos, así que un departamento de una sola
+            // pantalla es un icono más, con el nombre del departamento en su
+            // tooltip: es lo que la persona busca.
+            const directo = entradaDeGrupo(entrada);
+            if (directo) {
+              return (
+                <DestinoIcono
+                  key={entrada.id}
+                  destino={directo}
+                  activo={directo.href === rutaActiva}
+                  pendientes={pendientes}
+                  estadoCanales={estadoCanales}
+                  linkComponent={linkComponent}
+                />
+              );
+            }
+
+            return (
               <div key={entrada.id} role="group" aria-label={entrada.etiqueta} className="flex flex-col items-center gap-1">
                 <span aria-hidden className="my-1.5 h-px w-7 bg-[var(--border-subtle)]" />
                 {entrada.destinos.map((destino) => (
@@ -194,17 +225,8 @@ export function Sidebar({
                   />
                 ))}
               </div>
-            ) : (
-              <DestinoIcono
-                key={entrada.id}
-                destino={entrada}
-                activo={entrada.href === rutaActiva}
-                pendientes={pendientes}
-                estadoCanales={estadoCanales}
-                linkComponent={linkComponent}
-              />
-            ),
-          )}
+            );
+          })}
 
           <span aria-hidden className="my-1.5 h-px w-7 bg-[var(--border-subtle)]" />
           <DestinoIcono
@@ -256,8 +278,37 @@ export function Sidebar({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-2">
-        {menuPrincipal.map((entrada) =>
-          esGrupoNav(entrada) ? (
+        {menuPrincipal.map((entrada) => {
+          if (!esGrupoNav(entrada)) {
+            return (
+              <DestinoLink
+                key={entrada.id}
+                destino={entrada}
+                activo={entrada.href === rutaActiva}
+                pendientes={pendientes}
+                estadoCanales={estadoCanales}
+                linkComponent={linkComponent}
+              />
+            );
+          }
+
+          // Un departamento con una sola pantalla no se esconde tras un
+          // desplegable: serían dos clics para llegar a lo mismo.
+          const directo = entradaDeGrupo(entrada);
+          if (directo) {
+            return (
+              <DestinoLink
+                key={entrada.id}
+                destino={directo}
+                activo={directo.href === rutaActiva}
+                pendientes={pendientes}
+                estadoCanales={estadoCanales}
+                linkComponent={linkComponent}
+              />
+            );
+          }
+
+          return (
             <GrupoPlegable
               key={entrada.id}
               grupo={entrada}
@@ -270,17 +321,8 @@ export function Sidebar({
               estadoCanales={estadoCanales}
               linkComponent={linkComponent}
             />
-          ) : (
-            <DestinoLink
-              key={entrada.id}
-              destino={entrada}
-              activo={entrada.href === rutaActiva}
-              pendientes={pendientes}
-              estadoCanales={estadoCanales}
-              linkComponent={linkComponent}
-            />
-          ),
-        )}
+          );
+        })}
 
         <hr className="my-3 border-0 border-t border-[var(--border-subtle)]" />
 

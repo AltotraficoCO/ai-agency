@@ -1,18 +1,21 @@
 import {
   ChartColumn,
   BookOpen,
-  Bot,
   BotMessageSquare,
-  BriefcaseBusiness,
-  Inbox,
+  Code2,
   House,
+  Inbox,
+  Megaphone,
   MessageCircle,
   PiggyBank,
+  Receipt,
   Settings,
   Sparkles,
   Users,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
+import { DEPARTAMENTOS, type DepartamentoId } from "./departamentos";
 
 /**
  * Rutas de la aplicación. Los enlaces del menú solo pueden apuntar a una de
@@ -20,14 +23,17 @@ import {
  */
 export const rutas = {
   inicio: "/",
-  agentesWhatsapp: "/whatsapp/agentes",
-  bandeja: "/bandeja",
   agentes: "/agentes",
   impacto: "/negocio/impacto",
+  agentesWhatsapp: "/whatsapp/agentes",
+  bandeja: "/bandeja",
   contactos: "/contactos",
   canales: "/ajustes/canales",
   conocimiento: "/conocimiento",
   analitica: "/analitica",
+  marketing: "/departamento/marketing",
+  desarrollo: "/departamento/desarrollo",
+  administracion: "/departamento/administracion",
   contratar: "/contratar",
   ajustes: "/ajustes",
 } as const;
@@ -48,13 +54,14 @@ export interface DestinoNav {
 }
 
 /**
- * Un módulo del producto: un título y sus destinos, siempre desplegados.
+ * Un departamento de la empresa: un título y las pantallas de su área.
  *
- * No es un acordeón. Agrupa para que se entienda qué es de qué —la Bandeja y
- * los Contactos son de WhatsApp—, no para esconder nada detrás de un clic.
+ * Se pliega y se despliega. Mientras solo tenga una pantalla, el menú lo pinta
+ * como un enlace directo —un acordeón de un solo hijo son dos clics para llegar
+ * a lo mismo— y se convierte en desplegable solo cuando gana la segunda.
  */
 export interface GrupoNav {
-  id: string;
+  id: DepartamentoId;
   etiqueta: string;
   icono: LucideIcon;
   destinos: readonly DestinoNav[];
@@ -67,6 +74,19 @@ export function esGrupoNav(entrada: EntradaNav): entrada is GrupoNav {
 }
 
 const inicio: DestinoNav = { id: "inicio", etiqueta: "Inicio", href: rutas.inicio, icono: House };
+const equipo: DestinoNav = {
+  id: "agentes",
+  etiqueta: "Tu equipo",
+  href: rutas.agentes,
+  icono: UsersRound,
+};
+const impacto: DestinoNav = {
+  id: "impacto",
+  etiqueta: "Impacto",
+  href: rutas.impacto,
+  icono: PiggyBank,
+};
+
 const agentesWhatsapp: DestinoNav = {
   id: "agentesWhatsapp",
   etiqueta: "Agentes de WhatsApp",
@@ -93,46 +113,87 @@ const analitica: DestinoNav = {
   href: rutas.analitica,
   icono: ChartColumn,
 };
-const impacto: DestinoNav = {
-  id: "impacto",
-  etiqueta: "Impacto",
-  href: rutas.impacto,
-  icono: PiggyBank,
+
+const agentesMarketing: DestinoNav = {
+  id: "marketing",
+  etiqueta: "Agentes de marketing",
+  href: rutas.marketing,
+  icono: Megaphone,
 };
-const agentesNegocio: DestinoNav = {
-  id: "agentes",
-  etiqueta: "Agentes del negocio",
-  href: rutas.agentes,
-  icono: Bot,
+const agentesDesarrollo: DestinoNav = {
+  id: "desarrollo",
+  etiqueta: "Agentes de desarrollo",
+  href: rutas.desarrollo,
+  icono: Code2,
+};
+const agentesAdministracion: DestinoNav = {
+  id: "administracion",
+  etiqueta: "Agentes de administración",
+  href: rutas.administracion,
+  icono: Receipt,
 };
 
 /**
  * El menú, en el orden en que se lee.
  *
- * Dos módulos que no se mezclan. WhatsApp es la atención a clientes: los
- * agentes que contestan (los crea la persona con Strap), la bandeja,
- * los contactos, lo que saben y cómo les va. Negocio son los agentes que
- * trabajan por encargo para la empresa, como el Webmaster o Marketing, y el
- * Impacto: lo que hicieron y cuánto le ahorraron al negocio.
+ * Arriba, lo que es de la empresa entera: dónde empiezas (Inicio), quién
+ * trabaja para ti (Tu equipo) y qué te están ahorrando (Impacto). Impacto no
+ * cuelga de ningún departamento a propósito: suma el trabajo de todos, y
+ * meterlo en uno haría creer que solo mide ese.
+ *
+ * Debajo, los departamentos, que son el armazón para ir contratando: hoy
+ * Comunicaciones tiene cinco pantallas y los demás una, mañana tendrán las
+ * suyas sin tocar este archivo más que para añadir la línea.
  *
  * Canales no está aquí a propósito: WhatsApp se conecta una vez y luego no se
  * vuelve a tocar, así que vive en Ajustes.
  */
 export const menuPrincipal: readonly EntradaNav[] = [
   inicio,
+  equipo,
+  impacto,
   {
-    id: "whatsapp",
-    etiqueta: "WhatsApp",
+    id: "comunicaciones",
+    etiqueta: DEPARTAMENTOS.comunicaciones.etiqueta,
     icono: MessageCircle,
     destinos: [agentesWhatsapp, bandeja, contactos, conocimiento, analitica],
   },
-  { id: "negocio", etiqueta: "Negocio", icono: BriefcaseBusiness, destinos: [impacto, agentesNegocio] },
+  {
+    id: "marketing",
+    etiqueta: DEPARTAMENTOS.marketing.etiqueta,
+    icono: Megaphone,
+    destinos: [agentesMarketing],
+  },
+  {
+    id: "desarrollo",
+    etiqueta: DEPARTAMENTOS.desarrollo.etiqueta,
+    icono: Code2,
+    destinos: [agentesDesarrollo],
+  },
+  {
+    id: "administracion",
+    etiqueta: DEPARTAMENTOS.administracion.etiqueta,
+    icono: Receipt,
+    destinos: [agentesAdministracion],
+  },
 ];
 
 /** Los mismos destinos del menú, sin agrupar. */
 export const destinosPrincipales: readonly DestinoNav[] = menuPrincipal.flatMap((entrada) =>
   esGrupoNav(entrada) ? entrada.destinos : [entrada],
 );
+
+/**
+ * Un departamento con una sola pantalla se enseña como enlace directo.
+ *
+ * El enlace conserva el nombre y el icono del DEPARTAMENTO —es lo que la
+ * persona busca en el menú— y apunta a su única pantalla. En cuanto el
+ * departamento tenga dos, vuelve a ser un desplegable sin tocar nada.
+ */
+export function entradaDeGrupo(grupo: GrupoNav): DestinoNav | null {
+  const unico = grupo.destinos.length === 1 ? grupo.destinos[0] : undefined;
+  return unico ? { ...unico, etiqueta: grupo.etiqueta, icono: grupo.icono } : null;
+}
 
 export const destinoContratar: DestinoNav = {
   id: "contratar",
@@ -155,6 +216,15 @@ export const todosLosDestinos: readonly DestinoNav[] = [
   destinoContratar,
   destinoAjustes,
 ];
+
+/** La pantalla de agentes de cada departamento, para enlazar desde fuera del menú. */
+export const rutaDeDepartamento: Readonly<Record<DepartamentoId, Ruta>> = {
+  comunicaciones: rutas.agentesWhatsapp,
+  marketing: rutas.marketing,
+  desarrollo: rutas.desarrollo,
+  administracion: rutas.administracion,
+  otros: rutas.agentes,
+};
 
 export type EstadoCanal = "conectado" | "revisar" | "caido";
 
