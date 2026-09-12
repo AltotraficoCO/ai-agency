@@ -19,6 +19,13 @@ import {
   accionVaciarEncargos,
 } from "@/lib/encargos/acciones";
 import { agenteDeEncargos, encargosDelAgente } from "@/lib/encargos/encargos";
+import { TrabajoProgramado } from "@/components/encargos/trabajo-programado";
+import {
+  accionCambiarEstadoProgramado,
+  accionProgramar,
+  accionQuitarProgramado,
+} from "@/lib/programados/acciones";
+import { programadosDelAgente } from "@/lib/programados/programados";
 import { abrirSesion, leerHistorial, listarSesiones } from "@/lib/motor/simulador";
 import { hayModeloReal } from "@/lib/motor/modelo";
 import { avisosDelSitio } from "@/lib/sitio/avisos-sitio";
@@ -49,7 +56,7 @@ export default async function PaginaProbar({
   const porEncargo = await agenteDeEncargos(marco.actual.workspaceId, id);
   if (porEncargo) {
     const esWeb = porEncargo === "webmaster";
-    const [sitio, encargos, avisos] = await Promise.all([
+    const [sitio, encargos, avisos, programados] = await Promise.all([
       // Marketing no trabaja sobre el WordPress: sus cuentas de anuncios se
       // conectan aparte y todavía no hay adaptador de ninguna plataforma.
       esWeb ? sitioDelEspacio(marco.actual.workspaceId) : Promise.resolve(null),
@@ -57,6 +64,8 @@ export default async function PaginaProbar({
       // Lo que vio vigilando por su cuenta: se lee aquí porque es donde la
       // persona mira cuando piensa en su web.
       esWeb ? avisosDelSitio(marco.actual.workspaceId) : Promise.resolve([]),
+      // Lo que repite solo, sin que nadie se lo pida.
+      programadosDelAgente(marco.actual.workspaceId, id),
     ]);
     return (
       <MarcoApp
@@ -85,6 +94,16 @@ export default async function PaginaProbar({
           eliminar={accionEliminarEncargo.bind(null, id)}
           vaciar={accionVaciarEncargos.bind(null, id)}
         />
+        <div className="px-4 pb-6 sm:px-6">
+          <TrabajoProgramado
+            nombreAgente={nombreAgente}
+            programados={programados}
+            sugerencia={SUGERENCIAS[porEncargo]}
+            programar={accionProgramar.bind(null, id)}
+            cambiarEstado={accionCambiarEstadoProgramado.bind(null, id)}
+            quitar={accionQuitarProgramado.bind(null, id)}
+          />
+        </div>
       </MarcoApp>
     );
   }
@@ -150,6 +169,19 @@ async function abrirPrueba(workspaceId: string, agentId: string, pedida: string 
   const historial = await leerHistorial({ workspaceId, conversationId });
   return { conversationId, sesiones, historial };
 }
+
+/**
+ * Lo primero que vale la pena dejarle programado a cada oficio.
+ *
+ * No es relleno: es el trabajo que un dueño de negocio pediría cada semana y se
+ * le olvida. Se ofrece para rellenar, no se crea solo: programar algo gasta sus
+ * créditos, y eso lo decide él.
+ */
+const SUGERENCIAS: Record<string, string> = {
+  administrativo: "Revisa qué facturas vencen esta semana y dime lo más urgente.",
+  webmaster: "Revisa que mi web esté bien y avísame si algo cambió o dejó de funcionar.",
+  marketing: "Dime cómo van mis campañas y en qué estoy tirando el dinero.",
+};
 
 /** Un agente de WhatsApp vuelve a Comunicaciones; uno por encargo, a tu equipo. */
 function seccionDe(tipo: string) {

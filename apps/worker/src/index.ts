@@ -18,6 +18,8 @@ import { MotorPorPlan } from "./adaptadores/motor.js";
 import { ConsumidorDeTareas } from "./consumers/tareas.js";
 import { ConsumidorDeVigilancia } from "./consumers/vigilancia.js";
 import { VigilanciaPostgres } from "./adaptadores/vigilancia.js";
+import { ConsumidorDeProgramados } from "./consumers/programados.js";
+import { ProgramadorPostgres } from "./adaptadores/programador.js";
 import { Runner } from "./runner.js";
 import type { SitioConectado, SqlPool } from "./ports.js";
 import { crearNavegadorPlaywright, type ReferencePort } from "@strappy/webmaster";
@@ -120,7 +122,20 @@ async function main(): Promise<void> {
     log,
   });
 
-  const runner = new Runner({ consumidores: [consumidor, vigilante], pollMs: config.pollMs, log });
+  // El trabajo que el cliente dejó programado: «cada mañana revisa qué vence».
+  // No ejecuta agentes: cuando llega la hora crea el encargo y lo hace el
+  // consumidor de tareas de arriba, con sus aprobaciones y su cobro.
+  const programados = new ConsumidorDeProgramados({
+    programador: new ProgramadorPostgres(pool),
+    workerId: config.workerId,
+    log,
+  });
+
+  const runner = new Runner({
+    consumidores: [consumidor, vigilante, programados],
+    pollMs: config.pollMs,
+    log,
+  });
 
   let parando = false;
   for (const señal of ["SIGTERM", "SIGINT"] as const) {
