@@ -24,7 +24,6 @@ import {
   MessageSquareText,
   Plus,
   ShieldX,
-  Sparkles,
   Undo2,
   UserRound,
   X,
@@ -43,6 +42,9 @@ import {
   type EspecificacionAgente,
 } from "@strappy/db/spec";
 import { guardarBorrador, publicarAgente } from "@/lib/acciones-agente";
+import { mejorarInstrucciones } from "@/lib/acciones-mejora";
+import { aplicarMejora, type CambioPropuesto, type Mejora, type SeccionMejorable } from "@/lib/agentes/mejora";
+import { BotonMejorar, PropuestaMejora } from "@/components/agentes/propuesta-mejora";
 
 export interface ConstructorAgenteProps {
   agentId: string;
@@ -62,6 +64,12 @@ export function ConstructorAgente({ agentId, inicial, publicado, cabecera }: Con
   const [publicando, setPublicando] = React.useState(false);
   const [tecnicas, setTecnicas] = React.useState(false);
   const [sucio, setSucio] = React.useState(false);
+  const [mejorando, setMejorando] = React.useState(false);
+  const [propuesta, setPropuesta] = React.useState<{
+    mejora: Mejora;
+    cambios: readonly CambioPropuesto[];
+    creditos: number;
+  } | null>(null);
   const editor = React.useRef<ReactCodeMirrorRef>(null);
   const escritorio = useEsEscritorio();
   // En escritorio el panel técnico está siempre montado; en móvil, solo desplegado.
@@ -115,22 +123,63 @@ export function ConstructorAgente({ agentId, inicial, publicado, cabecera }: Con
     } else toast.error(resultado.error);
   }
 
+  /**
+   * Pide una mejora de la ficha.
+   *
+   * Trabaja SIEMPRE sobre el formulario, nunca sobre el texto escrito a mano:
+   * reescribir con un modelo lo que alguien afinó a mano sería lo contrario de
+   * ayudar. Si hay texto manual se avisa antes, porque entonces la mejora no se
+   * verá reflejada en el panel de la derecha hasta volver al formulario.
+   */
+  async function alMejorar() {
+    if (manual) {
+      toast.info(
+        "Editaste el texto a mano, así que la mejora trabaja sobre el formulario y no lo toca.",
+      );
+    }
+    setMejorando(true);
+    const resultado = await mejorarInstrucciones(agentId, spec);
+    setMejorando(false);
+    if (!resultado.ok) {
+      toast.error(resultado.error);
+      return;
+    }
+    if (resultado.cambios.length === 0) {
+      toast.success("Tus instrucciones ya están bien: no encontré nada que mejorar.");
+      return;
+    }
+    setPropuesta({
+      mejora: resultado.mejora,
+      cambios: resultado.cambios,
+      creditos: resultado.creditos,
+    });
+  }
+
+  /** Aplica lo aceptado y deja a mano la vuelta atrás, sin recargar la página. */
+  function alAplicarMejora(secciones: SeccionMejorable[]) {
+    if (!propuesta) return;
+    const anterior = spec;
+    setSpec(aplicarMejora(spec, propuesta.mejora, secciones));
+    setSucio(true);
+    setPropuesta(null);
+    toast.success("Aplicado. Revísalo y guarda si te convence.", {
+      action: {
+        label: "Deshacer",
+        onClick: () => {
+          setSpec(anterior);
+          toast.success("Volvimos a tus instrucciones de antes.");
+        },
+      },
+    });
+  }
+
   /** Cabecera y editor de las instrucciones técnicas; se monta en la columna derecha o plegado en móvil. */
   const panelTecnico = (alto: string) => (
     <>
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
         {manual ? <Badge tone="aviso">Editado a mano</Badge> : <Badge tone="ia">Lo escribe el formulario</Badge>}
         <span className="tnum ml-auto text-2xs text-fg-muted">{tokens.toLocaleString("es-CO")} tokens aprox.</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            toast.info("Mejorar con IA todavía no está conectado. Aparecerá cuando Strap entre en esta pantalla.")
-          }
-        >
-          <Sparkles size={16} aria-hidden />
-          Mejorar con IA
-        </Button>
+        <BotonMejorar cargando={mejorando} onClick={alMejorar} />
       </div>
       <div className={cn("min-h-0 bg-inset", alto === "100%" ? "flex-1" : "")}>
         <CodeMirror
@@ -152,6 +201,14 @@ export function ConstructorAgente({ agentId, inicial, publicado, cabecera }: Con
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <PropuestaMejora
+        abierta={propuesta !== null}
+        cambios={propuesta?.cambios ?? []}
+        resumen={propuesta?.mejora.resumen ?? ""}
+        creditos={propuesta?.creditos ?? 0}
+        onAplicar={alAplicarMejora}
+        onCerrar={() => setPropuesta(null)}
+      />
       <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       <div className="min-h-0 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 px-6 py-8">
