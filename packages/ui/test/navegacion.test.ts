@@ -38,6 +38,10 @@ describe("departamento de cada categoría", () => {
     expect(departamentoDeCategoria("operaciones")).toBe("desarrollo");
     expect(departamentoDeCategoria("crecimiento")).toBe("marketing");
     expect(departamentoDeCategoria("finanzas")).toBe("financiero");
+    // El Diseñador no es «desarrollo»: quien dirige el negocio no lo busca
+    // junto al que le mantiene el WordPress. `contenido` nace en el mismo sitio.
+    expect(departamentoDeCategoria("diseno")).toBe("creativo");
+    expect(departamentoDeCategoria("contenido")).toBe("creativo");
     // El departamento se renombró a Financiero: la categoría vieja sigue
     // valiendo para que un agente ya guardado con ella no quede huérfano.
     expect(departamentoDeCategoria("administracion")).toBe("financiero");
@@ -64,7 +68,12 @@ describe("departamento de cada categoría", () => {
   });
 
   it("solo son pantalla propia los departamentos que la tienen", () => {
-    expect(DEPARTAMENTOS_CON_PANTALLA).toEqual(["marketing", "desarrollo", "financiero"]);
+    expect(DEPARTAMENTOS_CON_PANTALLA).toEqual([
+      "marketing",
+      "creativo",
+      "desarrollo",
+      "financiero",
+    ]);
     expect(esDepartamentoConPantalla("marketing")).toBe(true);
     // Comunicaciones tiene la suya de siempre, en /whatsapp/agentes.
     expect(esDepartamentoConPantalla("comunicaciones")).toBe(false);
@@ -77,6 +86,7 @@ describe("el menú", () => {
     expect(grupos.map((g) => g.id)).toEqual([
       "comunicaciones",
       "marketing",
+      "creativo",
       "desarrollo",
       "financiero",
     ]);
@@ -99,6 +109,7 @@ describe("el menú", () => {
 
   it("cada departamento con pantalla propia enlaza a su ruta", () => {
     expect(grupo("marketing").destinos[0]?.href).toBe(rutas.marketing);
+    expect(grupo("creativo").destinos[0]?.href).toBe(rutas.creativo);
     expect(grupo("desarrollo").destinos[0]?.href).toBe(rutas.desarrollo);
     expect(grupo("financiero").destinos[0]?.href).toBe(rutas.financiero);
   });

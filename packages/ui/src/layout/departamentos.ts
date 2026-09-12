@@ -16,6 +16,7 @@
 export type DepartamentoId =
   | "comunicaciones"
   | "marketing"
+  | "creativo"
   | "desarrollo"
   | "financiero"
   | "otros";
@@ -33,16 +34,21 @@ const CATEGORIA_A_DEPARTAMENTO: Readonly<Record<string, DepartamentoId>> = {
   atencion: "comunicaciones",
   soporte: "comunicaciones",
   comunicaciones: "comunicaciones",
-  // Marketing: lo que sale a buscar clientes.
+  // Marketing: lo que sale a buscar clientes, y lo que gasta dinero en ello.
   crecimiento: "marketing",
   marketing: "marketing",
-  contenido: "marketing",
   publicidad: "marketing",
+  // Creativo: quien produce las piezas. Va aparte de Marketing porque son dos
+  // oficios distintos —uno decide dónde invertir, el otro dibuja y escribe— y
+  // aparte de Desarrollo porque nadie busca a su diseñador junto al que le
+  // mantiene el WordPress.
+  creativo: "creativo",
+  diseno: "creativo",
+  contenido: "creativo",
   // Desarrollo: lo técnico, la web y las herramientas.
   operaciones: "desarrollo",
   desarrollo: "desarrollo",
   tecnologia: "desarrollo",
-  diseno: "desarrollo",
   // Financiero: dinero y papeles. `administracion` sigue valiendo como
   // categoría del catálogo, para que un agente ya guardado con ella no quede
   // huérfano al renombrarse el departamento.
@@ -77,7 +83,12 @@ export const DEPARTAMENTOS: Readonly<Record<DepartamentoId, FichaDepartamento>> 
   marketing: {
     id: "marketing",
     etiqueta: "Marketing",
-    descripcion: "Quien sale a buscar clientes: campañas, anuncios y contenidos.",
+    descripcion: "Quien sale a buscar clientes: campañas, anuncios y en qué se va tu inversión.",
+  },
+  creativo: {
+    id: "creativo",
+    etiqueta: "Creativo",
+    descripcion: "Quien produce tus piezas: imágenes, textos y vídeo.",
   },
   desarrollo: {
     id: "desarrollo",
@@ -106,6 +117,7 @@ export const DEPARTAMENTOS: Readonly<Record<DepartamentoId, FichaDepartamento>> 
  */
 export const DEPARTAMENTOS_CON_PANTALLA: readonly DepartamentoId[] = [
   "marketing",
+  "creativo",
   "desarrollo",
   "financiero",
 ];

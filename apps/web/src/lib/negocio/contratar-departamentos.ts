@@ -34,6 +34,7 @@ export type CandidatoUbicable = {
 export const ORDEN_DEPARTAMENTOS: readonly DepartamentoId[] = [
   "comunicaciones",
   "marketing",
+  "creativo",
   "desarrollo",
   "financiero",
   "otros",

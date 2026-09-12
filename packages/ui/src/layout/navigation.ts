@@ -7,6 +7,7 @@ import {
   Inbox,
   Megaphone,
   MessageCircle,
+  Palette,
   PiggyBank,
   Receipt,
   Settings,
@@ -32,6 +33,7 @@ export const rutas = {
   conocimiento: "/conocimiento",
   analitica: "/analitica",
   marketing: "/departamento/marketing",
+  creativo: "/departamento/creativo",
   desarrollo: "/departamento/desarrollo",
   financiero: "/departamento/financiero",
   contratar: "/contratar",
@@ -120,6 +122,12 @@ const agentesMarketing: DestinoNav = {
   href: rutas.marketing,
   icono: Megaphone,
 };
+const agentesCreativo: DestinoNav = {
+  id: "creativo",
+  etiqueta: "Agentes creativos",
+  href: rutas.creativo,
+  icono: Palette,
+};
 const agentesDesarrollo: DestinoNav = {
   id: "desarrollo",
   etiqueta: "Agentes de desarrollo",
@@ -163,6 +171,12 @@ export const menuPrincipal: readonly EntradaNav[] = [
     etiqueta: DEPARTAMENTOS.marketing.etiqueta,
     icono: Megaphone,
     destinos: [agentesMarketing],
+  },
+  {
+    id: "creativo",
+    etiqueta: DEPARTAMENTOS.creativo.etiqueta,
+    icono: Palette,
+    destinos: [agentesCreativo],
   },
   {
     id: "desarrollo",
@@ -221,6 +235,7 @@ export const todosLosDestinos: readonly DestinoNav[] = [
 export const rutaDeDepartamento: Readonly<Record<DepartamentoId, Ruta>> = {
   comunicaciones: rutas.agentesWhatsapp,
   marketing: rutas.marketing,
+  creativo: rutas.creativo,
   desarrollo: rutas.desarrollo,
   financiero: rutas.financiero,
   otros: rutas.agentes,

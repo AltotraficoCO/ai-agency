@@ -38,10 +38,25 @@ const administrativo: CandidatoUbicable = {
   conexiones: [{ nombre: "Alegra", lista: false }],
 };
 
+const disenador: CandidatoUbicable = {
+  slug: "disenador",
+  categoria: "diseno",
+  contratado: false,
+  conexiones: [{ nombre: "Tu sitio web", lista: true }],
+};
+
 describe("agrupar el catálogo por departamentos", () => {
   it("cada agente cae en su departamento, en el orden del menú", () => {
     const grupos = agruparPorDepartamento([webmaster, marketing, administrativo]);
     expect(grupos.map((g) => g.id)).toEqual(["marketing", "desarrollo", "financiero"]);
+  });
+
+  it("el Diseñador va a Creativo, entre Marketing y Desarrollo", () => {
+    const grupos = agruparPorDepartamento([webmaster, marketing, disenador, administrativo]);
+    expect(grupos.map((g) => g.id)).toEqual(["marketing", "creativo", "desarrollo", "financiero"]);
+    expect(grupos.find((g) => g.id === "creativo")!.disponibles.map((f) => f.slug)).toEqual([
+      "disenador",
+    ]);
   });
 
   it("un departamento sin candidatos no se enseña vacío", () => {

@@ -73,6 +73,10 @@ const TEXTOS_POR_DEPARTAMENTO: Partial<Record<DepartamentoId, Pick<Textos, "text
     textoSinAgentes:
       "Un agente de marketing prepara campañas, escribe los anuncios y te cuenta qué funcionó.",
   },
+  creativo: {
+    textoSinAgentes:
+      "Un agente creativo te prepara las piezas: imágenes para tu web y tus redes, con los colores de tu marca.",
+  },
   desarrollo: {
     textoSinAgentes:
       "Un agente de desarrollo mantiene tu web: cambia páginas, gestiona plugins y avisa si algo se cae.",
@@ -265,7 +269,14 @@ function agrupar(
   agentes: readonly ResumenAgente[],
   departamentoDe: (a: ResumenAgente) => DepartamentoId,
 ): [DepartamentoId, ResumenAgente[]][] {
-  const orden: DepartamentoId[] = ["comunicaciones", "marketing", "desarrollo", "financiero", "otros"];
+  const orden: DepartamentoId[] = [
+    "comunicaciones",
+    "marketing",
+    "creativo",
+    "desarrollo",
+    "financiero",
+    "otros",
+  ];
   const mapa = new Map<DepartamentoId, ResumenAgente[]>();
   for (const agente of agentes) {
     const id = departamentoDe(agente);

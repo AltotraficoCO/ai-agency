@@ -11,11 +11,13 @@ import {
   esDeWhatsapp,
 } from "@/lib/negocio/departamentos";
 
-// Las categorías de la semilla (0010_seed.sql).
+// Las categorías reales del catálogo (semilla 0010 y migraciones 0028-0036).
 const catalogo = categoriasPorSlug([
   { slug: "recepcionista", categoria: "ventas" },
   { slug: "webmaster", categoria: "operaciones" },
   { slug: "marketing", categoria: "crecimiento" },
+  { slug: "disenador", categoria: "diseno" },
+  { slug: "velocista", categoria: "desarrollo" },
 ]);
 
 describe("departamento de un agente", () => {
@@ -25,6 +27,13 @@ describe("departamento de un agente", () => {
 
   it("el de Marketing, en Marketing", () => {
     expect(departamentoDeAgente({ tipo: "task", catalogo: "marketing" }, catalogo)).toBe("marketing");
+  });
+
+  it("el Diseñador es de Creativo, no de Desarrollo", () => {
+    // Un diseñador no se busca junto al que mantiene el WordPress. El Velocista
+    // sí es técnico y se queda en Desarrollo, con el Webmaster.
+    expect(departamentoDeAgente({ tipo: "task", catalogo: "disenador" }, catalogo)).toBe("creativo");
+    expect(departamentoDeAgente({ tipo: "task", catalogo: "velocista" }, catalogo)).toBe("desarrollo");
   });
 
   it("uno de WhatsApp creado con Strap es de Comunicaciones aunque no venga del catálogo", () => {
@@ -44,7 +53,7 @@ describe("departamento de un agente", () => {
   });
 
   it("un agente de un catálogo que ya no conocemos tampoco desaparece", () => {
-    expect(departamentoDeAgente({ tipo: "task", catalogo: "disenador" }, catalogo)).toBe("otros");
+    expect(departamentoDeAgente({ tipo: "task", catalogo: "puesto_retirado" }, catalogo)).toBe("otros");
   });
 });
 
