@@ -168,6 +168,107 @@ function listaDeTextos(valor: unknown): string[] {
   return valor.filter((v): v is string => typeof v === 'string' && v.trim().length > 0);
 }
 
+// ---------------------------------------------------------------------------
+// De la plantilla del catálogo a la ficha que edita el cliente
+// ---------------------------------------------------------------------------
+
+/**
+ * Lo que el catálogo sabe de un agente antes de que nadie lo contrate.
+ *
+ * `plantilla` es `catalog_agents.spec_template`, un jsonb con las claves en
+ * INGLÉS (`persona`, `goals`, `guardrails`, `handover`) porque describe al
+ * agente para el motor. La ficha que edita el cliente usa claves en español.
+ * Nadie traducía entre las dos, y por eso un agente recién contratado abría su
+ * pantalla de instrucciones en blanco aunque ya tuviera nombre.
+ */
+export type PlantillaDeCatalogo = {
+  /** El nombre que el cliente le puso al contratarlo. */
+  readonly nombre: string;
+  /** `catalog_agents.description`: para qué existe, ya escrito para el cliente. */
+  readonly descripcion?: string | null;
+  /** `catalog_agents.tagline`: el respaldo corto si no hay descripción. */
+  readonly gancho?: string | null;
+  readonly plantilla: unknown;
+};
+
+/** `es-CO` es lo que entiende el motor; «español» es lo que lee una persona. */
+function idiomaLegible(valor: unknown): string {
+  const codigo = texto(valor).trim().toLowerCase();
+  if (!codigo) return 'español';
+  if (codigo.startsWith('es')) return 'español';
+  if (codigo.startsWith('en')) return 'inglés';
+  if (codigo.startsWith('pt')) return 'portugués';
+  return codigo;
+}
+
+/**
+ * Cuándo pasar la conversación a una persona, a partir de `handover`.
+ *
+ * Solo se traduce lo que la plantilla declara. No se inventa ninguna señal:
+ * un agente que escala por motivos que nadie escribió es peor que uno que no
+ * escala.
+ */
+function escalarDesdeHandover(valor: unknown): string[] {
+  const h = (valor ?? {}) as Record<string, unknown>;
+  const señales: string[] = [];
+  if (h['on_request'] === true) señales.push('Cuando la persona pide hablar con alguien del equipo');
+  if (h['on_complaint'] === true) señales.push('Cuando hay una queja o alguien está molesto');
+  return señales;
+}
+
+/** La ficha inicial de un agente del catálogo, en el idioma del constructor. */
+export function desdePlantillaDeCatalogo(entrada: PlantillaDeCatalogo): EspecificacionAgente {
+  const v = (entrada.plantilla ?? {}) as Record<string, unknown>;
+  const persona = (v['persona'] ?? {}) as Record<string, unknown>;
+  const proposito = texto(entrada.descripcion).trim() || texto(entrada.gancho).trim();
+
+  return {
+    identidad: {
+      nombre: entrada.nombre.trim(),
+      idioma: idiomaLegible(persona['language']),
+      tono: texto(persona['tone']).trim(),
+      proposito,
+    },
+    hace: listaDeTextos(v['goals']),
+    noHace: listaDeTextos(v['guardrails']),
+    recoger: [],
+    escalar: escalarDesdeHandover(v['handover']),
+  };
+}
+
+/** Una ficha sin nada escrito: ni identidad, ni qué hace, ni límites. */
+export function fichaVacia(spec: EspecificacionAgente): boolean {
+  const { nombre, tono, proposito } = spec.identidad;
+  return (
+    !nombre.trim() &&
+    !tono.trim() &&
+    !proposito.trim() &&
+    spec.hace.length === 0 &&
+    spec.noHace.length === 0 &&
+    spec.recoger.length === 0 &&
+    spec.escalar.length === 0 &&
+    !spec.instruccionesManuales?.trim()
+  );
+}
+
+/**
+ * Rellena lo que falte sin pisar lo que el cliente escribió.
+ *
+ * Dos casos y ninguno más: si la ficha está entera en blanco se usa la del
+ * catálogo —así un agente contratado antes de que esto existiera se arregla
+ * solo al abrirlo, sin recontratarlo—; y si tiene contenido pero se quedó sin
+ * nombre, se pone el del agente, que es el síntoma que más molesta: el título
+ * de la pantalla dice «Larry» y el formulario de debajo está vacío.
+ */
+export function conRespaldoDelCatalogo(
+  spec: EspecificacionAgente,
+  respaldo: PlantillaDeCatalogo,
+): EspecificacionAgente {
+  if (fichaVacia(spec)) return desdePlantillaDeCatalogo(respaldo);
+  if (spec.identidad.nombre.trim()) return spec;
+  return { ...spec, identidad: { ...spec.identidad, nombre: respaldo.nombre.trim() } };
+}
+
 export type DatosEmpresa = {
   name: string;
   description?: string;

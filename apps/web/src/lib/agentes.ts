@@ -9,6 +9,7 @@ import { conEspacio } from "./db/pool";
 import {
   ESPECIFICACION_VACIA,
   componerInstrucciones,
+  conRespaldoDelCatalogo,
   instruccionesEfectivas,
   leerEspecificacion,
   type EspecificacionAgente,
@@ -119,16 +120,29 @@ export async function leerAgente(
       avatar_url: string | null;
       mode: "lite" | "max";
       active_version_id: string | null;
+      catalog_slug: string | null;
+      catalogo_descripcion: string | null;
+      catalogo_gancho: string | null;
+      spec_template: unknown;
       spec: unknown;
       hay_borrador: boolean;
     }>(
       // El borrador gana sobre la version publicada: es lo que la persona
       // estaba escribiendo la ultima vez, y perderlo al recargar seria
       // imperdonable. La version publicada es lo que ejecuta el motor.
+      //
+      // La plantilla del catalogo viaja al lado para poder rellenar la ficha de
+      // un agente contratado que nunca tuvo una: ver abajo.
       `select a.id, a.name, a.description, a.status, a.agent_type, a.avatar_url, a.mode, a.active_version_id,
+              a.catalog_slug,
+              c.description as catalogo_descripcion,
+              c.tagline as catalogo_gancho,
+              c.spec_template,
               coalesce(b.spec, v.spec, ultima.spec, '{}'::jsonb) as spec,
               (b.spec is not null) as hay_borrador
          from public.agents a
+         left join public.catalog_agents c
+           on c.slug = a.catalog_slug
          left join public.agent_drafts b
            on b.workspace_id = a.workspace_id and b.agent_id = a.id
          left join public.agent_versions v
@@ -144,7 +158,20 @@ export async function leerAgente(
     const fila = rows[0];
     if (!fila) return null;
 
-    const spec = fila.spec ? leerEspecificacion(fila.spec) : ESPECIFICACION_VACIA;
+    const guardada = fila.spec ? leerEspecificacion(fila.spec) : ESPECIFICACION_VACIA;
+    // Un agente del catálogo contratado antes de que existiera la ficha inicial
+    // abría Instrucciones en blanco: el título mostraba su nombre (que vive en
+    // `agents.name`) y el formulario, que lee `identidad.nombre`, estaba vacío.
+    // Se rellena AL LEER y no se escribe nada: si el cliente guarda, se
+    // persiste; si no, no hemos tocado su agente por el simple hecho de mirarlo.
+    const spec = fila.catalog_slug
+      ? conRespaldoDelCatalogo(guardada, {
+          nombre: fila.name,
+          descripcion: fila.catalogo_descripcion,
+          gancho: fila.catalogo_gancho,
+          plantilla: fila.spec_template,
+        })
+      : guardada;
     return {
       id: fila.id,
       nombre: fila.name,

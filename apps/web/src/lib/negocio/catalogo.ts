@@ -13,6 +13,7 @@ import "server-only";
  * Hoy la semilla lo deja en cero y por eso la ficha dice «incluido en tu plan»;
  * el día que se ponga precio, la ficha lo dirá sola sin tocar este archivo.
  */
+import { desdePlantillaDeCatalogo } from "@strappy/db/spec";
 import { conEspacio } from "@/lib/db/pool";
 import { creditosAUsd } from "./planes";
 
@@ -508,8 +509,15 @@ export async function contratarAgente(entrada: {
   ajustes: Record<string, string>;
 }): Promise<ResultadoContratacion> {
   return conEspacio(entrada.workspaceId, async (scope) => {
-    const catalogo = await scope.query<{ name: string; agent_type: string; description: string | null }>(
-      `select name, agent_type, description from public.catalog_agents where slug = $1 and is_published`,
+    const catalogo = await scope.query<{
+      name: string;
+      agent_type: string;
+      description: string | null;
+      tagline: string | null;
+      spec_template: unknown;
+    }>(
+      `select name, agent_type, description, tagline, spec_template
+         from public.catalog_agents where slug = $1 and is_published`,
       [entrada.slug],
     );
     const ficha = catalogo.rows[0];
@@ -540,6 +548,34 @@ export async function contratarAgente(entrada: {
     );
     const agenteId = creado.rows[0]?.id;
     if (!agenteId) return { ok: false, motivo: "No se pudo crear el agente." };
+
+    // Su ficha de instrucciones, traducida de la plantilla del catálogo.
+    //
+    // Va como BORRADOR y no como versión publicada a propósito: el agente nace
+    // en `draft` porque el asistente todavía tiene que probarlo, y publicar
+    // aquí lo pondría a trabajar antes de que nadie lo revise. El borrador es
+    // exactamente lo que el constructor carga y el cliente puede editar.
+    //
+    // `do nothing` en el conflicto: recontratar a alguien no le borra lo que
+    // el cliente había escrito la vez anterior.
+    await scope.query(
+      `insert into public.agent_drafts (workspace_id, agent_id, spec, phase, created_by)
+       values ($1, $2, $3::jsonb, 'persona', $4)
+       on conflict (workspace_id, agent_id) where agent_id is not null do nothing`,
+      [
+        entrada.workspaceId,
+        agenteId,
+        JSON.stringify(
+          desdePlantillaDeCatalogo({
+            nombre: entrada.nombre.trim() || ficha.name,
+            descripcion: ficha.description,
+            gancho: ficha.tagline,
+            plantilla: ficha.spec_template,
+          }),
+        ),
+        entrada.usuarioId,
+      ],
+    );
 
     await scope.query(
       `insert into public.agent_subscriptions
