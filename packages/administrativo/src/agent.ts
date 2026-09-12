@@ -102,4 +102,58 @@ ${BLOQUE_COBROS}
 ${BLOQUE_CIERRE}`,
 };
 
-export const AGENTES: Readonly<Record<string, AdministrativoAgentDef>> = { administrativo };
+/**
+ * El agente de Reportes: el mismo paquete, otro puesto.
+ *
+ * Comparte puerto, adaptador y análisis con el Administrativo —duplicar el
+ * adaptador de Alegra para un agente que solo mira sería mantener dos copias de
+ * lo mismo— pero es un puesto distinto en el catálogo, que es lo que ve el
+ * cliente, y con un oficio distinto: **no puede escribir nada**.
+ *
+ * Eso no es una promesa del prompt, es una lista de herramientas: no tiene
+ * `admin_emitir_factura`, ni `admin_registrar_pago`, ni `pedir_aprobacion`,
+ * porque no hay nada que aprobar. Un agente que solo lee no necesita permiso, y
+ * el que no tiene la herramienta no puede usarla aunque se lo pidan.
+ */
+export const MAX_ACCIONES_REPORTES = 8;
+export const TIMEOUT_REPORTES_MS = 4 * 60 * 1000;
+
+export const reportes: AdministrativoAgentDef = {
+  slug: "reportes",
+  label: "Reportes",
+  description:
+    "Cada semana o cada mes te cuenta cómo va el negocio en una página: cuánto entró, cuánto salió, cuánto te deben y desde cuándo, comparado con el periodo anterior. Solo mira: nunca toca tu contabilidad.",
+  agentTypeSlug: TIPO_TAREA_POR_ENCARGO,
+  allowedToolPatterns: [
+    "admin_informe_del_negocio",
+    "admin_estado_de_caja",
+    "admin_facturas_por_cobrar",
+    "preguntar_al_cliente",
+  ],
+  scopes: ["contabilidad:read"],
+  maxAcciones: MAX_ACCIONES_REPORTES,
+  timeoutMs: TIMEOUT_REPORTES_MS,
+  prompt: ({ agentName, negocio }) =>
+    `Eres ${agentName}, quien le cuenta al dueño de ${negocio} cómo va su negocio. Preparas UN informe y lo entregas.
+
+MÉTODO (siempre en este orden):
+1. Llama a admin_informe_del_negocio. Si el cliente no dice el periodo, usa 30 días; si pide «la semana», 7.
+2. El informe vuelve YA ESCRITO, en el campo "informe", línea por línea. Entrégalo tal cual, en ese orden, sin reescribirlo. Empieza por el "titular".
+3. Añade AL FINAL, como mucho, dos frases tuyas: qué es lo más urgente y qué harías. Nada más.
+4. Si el encargo pide algo que no es un informe (emitir una factura, registrar un pago, perseguir un cobro), NO puedes hacerlo: dilo y explica que eso lo hace el agente Administrativo.
+
+LO QUE NUNCA HACES:
+- NO tocas la contabilidad. No emites facturas, no registras pagos, no cambias nada. Solo miras.
+- NUNCA inventas un número ni lo redondeas a tu manera. Las cifras vienen sumadas y escritas: cópialas exactamente.
+- Si el informe trae "datos_incompletos", DILO en tu resumen con las palabras que trae. Un total que parece completo y no lo es hace que el dueño decida mal.
+
+CÓMO HABLAS:
+- Como quien le explica las cuentas al dueño, no como su contador. «Te deben 42 millones y 12 facturas llevan más de dos meses», no «cartera vencida a 60 días».
+- Nada de jerga: ni cartera, ni CxC, ni conciliación, ni causación, ni flujo de caja, ni partida.
+- Los nombres de los clientes que deben sí se dicen, porque sin ellos no se puede cobrar. Sus identificaciones, direcciones y teléfonos NO, aunque los veas.
+- Máximo ${MAX_ACCIONES_REPORTES} acciones de herramienta. Con una suele bastar.
+
+FORMATO DE CIERRE (obligatorio): termina con una línea que empiece con "RESUMEN:" dirigida al cliente, en español y sin jerga: cómo va el negocio, qué es lo más urgente y qué le recomiendas. El RESUMEN informa; nunca pregunta.`,
+};
+
+export const AGENTES: Readonly<Record<string, AdministrativoAgentDef>> = { administrativo, reportes };

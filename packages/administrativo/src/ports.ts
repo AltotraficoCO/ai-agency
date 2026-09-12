@@ -113,6 +113,20 @@ export type CobroRegistrado = {
  * credenciales no lo permiten. El agente tiene que saber decirlo en vez de
  * fallar con un error técnico.
  */
+/**
+ * Una lectura que puede no haber traído todo lo que hay.
+ *
+ * Los sistemas contables paginan: Alegra devuelve 30 documentos por llamada. Un
+ * informe con totales incompletos es PEOR que no tener informe, porque el dueño
+ * toma decisiones con un número que parece completo y no lo es. Por eso una
+ * lectura dice siempre si llegó hasta el final.
+ */
+export type Lectura<T> = {
+  readonly items: readonly T[];
+  /** false: el sistema tiene más documentos de los que se pudieron leer. */
+  readonly completo: boolean;
+};
+
 export interface ContabilidadPort {
   /** Nombre del sistema, para poder decírselo al cliente: «Alegra». */
   readonly sistema: string;
@@ -127,6 +141,27 @@ export interface ContabilidadPort {
   buscarClientes(input: { texto: string; limite?: number }): Promise<readonly ClienteBreve[]>;
   crearFactura(borrador: BorradorFactura): Promise<Factura>;
   registrarCobro(cobro: CobroRegistrado): Promise<Cobro>;
+
+  // -------------------------------------------------------------------------
+  // Lectura completa, para el informe del negocio
+  // -------------------------------------------------------------------------
+  //
+  // Son opcionales a propósito: una implementación que no las traiga sigue
+  // valiendo, y quien las necesite cae a `facturas()` / `cobros()` y avisa de
+  // que pudo quedarse corto. Así añadirlas no rompió nada de lo que ya existía.
+
+  /** Todas las facturas que haya, paginando. */
+  facturasTodas?(input: { estado?: EstadoFactura; tope?: number }): Promise<Lectura<Factura>>;
+  /** Todos los cobros del periodo, paginando. */
+  cobrosTodos?(input: { desde?: string; hasta?: string; tope?: number }): Promise<Lectura<Cobro>>;
+  /**
+   * Dinero que SALIÓ en el periodo: pagos a proveedores, nómina, gastos.
+   *
+   * Opcional porque no todos los sistemas lo exponen igual. Sin esto el informe
+   * dice lo que entró y admite que no pudo leer lo que salió, en vez de dar por
+   * bueno un saldo que sería mentira.
+   */
+  egresos?(input: { desde?: string; hasta?: string; tope?: number }): Promise<Lectura<Cobro>>;
 }
 
 /**

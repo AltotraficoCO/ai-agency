@@ -189,12 +189,44 @@ export const COBROS_DE_EJEMPLO: readonly Cobro[] = [
   },
 ];
 
+/**
+ * Cobros del periodo anterior, para poder comparar.
+ *
+ * Deliberadamente MENORES que los de `COBROS_DE_EJEMPLO`: así el informe tiene
+ * que decir que este periodo entró más, que es la frase que de verdad se prueba.
+ */
+export const COBROS_PERIODO_ANTERIOR: readonly Cobro[] = [
+  {
+    id: "p_ant_1",
+    // Julio: con «hoy» en 2026-09-12 y 30 días, el periodo actual empieza el 14
+    // de agosto, así que esto cae de lleno en el periodo con el que se compara.
+    fecha: "2026-07-20",
+    importe: enPesos(1_500_000),
+    cliente: CLIENTES_DE_EJEMPLO[1]!,
+    cuenta: "Corriente Bancolombia",
+  },
+];
+
+/** Dinero que salió: proveedores y nómina. Uno en cada periodo, para comparar. */
+export const EGRESOS_DE_EJEMPLO: readonly Cobro[] = [
+  { id: "e_1", fecha: "2026-09-05", importe: enPesos(3_000_000), cuenta: "Corriente Bancolombia" },
+  { id: "e_2", fecha: "2026-07-18", importe: enPesos(2_800_000), cuenta: "Corriente Bancolombia" },
+];
+
 export type OpcionesDobleContabilidad = {
   readonly puedeEscribir?: boolean;
   readonly monedaBase?: Moneda;
   readonly facturas?: readonly Factura[];
   readonly cobros?: readonly Cobro[];
   readonly clientes?: readonly ClienteBreve[];
+  /** Pagos que salieron. Sin esto, el doble no sabe de egresos, como Alegra sin permiso. */
+  readonly egresos?: readonly Cobro[];
+  /**
+   * false: el doble simula un sistema con más documentos de los que se pudieron
+   * leer, que es lo que pasa en una cuenta grande. Sirve para probar que el
+   * informe lo admite en vez de dar totales a medias.
+   */
+  readonly lecturaCompleta?: boolean;
 };
 
 export class ContabilidadEnMemoria implements ContabilidadPort {
@@ -205,6 +237,8 @@ export class ContabilidadEnMemoria implements ContabilidadPort {
   #facturas: Factura[];
   #cobros: Cobro[];
   #clientes: ClienteBreve[];
+  #egresos: Cobro[];
+  #completo: boolean;
   #n = 0;
 
   constructor(o: OpcionesDobleContabilidad = {}) {
@@ -213,6 +247,14 @@ export class ContabilidadEnMemoria implements ContabilidadPort {
     this.#facturas = [...(o.facturas ?? FACTURAS_DE_EJEMPLO)];
     this.#cobros = [...(o.cobros ?? COBROS_DE_EJEMPLO)];
     this.#clientes = [...(o.clientes ?? CLIENTES_DE_EJEMPLO)];
+    this.#egresos = [...(o.egresos ?? [])];
+    this.#completo = o.lecturaCompleta ?? true;
+    if (o.egresos) {
+      this.egresos = async (input) => {
+        this.llamadas.push({ metodo: "egresos", entrada: input });
+        return { items: this.#enPeriodo(this.#egresos, input), completo: this.#completo };
+      };
+    }
   }
 
   async monedaBase(): Promise<Moneda> {
@@ -231,6 +273,37 @@ export class ContabilidadEnMemoria implements ContabilidadPort {
       (c) => (!input.desde || c.fecha >= input.desde) && (!input.hasta || c.fecha <= input.hasta),
     );
     return input.limite ? lista.slice(0, input.limite) : lista;
+  }
+
+  async facturasTodas(input: { estado?: EstadoFactura; tope?: number }) {
+    this.llamadas.push({ metodo: "facturasTodas", entrada: input });
+    const lista = input.estado ? this.#facturas.filter((f) => f.estado === input.estado) : this.#facturas;
+    return { items: lista, completo: this.#completo };
+  }
+
+  async cobrosTodos(input: { desde?: string; hasta?: string; tope?: number }) {
+    this.llamadas.push({ metodo: "cobrosTodos", entrada: input });
+    return { items: this.#enPeriodo(this.#cobros, input), completo: this.#completo };
+  }
+
+  /**
+   * Ver lo que SALIÓ es opcional, y por eso es un campo y no un método.
+   *
+   * Un usuario de Alegra sin ese permiso no tiene esta capacidad en absoluto, y
+   * el informe tiene que notar la diferencia entre «salieron 0 pesos» y «no
+   * puedo ver lo que salió». Si el doble siempre respondiera, esa diferencia
+   * nunca se probaría.
+   */
+  readonly egresos?: (input: {
+    desde?: string;
+    hasta?: string;
+    tope?: number;
+  }) => Promise<{ items: readonly Cobro[]; completo: boolean }>;
+
+  #enPeriodo(lista: readonly Cobro[], input: { desde?: string; hasta?: string }): readonly Cobro[] {
+    return lista.filter(
+      (c) => (!input.desde || c.fecha >= input.desde) && (!input.hasta || c.fecha <= input.hasta),
+    );
   }
 
   async buscarClientes(input: { texto: string; limite?: number }): Promise<readonly ClienteBreve[]> {

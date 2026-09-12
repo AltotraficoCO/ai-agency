@@ -28,6 +28,7 @@ import type {
   EstadoFactura,
   Factura,
   Importe,
+  Lectura,
   Moneda,
 } from "../ports.js";
 
@@ -51,6 +52,18 @@ export type OpcionesAlegra = {
 };
 
 const BASE_POR_DEFECTO = "https://api.alegra.com/api/v1";
+
+/** Lo máximo que Alegra devuelve de una vez. */
+const PAGINA = 30;
+
+/**
+ * Cuántos documentos se leen como mucho al preparar un informe.
+ *
+ * Diez páginas. Con 28 facturas abiertas sobra de largo, y pone un techo al
+ * gasto y al tiempo de una cuenta con miles de documentos. Si se alcanza, la
+ * lectura lo dice y el informe lo admite en vez de dar totales a medias.
+ */
+const TOPE_DOCUMENTOS = 300;
 
 /** Estados de Alegra → los tres que le importan al agente. */
 function estadoDe(valor: unknown): EstadoFactura {
@@ -155,6 +168,60 @@ export function crearContabilidadAlegra(
     return monedaBaseCache;
   }
 
+  function aCobro(c: CobroAlegra, base: Moneda): Cobro {
+    const cliente =
+      c.client && c.client.id !== undefined
+        ? { id: String(c.client.id), nombre: String(c.client.name ?? "Cliente sin nombre") }
+        : undefined;
+    return {
+      id: String(c.id ?? ""),
+      fecha: String(c.date ?? ""),
+      importe: importe(c.amount, c.currency, base),
+      ...(cliente ? { cliente } : {}),
+      ...(c.bankAccount?.name ? { cuenta: String(c.bankAccount.name) } : {}),
+      ...(c.invoices ? { facturas: c.invoices.map((i) => String(i.number ?? "")) } : {}),
+    };
+  }
+
+  /**
+   * Pagos de un periodo, paginando y parando en cuanto se sale por abajo.
+   *
+   * Alegra los devuelve del más reciente al más antiguo, así que en cuanto una
+   * página entera queda por debajo de `desde` no hace falta seguir bajando: una
+   * cuenta con miles de pagos se leería entera para nada.
+   */
+  async function leerPagos(input: {
+    desde?: string;
+    hasta?: string;
+    tope?: number;
+    tipo: "in" | "out";
+  }): Promise<Lectura<Cobro>> {
+    const base = await monedaBase();
+    const tope = Math.min(input.tope ?? TOPE_DOCUMENTOS, TOPE_DOCUMENTOS);
+    const dentro: Cobro[] = [];
+    for (let inicio = 0; inicio < tope; inicio += PAGINA) {
+      const parametros = new URLSearchParams({
+        limit: String(Math.min(PAGINA, tope - inicio)),
+        start: String(inicio),
+        type: input.tipo,
+        order_direction: "DESC",
+      });
+      const pagina = await pedir<readonly CobroAlegra[]>(`/payments?${parametros.toString()}`);
+      const convertidos = pagina.map((c) => aCobro(c, base));
+      dentro.push(
+        ...convertidos.filter(
+          (c) => (!input.desde || c.fecha >= input.desde) && (!input.hasta || c.fecha <= input.hasta),
+        ),
+      );
+      if (pagina.length < PAGINA) return { items: dentro, completo: true };
+      // Vienen de más reciente a más antiguo: si toda la página ya es anterior
+      // al periodo, lo que falta también lo será.
+      const masAntiguo = convertidos[convertidos.length - 1]?.fecha;
+      if (input.desde && masAntiguo && masAntiguo < input.desde) return { items: dentro, completo: true };
+    }
+    return { items: dentro, completo: false };
+  }
+
   function aFactura(raw: FacturaAlegra, base: Moneda): Factura {
     const total = importe(raw.total, raw.currency, base);
     const saldo = importe(raw.balance ?? raw.total, raw.currency, base);
@@ -218,6 +285,38 @@ export function crearContabilidadAlegra(
           };
         })
         .filter((c) => (!input.desde || c.fecha >= input.desde) && (!input.hasta || c.fecha <= input.hasta));
+    },
+
+    async facturasTodas(input) {
+      const base = await monedaBase();
+      const tope = Math.min(input.tope ?? TOPE_DOCUMENTOS, TOPE_DOCUMENTOS);
+      const acumuladas: FacturaAlegra[] = [];
+      let completo = true;
+      for (let inicio = 0; inicio < tope; inicio += PAGINA) {
+        const parametros = new URLSearchParams({
+          limit: String(Math.min(PAGINA, tope - inicio)),
+          start: String(inicio),
+          order_field: "dueDate",
+          order_direction: "ASC",
+        });
+        if (input.estado === "abierta") parametros.set("status", "open");
+        if (input.estado === "pagada") parametros.set("status", "closed");
+        const pagina = await pedir<readonly FacturaAlegra[]>(`/invoices?${parametros.toString()}`);
+        acumuladas.push(...pagina);
+        // Una página incompleta significa que se llegó al final.
+        if (pagina.length < PAGINA) return { items: acumuladas.map((c) => aFactura(c, base)), completo };
+        // Se llenó el tope y el sistema todavía tenía más.
+        if (inicio + PAGINA >= tope) completo = false;
+      }
+      return { items: acumuladas.map((c) => aFactura(c, base)), completo };
+    },
+
+    async cobrosTodos(input) {
+      return leerPagos({ ...input, tipo: "in" });
+    },
+
+    async egresos(input) {
+      return leerPagos({ ...input, tipo: "out" });
     },
 
     async buscarClientes(input) {
