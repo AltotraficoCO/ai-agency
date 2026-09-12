@@ -35,6 +35,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.9
         version: 6.43.9
+      '@strappy/administrativo':
+        specifier: workspace:*
+        version: link:../../packages/administrativo
       '@strappy/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -138,6 +141,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@strappy/administrativo':
+        specifier: workspace:*
+        version: link:../../packages/administrativo
       '@strappy/agentes':
         specifier: workspace:*
         version: link:../../packages/agentes
@@ -184,12 +190,18 @@ importers:
 
   packages/administrativo:
     dependencies:
+      '@strappy/agentes':
+        specifier: workspace:*
+        version: link:../agentes
       '@strappy/core':
         specifier: workspace:*
         version: link:../core
       '@strappy/tools':
         specifier: workspace:*
         version: link:../tools
+      ai:
+        specifier: 6.0.271
+        version: 6.0.271(zod@4.4.3)
       zod:
         specifier: ^4.4.3
         version: 4.4.3

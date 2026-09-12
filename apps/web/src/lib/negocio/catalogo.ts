@@ -119,6 +119,14 @@ const CONEXIONES_POR_AGENTE: Record<string, readonly { clave: string; nombre: st
         ruta: "/conocimiento",
       },
     ],
+    administrativo: [
+      {
+        clave: "contabilidad",
+        nombre: "Alegra",
+        descripcion: "Tu sistema de facturación: de ahí saca quién te debe y cuánto entró.",
+        ruta: "/ajustes/contabilidad",
+      },
+    ],
   };
 
 /**
@@ -245,7 +253,8 @@ const CAMPOS_POR_AGENTE: Record<string, readonly CampoPersonalizable[]> = {
 
 export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCatalogo[]> {
   return conEspacio(workspaceId, async (scope) => {
-    const [catalogo, contratos, herramientas, canales, bases, sitios] = await Promise.all([
+    const [catalogo, contratos, herramientas, canales, bases, sitios, contabilidades] =
+      await Promise.all([
       scope.query<{
         slug: string;
         name: string;
@@ -290,6 +299,11 @@ export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCata
           where workspace_id = $1 and provider = 'wordpress' and status = 'active'`,
         [workspaceId],
       ),
+      scope.query<{ n: string }>(
+        `select count(*)::text as n from public.connections
+          where workspace_id = $1 and provider = 'alegra' and status = 'active'`,
+        [workspaceId],
+      ),
     ]);
 
     const nombreHerramienta = new Map(herramientas.rows.map((h) => [h.slug, h.name]));
@@ -300,6 +314,9 @@ export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCata
       // Listo cuando hay un WordPress con credenciales que ya se probaron: la
       // dirección sola, sin acceso, no le sirve de nada al Webmaster.
       sitio: Number(sitios.rows[0]?.n ?? 0) > 0,
+      // Igual con la facturación: sin ella el agente financiero no tiene libros
+      // que mirar, y más vale decirlo antes de contratarlo.
+      contabilidad: Number(contabilidades.rows[0]?.n ?? 0) > 0,
     };
 
     return catalogo.rows.map((f) => {

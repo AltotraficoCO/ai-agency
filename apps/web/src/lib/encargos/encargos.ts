@@ -78,7 +78,19 @@ type ResultadoEncargo = { ok: true } | { ok: false; error: string };
  * aprueba. La lista vive aquí y no repartida por la interfaz para que añadir el
  * tercero (el administrativo) sea una línea.
  */
-export const AGENTES_POR_ENCARGO = ["webmaster", "marketing"] as const;
+export const AGENTES_POR_ENCARGO = ["webmaster", "marketing", "administrativo"] as const;
+
+/**
+ * Sobre qué conexión trabaja cada oficio.
+ *
+ * El Webmaster sobre el WordPress conectado, Marketing sobre las cuentas de
+ * anuncios y el financiero sobre el sistema de facturación.
+ */
+const PROVEEDORES_POR_AGENTE: Record<string, readonly string[]> = {
+  webmaster: ["wordpress"],
+  marketing: ["google_ads", "meta_ads"],
+  administrativo: ["alegra"],
+};
 
 export type AgenteDeEncargos = (typeof AGENTES_POR_ENCARGO)[number];
 
@@ -192,9 +204,7 @@ export async function crearEncargo(input: {
 
   return conEspacio(input.workspaceId, async (scope) => {
     const quien = input.agente ?? "webmaster";
-    // Cada oficio trabaja sobre lo suyo: el Webmaster sobre el WordPress
-    // conectado, Marketing sobre las cuentas de anuncios.
-    const proveedores = quien === "marketing" ? ["google_ads", "meta_ads"] : ["wordpress"];
+    const proveedores = PROVEEDORES_POR_AGENTE[quien] ?? ["wordpress"];
     const conexion = await scope.query<{ id: string }>(
       `select id from public.connections
         where workspace_id = $1 and provider = any($2::text[]) and status = 'active'

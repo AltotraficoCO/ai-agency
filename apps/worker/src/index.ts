@@ -11,6 +11,7 @@ import { leerConfig } from "./config.js";
 import { ColaPostgres } from "./queue/postgres.js";
 import { AprobacionesPostgres, BackupsPostgres, SitiosPostgres } from "./adaptadores/postgres.js";
 import { CuentasPostgres } from "./adaptadores/cuentas.js";
+import { LibrosPostgres } from "./adaptadores/libros.js";
 import { NominaPostgres } from "./adaptadores/nomina.js";
 import { MensajeriaWhatsApp } from "./adaptadores/mensajeria.js";
 import { MotorPorPlan } from "./adaptadores/motor.js";
@@ -69,6 +70,9 @@ async function main(): Promise<void> {
       // Las cuentas de publicidad del espacio. Mientras los accesos de Google
       // y Meta no estén aprobados llega sin plataformas, y el agente lo dice.
       cuentas: new CuentasPostgres(pool),
+      // Los libros del negocio. Sin sistema de facturación conectado llega sin
+      // contabilidad y el agente financiero lo explica en vez de fallar.
+      libros: new LibrosPostgres(pool, config.claveMaestra),
       // Quién más trabaja para el cliente: con esto un agente puede pedirle
       // ayuda a otro, y solo a los que están contratados.
       nomina: new NominaPostgres(pool),

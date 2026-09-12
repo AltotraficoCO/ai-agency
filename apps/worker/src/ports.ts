@@ -19,6 +19,7 @@ import type {
   WpCreds,
 } from "@strappy/webmaster";
 import type { AdsPort, AnalyticsPort } from "@strappy/marketing";
+import type { ContabilidadPort } from "@strappy/administrativo";
 
 // ---------------------------------------------------------------------------
 // Driver SQL
@@ -200,6 +201,35 @@ export interface CuentasPort {
 }
 
 // ---------------------------------------------------------------------------
+// Libros del negocio (agente financiero)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lo que el agente financiero necesita para trabajar en un espacio.
+ *
+ * Se arma por tarea, igual que el sitio del Webmaster: el sistema de
+ * facturación es del cliente y no del proceso. Sin conexión llega sin
+ * `contabilidad` y el agente lo explica en vez de fallar.
+ */
+export type LibrosDelNegocio = {
+  /** Conexión del encargo, si la hay: sobre ella cuelgan las aprobaciones. */
+  readonly conexionId: string | null;
+  readonly contabilidad?: ContabilidadPort;
+  /** Nombre del negocio: el agente habla de él por su nombre. */
+  readonly negocio: string;
+  /** Nombre con el que el cliente conoce a su agente. */
+  readonly agentName: string;
+  /** Primer contacto con la contabilidad: mira y propone, no emite nada. */
+  readonly primerContacto?: boolean;
+  /** Credenciales descifradas: se tapan en todo lo que lea el cliente. */
+  readonly secretos?: readonly string[];
+};
+
+export interface LibrosPort {
+  cargar(input: { workspaceId: string; conexionId: string | null }): Promise<LibrosDelNegocio>;
+}
+
+// ---------------------------------------------------------------------------
 // Vigilancia proactiva del sitio
 // ---------------------------------------------------------------------------
 
@@ -312,6 +342,8 @@ export type PuertosWorker = {
   readonly notificaciones?: NotificacionPort;
   /** Sin él, un encargo de Marketing dice que falta conectar las plataformas. */
   readonly cuentas?: CuentasPort;
+  /** Sin él, un encargo financiero dice que falta conectar la facturación. */
+  readonly libros?: LibrosPort;
   /** Sin él, ningún agente puede pedirle ayuda a un compañero. */
   readonly nomina?: NominaPort;
 };

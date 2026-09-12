@@ -40,8 +40,14 @@ import {
   type WpCreds,
 } from "@strappy/webmaster";
 import { ejecutarTareaMarketing, marketing, type CuentasContext } from "@strappy/marketing";
+import {
+  administrativo,
+  ejecutarTareaAdministrativa,
+  type LibrosContext,
+} from "@strappy/administrativo";
 import type {
   CuentasDeMarketing,
+  LibrosDelNegocio,
   MotorTarea,
   PuertosWorker,
   SitioConectado,
@@ -224,6 +230,9 @@ export class ConsumidorDeTareas implements Consumidor {
   ): Promise<ResultadoTarea> {
     if (quien === "marketing") {
       return this.#ejecutarMarketing(tarea, motor, registro, decir, cadena, extra, encargo);
+    }
+    if (quien === "administrativo") {
+      return this.#ejecutarAdministrativo(tarea, motor, registro, decir, cadena, extra, encargo);
     }
     if (quien !== "webmaster") {
       // Se devuelve como fallo del compañero, no como excepción: el que pidió
@@ -466,6 +475,84 @@ export class ConsumidorDeTareas implements Consumidor {
         : { id: tarea.id, titulo: tarea.titulo, detalle: tarea.detalle },
       ...(companerosM.length > 0 && colaboracionM
         ? { companeros: companerosM, colaboracion: colaboracionM, cadena }
+        : {}),
+      ...(tarea.mensajes ? { mensajesPrevios: tarea.mensajes as ModelMessage[] } : {}),
+      ...(tarea.aprobaciones ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] } : {}),
+      onEvento: decir,
+      alAvanzar: (paso) => registro.anotar(paso),
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // El agente financiero
+  // -------------------------------------------------------------------------
+
+  async #ejecutarAdministrativo(
+    tarea: TareaReclamada,
+    motor: MotorTarea,
+    registro: RegistroDePasos,
+    decir: (m: string) => void,
+    cadena: readonly string[] = [],
+    extra: { creditos: number } = { creditos: 0 },
+    encargo?: { titulo: string; detalle: string },
+  ): Promise<ResultadoTarea> {
+    const { puertos } = this.#o;
+    const libros: LibrosDelNegocio = puertos.libros
+      ? await puertos.libros.cargar({
+          workspaceId: tarea.workspaceId,
+          conexionId: tarea.siteId,
+        })
+      : {
+          conexionId: tarea.siteId,
+          negocio: "tu negocio",
+          agentName: administrativo.label,
+        };
+
+    decir(
+      `"${tarea.titulo}" → ${administrativo.slug} · ` +
+        `${libros.contabilidad ? libros.contabilidad.sistema : "sin contabilidad conectada"} · ` +
+        `${motor.modelId}${motor.modo ? ` (${motor.modo})` : ""}` +
+        (libros.primerContacto ? " (simulación)" : ""),
+    );
+
+    const contexto: LibrosContext = {
+      conexionId: libros.conexionId ?? "",
+      taskId: tarea.id,
+      ...(libros.contabilidad ? { contabilidad: libros.contabilidad } : {}),
+      approvals: puertos.aprobaciones,
+      // El backup solo tiene dónde colgarse si hay conexión: sin ella no hay
+      // nada que revertir todavía.
+      ...(libros.conexionId ? { backups: puertos.backups } : {}),
+      ...(libros.primerContacto ? { primerContacto: true } : {}),
+    };
+
+    const colaboracionA = this.#colaboracion(
+      "administrativo",
+      tarea,
+      motor,
+      registro,
+      decir,
+      cadena,
+      extra,
+    );
+    const companerosA = await this.#companeros("administrativo", tarea.workspaceId);
+
+    return ejecutarTareaAdministrativa({
+      agent: administrativo,
+      model: motor.model,
+      modelId: motor.modelId,
+      rates: motor.rates,
+      workspaceId: tarea.workspaceId,
+      ...(tarea.agentId ? { agentId: tarea.agentId } : {}),
+      agentName: libros.agentName,
+      negocio: libros.negocio,
+      libros: contexto,
+      tarea: encargo
+        ? { id: tarea.id, titulo: encargo.titulo, detalle: encargo.detalle }
+        : { id: tarea.id, titulo: tarea.titulo, detalle: tarea.detalle },
+      ...(libros.secretos ? { secretos: libros.secretos } : {}),
+      ...(companerosA.length > 0 && colaboracionA
+        ? { companeros: companerosA, colaboracion: colaboracionA, cadena }
         : {}),
       ...(tarea.mensajes ? { mensajesPrevios: tarea.mensajes as ModelMessage[] } : {}),
       ...(tarea.aprobaciones ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] } : {}),

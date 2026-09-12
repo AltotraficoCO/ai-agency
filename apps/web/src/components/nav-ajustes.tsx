@@ -18,6 +18,7 @@ import {
   CreditCard,
   Globe,
   MessageCircle,
+  Receipt,
   UserRound,
   Users,
   type LucideIcon,
@@ -32,6 +33,12 @@ const SECCIONES: readonly Seccion[] = [
   { href: "/ajustes/equipo", etiqueta: "Equipo", descripcion: "Quién entra y qué puede hacer", icono: Users },
   { href: "/ajustes/canales", etiqueta: "Canales", descripcion: "Tu número de WhatsApp", icono: MessageCircle },
   { href: "/ajustes/sitio", etiqueta: "Sitio web", descripcion: "El WordPress del Webmaster", icono: Globe },
+  {
+    href: "/ajustes/contabilidad",
+    etiqueta: "Contabilidad",
+    descripcion: "Tu sistema de facturación",
+    icono: Receipt,
+  },
   { href: "/ajustes/facturacion", etiqueta: "Facturación", descripcion: "Plan, consumo y pagos", icono: CreditCard },
 ];
 
