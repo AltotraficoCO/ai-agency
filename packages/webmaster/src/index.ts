@@ -11,4 +11,5 @@ export * as conector from "./conector/client.js";
 export * from "./wordpress/elementor.js";
 export * from "./wordpress/diseno.js";
 export * from "./wordpress/titulos.js";
+export * from "./vigilancia/index.js";
 export { crearNavegadorPlaywright } from "./browser/playwright.js";

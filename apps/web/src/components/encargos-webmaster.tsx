@@ -61,10 +61,24 @@ type Acciones = {
   eliminar: (taskId: string) => Promise<Resultado>;
 };
 
+/**
+ * Un aviso de la vigilancia: lo escribe el Webmaster solo, sin que nadie se lo
+ * pida. El tipo se declara aquí, y no se importa de `lib/sitio/avisos-sitio`,
+ * porque ese módulo es de servidor y esta pantalla corre en el navegador.
+ */
+export type AvisoDelSitio = {
+  id: string;
+  severidad: "grave" | "aviso" | "bueno";
+  titulo: string;
+  cuerpo: string;
+  propuesta: string | null;
+};
+
 export function EncargosWebmaster({
   nombreAgente,
   sitio,
   encargos,
+  avisos = [],
   encargar,
   decidir,
   responder,
@@ -74,6 +88,8 @@ export function EncargosWebmaster({
   nombreAgente: string;
   sitio: { nombre: string; url: string } | null;
   encargos: EncargoVista[];
+  /** Lo que el Webmaster vio al vigilar el sitio, de lo más reciente a lo más viejo. */
+  avisos?: AvisoDelSitio[];
   encargar: (datos: FormData) => Promise<Resultado>;
   vaciar: () => Promise<Resultado>;
 } & Acciones) {
@@ -219,6 +235,14 @@ export function EncargosWebmaster({
               </div>
             )}
 
+            {avisos.length > 0 && (
+              <ul className="flex flex-col gap-2" aria-label={`Lo que ${nombreAgente} vio en tu sitio`}>
+                {avisos.map((a) => (
+                  <AvisoDeVigilancia key={a.id} aviso={a} />
+                ))}
+              </ul>
+            )}
+
             {aviso && (
               <p className={cn("text-sm", aviso.ok ? "text-fg-secondary" : "text-danger-fg")} role="status">
                 {aviso.ok ? aviso.mensaje : aviso.error}
@@ -320,6 +344,35 @@ export function EncargosWebmaster({
 }
 
 /** La foto del Webmaster en círculo. Mientras trabaja, un aro verde late alrededor. */
+/**
+ * Un aviso de la vigilancia.
+ *
+ * Va arriba del todo y antes de los encargos porque es lo único de esta
+ * pantalla que la persona no pidió: si su web está caída, eso es lo primero que
+ * tiene que leer al entrar. La propuesta va en su propia línea: un aviso sin
+ * «qué hago ahora» es una alarma, no un empleado.
+ */
+function AvisoDeVigilancia({ aviso }: { aviso: AvisoDelSitio }) {
+  const tono =
+    aviso.severidad === "grave"
+      ? "border-danger/40 bg-danger-soft text-danger-fg"
+      : aviso.severidad === "aviso"
+        ? "border-warning/40 bg-warning-soft text-warning-fg"
+        : "border-border bg-raised text-fg-secondary";
+  const Icono = aviso.severidad === "grave" ? ShieldAlert : aviso.severidad === "aviso" ? CircleAlert : null;
+
+  return (
+    <li className={cn("strappy-slide-up flex gap-3 rounded-xl border-2 px-4 py-3", tono)}>
+      {Icono && <Icono size={18} className="mt-0.5 shrink-0" aria-hidden />}
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="font-display text-sm font-semibold">{aviso.titulo}</p>
+        <p className="text-sm text-fg-secondary">{aviso.cuerpo}</p>
+        {aviso.propuesta && <p className="text-2xs text-fg-muted">{aviso.propuesta}</p>}
+      </div>
+    </li>
+  );
+}
+
 function FotoWebmaster({ size, trabajando }: { size: number; trabajando: boolean }) {
   return (
     <span className="relative inline-grid shrink-0 place-items-center" style={{ width: size, height: size }}>

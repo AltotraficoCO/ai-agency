@@ -8,3 +8,4 @@
 export type { Consumidor } from "./tipos.js";
 export { ConsumidorDeTareas, type OpcionesConsumidorTareas } from "./tareas.js";
 export { ConsumidorDeAnalisis, type OpcionesConsumidorAnalisis } from "./analisis.js";
+export { ConsumidorDeVigilancia, type OpcionesConsumidorVigilancia } from "./vigilancia.js";

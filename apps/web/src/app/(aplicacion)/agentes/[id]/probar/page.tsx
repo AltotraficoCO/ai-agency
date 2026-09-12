@@ -17,6 +17,7 @@ import {
 import { encargosDelAgente, esWebmaster } from "@/lib/encargos/encargos";
 import { abrirSesion, leerHistorial, listarSesiones } from "@/lib/motor/simulador";
 import { hayModeloReal } from "@/lib/motor/modelo";
+import { avisosDelSitio } from "@/lib/sitio/avisos-sitio";
 import { sitioDelEspacio } from "@/lib/sitio/sitio";
 
 export const metadata = { title: "Probar el agente" };
@@ -42,9 +43,12 @@ export default async function PaginaProbar({
   // sitio y los ejecuta el worker. Por el simulador solo podía escalar a una
   // persona, que es justo lo que no tiene que hacer. Ver lib/encargos.
   if (await esWebmaster(marco.actual.workspaceId, id)) {
-    const [sitio, encargos] = await Promise.all([
+    const [sitio, encargos, avisos] = await Promise.all([
       sitioDelEspacio(marco.actual.workspaceId),
       encargosDelAgente(marco.actual.workspaceId, id),
+      // Lo que vio vigilando por su cuenta: se lee aquí porque es donde la
+      // persona mira cuando piensa en su web.
+      avisosDelSitio(marco.actual.workspaceId),
     ]);
     return (
       <MarcoApp
@@ -59,6 +63,13 @@ export default async function PaginaProbar({
           nombreAgente={nombreAgente}
           sitio={sitio && sitio.estado === "active" ? { nombre: sitio.nombre, url: sitio.url } : null}
           encargos={encargos}
+          avisos={avisos.map((a) => ({
+            id: a.id,
+            severidad: a.severidad,
+            titulo: a.titulo,
+            cuerpo: a.cuerpo,
+            propuesta: a.propuesta,
+          }))}
           encargar={accionEncargar.bind(null, id)}
           decidir={accionDecidirAprobacion.bind(null, id)}
           responder={accionResponderPregunta.bind(null, id)}
@@ -131,9 +142,9 @@ async function abrirPrueba(workspaceId: string, agentId: string, pedida: string 
   return { conversationId, sesiones, historial };
 }
 
-/** Un agente de WhatsApp vuelve a su módulo; uno por encargo, a los del negocio. */
+/** Un agente de WhatsApp vuelve a Comunicaciones; uno por encargo, a tu equipo. */
 function seccionDe(tipo: string) {
   return tipo === "conversational"
     ? { href: rutas.agentesWhatsapp, etiqueta: "Agentes de WhatsApp", ruta: rutas.agentesWhatsapp }
-    : { href: rutas.agentes, etiqueta: "Agentes del negocio", ruta: rutas.agentes };
+    : { href: rutas.agentes, etiqueta: "Tu equipo", ruta: rutas.agentes };
 }

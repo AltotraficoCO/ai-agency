@@ -12,8 +12,10 @@ import { ColaPostgres } from "./queue/postgres.js";
 import { AprobacionesPostgres, BackupsPostgres, SitiosPostgres } from "./adaptadores/postgres.js";
 import { MotorPorPlan } from "./adaptadores/motor.js";
 import { ConsumidorDeTareas } from "./consumers/tareas.js";
+import { ConsumidorDeVigilancia } from "./consumers/vigilancia.js";
+import { VigilanciaPostgres } from "./adaptadores/vigilancia.js";
 import { Runner } from "./runner.js";
-import type { SqlPool } from "./ports.js";
+import type { SitioConectado, SqlPool } from "./ports.js";
 import { crearNavegadorPlaywright, type ReferencePort } from "@strappy/webmaster";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -73,7 +75,22 @@ async function main(): Promise<void> {
     log,
   });
 
-  const runner = new Runner({ consumidores: [consumidor], pollMs: config.pollMs, log });
+  // La vigilancia no gasta créditos ni escribe en el sitio: son comprobaciones.
+  // Va como un consumidor más para que comparta el apagado ordenado y no sea
+  // otro proceso que alguien tenga que acordarse de arrancar.
+  const vigilante = new ConsumidorDeVigilancia({
+    vigilancia: new VigilanciaPostgres(pool),
+    sitios: new SitiosPostgres(pool, config.claveMaestra),
+    workerId: config.workerId,
+    navegadorPara: (sitio: SitioConectado) =>
+      crearNavegadorPlaywright({
+        baseUrl: sitio.url.startsWith("http") ? sitio.url : `https://${sitio.url}`,
+        ...(config.chromePath ? { chromePath: config.chromePath } : {}),
+      }),
+    log,
+  });
+
+  const runner = new Runner({ consumidores: [consumidor, vigilante], pollMs: config.pollMs, log });
 
   let parando = false;
   for (const señal of ["SIGTERM", "SIGINT"] as const) {

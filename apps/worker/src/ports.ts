@@ -9,7 +9,14 @@
  */
 import type { LanguageModel, ToolApprovalResponse } from "ai";
 import type { RateTable } from "@strappy/core";
-import type { ApprovalPort, BackupPort, ConectorCreds, WpCreds } from "@strappy/webmaster";
+import type {
+  ApprovalPort,
+  Aviso,
+  BackupPort,
+  ConectorCreds,
+  EstadoVigilancia,
+  WpCreds,
+} from "@strappy/webmaster";
 
 // ---------------------------------------------------------------------------
 // Driver SQL
@@ -145,6 +152,53 @@ export interface SitePort {
   cargar(input: { workspaceId: string; siteId: string }): Promise<SitioConectado | null>;
   /** Deja constancia de que el sitio ya fue tocado: se acabó la simulación. */
   marcarTocado(input: { workspaceId: string; siteId: string }): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// Vigilancia proactiva del sitio
+// ---------------------------------------------------------------------------
+
+/** Un sitio al que le toca ronda de comprobaciones. */
+export type SitioVigilado = {
+  readonly siteId: string;
+  readonly workspaceId: string;
+  /** Lo que se recuerda de la ronda anterior (`EstadoVigilancia`). */
+  readonly estado: EstadoVigilancia;
+  readonly cadaMinutos: number;
+};
+
+/**
+ * La cola de la vigilancia. Es la misma idea que la de tareas —reclamar con
+ * arrendamiento para que dos workers no comprueben el mismo sitio— pero la
+ * unidad de trabajo no es un encargo del cliente sino una ronda periódica.
+ */
+export interface VigilanciaPort {
+  /** Reclama el sitio cuya ronda vence antes. Null si no toca ninguna. */
+  reclamar(input: { workerId: string; arrendamientoMs: number }): Promise<SitioVigilado | null>;
+  /** Guarda la memoria de la ronda y programa la siguiente. */
+  guardar(input: {
+    siteId: string;
+    workerId: string;
+    estado: EstadoVigilancia;
+    chequeo: unknown;
+    /** Dentro de cuánto toca la próxima ronda. */
+    proximaEnMs: number;
+  }): Promise<void>;
+  /**
+   * Anota los avisos. Repetir una ronda no puede duplicarlos: la unicidad va
+   * por (sitio, clave) y la clave lleva dentro el momento del cambio.
+   */
+  registrarAvisos(input: {
+    workspaceId: string;
+    siteId: string;
+    avisos: readonly Aviso[];
+  }): Promise<number>;
+  /**
+   * Da de alta en la vigilancia los sitios conectados que todavía no están.
+   * Se llama de vez en cuando: un sitio recién conectado no debe esperar a un
+   * reinicio del worker para empezar a vigilarse.
+   */
+  sincronizar(): Promise<number>;
 }
 
 // ---------------------------------------------------------------------------
