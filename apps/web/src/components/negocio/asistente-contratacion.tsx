@@ -210,7 +210,14 @@ export function AsistenteContratacion({ ficha }: { ficha: FichaCatalogo }) {
         <Paso
           clave="personalizar"
           titulo="Ajústalo a tu negocio"
-          descripcion="Solo esto. Tu empresa, tu horario, tu tono y tus políticas los hereda de la ficha de tu espacio."
+          // Un agente sin campos propios no enseña un formulario a medias: se
+          // dice que solo hace falta el nombre. Prometer «ajústalo» y no
+          // preguntar nada es peor que no tener el paso.
+          descripcion={
+            ficha.campos.length > 0
+              ? "Solo esto. Tu empresa, tu horario, tu tono y tus políticas los hereda de la ficha de tu espacio."
+              : "Este agente no necesita más ajustes: ponle un nombre y ya trabaja. Tu empresa, tu horario y tu tono los hereda de la ficha de tu espacio."
+          }
           atras={() => setPaso(1)}
           principal={
             <Button onClick={contratar} loading={enviando} loadingLabel="Creando el agente…">

@@ -13,8 +13,9 @@ import "server-only";
  * Hoy la semilla lo deja en cero y por eso la ficha dice «incluido en tu plan»;
  * el día que se ponga precio, la ficha lo dirá sola sin tocar este archivo.
  */
-import { desdePlantillaDeCatalogo } from "@strappy/db/spec";
+import { desdePlantillaDeCatalogo, type EspecificacionAgente } from "@strappy/db/spec";
 import { conEspacio } from "@/lib/db/pool";
+import { instruccionesDeAjustes } from "./ajustes-agente";
 import { creditosAUsd } from "./planes";
 
 export type ConexionRequerida = {
@@ -378,6 +379,121 @@ const CAMPOS_POR_AGENTE: Record<string, readonly CampoPersonalizable[]> = {
       valorPorDefecto: "",
     },
   ],
+  administrativo: [
+    {
+      clave: "dias_atraso",
+      etiqueta: "Desde cuándo perseguir una factura",
+      ayuda: "Cuántos días de atraso tiene que llevar para que empiece a insistir.",
+      tipo: "opcion",
+      opciones: [
+        { valor: "8", etiqueta: "8 días" },
+        { valor: "15", etiqueta: "15 días" },
+        { valor: "30", etiqueta: "30 días" },
+      ],
+      valorPorDefecto: "15",
+    },
+    {
+      clave: "puede_emitir",
+      etiqueta: "Qué hace con las facturas",
+      ayuda: "Puedes dejarlo solo preparando hasta que te fíes de él.",
+      tipo: "opcion",
+      opciones: [
+        { valor: "preparar", etiqueta: "Solo las deja listas" },
+        { valor: "emitir", etiqueta: "Las emite cuando lo apruebes" },
+      ],
+      valorPorDefecto: "preparar",
+    },
+    {
+      clave: "impuesto",
+      etiqueta: "Impuesto habitual",
+      ayuda: "El que lleva la mayoría de tus facturas.",
+      tipo: "opcion",
+      opciones: [
+        { valor: "iva19", etiqueta: "IVA 19%" },
+        { valor: "exento", etiqueta: "Sin IVA" },
+        { valor: "preguntar", etiqueta: "Que me pregunte cada vez" },
+      ],
+      valorPorDefecto: "preguntar",
+    },
+    {
+      clave: "cuenta_cobro",
+      etiqueta: "Dónde anota los pagos que entran",
+      ayuda: "El nombre de la cuenta, como la tienes en tu facturación. Si lo dejas vacío, te preguntará.",
+      tipo: "texto",
+      valorPorDefecto: "",
+    },
+  ],
+  reportes: [
+    {
+      clave: "dia_informe",
+      etiqueta: "Qué día te lo cuenta",
+      ayuda: "El día que quieres sentarte a mirar cómo va el negocio.",
+      tipo: "opcion",
+      opciones: [
+        { valor: "lunes", etiqueta: "Los lunes" },
+        { valor: "viernes", etiqueta: "Los viernes" },
+        { valor: "dia1", etiqueta: "El día 1 de cada mes" },
+      ],
+      valorPorDefecto: "lunes",
+    },
+    {
+      clave: "periodo",
+      etiqueta: "Cuánto abarca el informe",
+      ayuda: "Los días que mira hacia atrás cada vez.",
+      tipo: "opcion",
+      opciones: [
+        { valor: "7", etiqueta: "La última semana" },
+        { valor: "30", etiqueta: "El último mes" },
+      ],
+      valorPorDefecto: "7",
+    },
+  ],
+  velocista: [
+    {
+      clave: "paginas_clave",
+      etiqueta: "Qué páginas te importan más",
+      ayuda: "Además de la portada. Una por línea: la de precios, la de contacto, la que más vende.",
+      tipo: "parrafo",
+      valorPorDefecto: "",
+    },
+    {
+      clave: "puede_instalar",
+      etiqueta: "Qué puede tocar en tu web",
+      ayuda: "Instalar la caché es lo que más acelera, y siempre te lo pedirá antes.",
+      tipo: "opcion",
+      opciones: [
+        { valor: "proponer", etiqueta: "Solo mirar y proponer" },
+        { valor: "instalar", etiqueta: "Instalar la caché si hace falta" },
+      ],
+      valorPorDefecto: "proponer",
+    },
+  ],
+  disenador: [
+    {
+      clave: "estilo",
+      etiqueta: "Cómo quieres tus imágenes",
+      ayuda: "El aire que deben tener las piezas que haga.",
+      tipo: "opcion",
+      opciones: [
+        { valor: "marca", etiqueta: "Como mi web" },
+        { valor: "fotografico", etiqueta: "Fotográfico" },
+        { valor: "ilustracion", etiqueta: "Ilustración" },
+        { valor: "minimalista", etiqueta: "Minimalista" },
+      ],
+      valorPorDefecto: "marca",
+    },
+    {
+      clave: "puede_publicar",
+      etiqueta: "Qué hace con las imágenes",
+      ayuda: "Subirlas al sitio te lo pedirá siempre antes.",
+      tipo: "opcion",
+      opciones: [
+        { valor: "entregar", etiqueta: "Solo entregármelas" },
+        { valor: "subir", etiqueta: "Subirlas a mi web cuando lo apruebe" },
+      ],
+      valorPorDefecto: "entregar",
+    },
+  ],
 };
 
 export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCatalogo[]> {
@@ -495,6 +611,29 @@ export type ResultadoContratacion =
   | { readonly ok: false; readonly motivo: string };
 
 /**
+ * La ficha inicial, con lo que el cliente respondió en «Personaliza» escrito
+ * dentro.
+ *
+ * Las respuestas se guardan también en `agent_subscriptions.settings`, que es
+ * el contrato, pero ahí NADIE las lee: ningún adaptador del worker consulta ese
+ * campo. Escribirlas en la ficha es lo que hace que el agente las cumpla, y de
+ * paso el cliente las ve y las puede corregir en su pantalla de Instrucciones.
+ */
+function conAjustesDelCliente(
+  slug: string,
+  ajustes: Record<string, string>,
+  ficha: EspecificacionAgente,
+): EspecificacionAgente {
+  const extra = instruccionesDeAjustes(slug, ajustes);
+  if (extra.hace.length === 0 && extra.noHace.length === 0) return ficha;
+  return {
+    ...ficha,
+    hace: [...ficha.hace, ...extra.hace],
+    noHace: [...ficha.noHace, ...extra.noHace],
+  };
+}
+
+/**
  * Contrata un agente del catálogo.
  *
  * El agente se crea en estado `draft` a propósito: el cuarto paso del asistente
@@ -565,14 +704,12 @@ export async function contratarAgente(entrada: {
       [
         entrada.workspaceId,
         agenteId,
-        JSON.stringify(
-          desdePlantillaDeCatalogo({
-            nombre: entrada.nombre.trim() || ficha.name,
-            descripcion: ficha.description,
-            gancho: ficha.tagline,
-            plantilla: ficha.spec_template,
-          }),
-        ),
+        JSON.stringify(conAjustesDelCliente(entrada.slug, entrada.ajustes, desdePlantillaDeCatalogo({
+          nombre: entrada.nombre.trim() || ficha.name,
+          descripcion: ficha.description,
+          gancho: ficha.tagline,
+          plantilla: ficha.spec_template,
+        }))),
         entrada.usuarioId,
       ],
     );
