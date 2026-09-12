@@ -6,9 +6,11 @@
 -- con los contadores, cierra caja», y el encargo que lo resume: «que al final
 -- le diga: tenemos tanta plata, nos falta tanta plata».
 --
--- La categoría es 'administracion', que ya cae en el departamento de
--- Administración del menú (packages/ui/src/layout/departamentos.ts), donde hoy
--- no trabaja nadie.
+-- La categoría es 'financiero', que cae en el departamento Financiero del menú
+-- (packages/ui/src/layout/departamentos.ts), donde hoy no trabaja nadie. El
+-- departamento se llamó Administración hasta que el cliente pidió Financiero,
+-- que es como lo nombraron en la propia reunión: «yo lo metería como en
+-- financiero» / «sí, en un departamento financiero».
 --
 -- `required_tools` son las herramientas que el MOTOR exige conectadas; las de
 -- este agente viven en @strappy/administrativo y no en el registro de sistema,
@@ -25,7 +27,7 @@ values
   ('administrativo', 'Administrativo',
    'Lleva tus facturas y persigue tus cobros',
    'Te dice cuánto te deben y desde cuándo, qué vence esta semana y cuánto dinero entró. Prepara los recordatorios de cobro, emite facturas y registra los pagos en tu sistema de facturación. Nunca emite nada sin que lo apruebes.',
-   'task', 'administracion',
+   'task', 'financiero',
    array[]::text[],
    0, 0, 40,
    '{"persona":{"tone":"cercano","language":"es-CO"},

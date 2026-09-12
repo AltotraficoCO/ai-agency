@@ -33,7 +33,7 @@ export const rutas = {
   analitica: "/analitica",
   marketing: "/departamento/marketing",
   desarrollo: "/departamento/desarrollo",
-  administracion: "/departamento/administracion",
+  financiero: "/departamento/financiero",
   contratar: "/contratar",
   ajustes: "/ajustes",
 } as const;
@@ -126,10 +126,10 @@ const agentesDesarrollo: DestinoNav = {
   href: rutas.desarrollo,
   icono: Code2,
 };
-const agentesAdministracion: DestinoNav = {
-  id: "administracion",
-  etiqueta: "Agentes de administración",
-  href: rutas.administracion,
+const agentesFinanciero: DestinoNav = {
+  id: "financiero",
+  etiqueta: "Agentes financieros",
+  href: rutas.financiero,
   icono: Receipt,
 };
 
@@ -171,10 +171,10 @@ export const menuPrincipal: readonly EntradaNav[] = [
     destinos: [agentesDesarrollo],
   },
   {
-    id: "administracion",
-    etiqueta: DEPARTAMENTOS.administracion.etiqueta,
+    id: "financiero",
+    etiqueta: DEPARTAMENTOS.financiero.etiqueta,
     icono: Receipt,
-    destinos: [agentesAdministracion],
+    destinos: [agentesFinanciero],
   },
 ];
 
@@ -222,7 +222,7 @@ export const rutaDeDepartamento: Readonly<Record<DepartamentoId, Ruta>> = {
   comunicaciones: rutas.agentesWhatsapp,
   marketing: rutas.marketing,
   desarrollo: rutas.desarrollo,
-  administracion: rutas.administracion,
+  financiero: rutas.financiero,
   otros: rutas.agentes,
 };
 

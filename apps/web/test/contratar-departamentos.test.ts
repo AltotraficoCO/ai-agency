@@ -41,7 +41,7 @@ const administrativo: CandidatoUbicable = {
 describe("agrupar el catálogo por departamentos", () => {
   it("cada agente cae en su departamento, en el orden del menú", () => {
     const grupos = agruparPorDepartamento([webmaster, marketing, administrativo]);
-    expect(grupos.map((g) => g.id)).toEqual(["marketing", "desarrollo", "administracion"]);
+    expect(grupos.map((g) => g.id)).toEqual(["marketing", "desarrollo", "financiero"]);
   });
 
   it("un departamento sin candidatos no se enseña vacío", () => {

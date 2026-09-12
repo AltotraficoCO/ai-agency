@@ -17,7 +17,7 @@ export type DepartamentoId =
   | "comunicaciones"
   | "marketing"
   | "desarrollo"
-  | "administracion"
+  | "financiero"
   | "otros";
 
 /**
@@ -43,11 +43,14 @@ const CATEGORIA_A_DEPARTAMENTO: Readonly<Record<string, DepartamentoId>> = {
   desarrollo: "desarrollo",
   tecnologia: "desarrollo",
   diseno: "desarrollo",
-  // Administración: dinero y papeles.
-  administracion: "administracion",
-  finanzas: "administracion",
-  facturacion: "administracion",
-  contabilidad: "administracion",
+  // Financiero: dinero y papeles. `administracion` sigue valiendo como
+  // categoría del catálogo, para que un agente ya guardado con ella no quede
+  // huérfano al renombrarse el departamento.
+  financiero: "financiero",
+  administracion: "financiero",
+  finanzas: "financiero",
+  facturacion: "financiero",
+  contabilidad: "financiero",
 };
 
 /** Donde cae un agente cuya categoría todavía no conocemos. */
@@ -81,9 +84,9 @@ export const DEPARTAMENTOS: Readonly<Record<DepartamentoId, FichaDepartamento>> 
     etiqueta: "Desarrollo",
     descripcion: "Quien mantiene tu web y tus herramientas.",
   },
-  administracion: {
-    id: "administracion",
-    etiqueta: "Administración",
+  financiero: {
+    id: "financiero",
+    etiqueta: "Financiero",
     descripcion: "Quien lleva las facturas, los cobros y las cuentas.",
   },
   otros: {
@@ -104,7 +107,7 @@ export const DEPARTAMENTOS: Readonly<Record<DepartamentoId, FichaDepartamento>> 
 export const DEPARTAMENTOS_CON_PANTALLA: readonly DepartamentoId[] = [
   "marketing",
   "desarrollo",
-  "administracion",
+  "financiero",
 ];
 
 export function esDepartamentoConPantalla(valor: string): valor is DepartamentoId {

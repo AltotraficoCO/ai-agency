@@ -35,7 +35,7 @@ export const ORDEN_DEPARTAMENTOS: readonly DepartamentoId[] = [
   "comunicaciones",
   "marketing",
   "desarrollo",
-  "administracion",
+  "financiero",
   "otros",
 ];
 
