@@ -1,10 +1,10 @@
 # Estado y pendientes
 
-Última actualización: 12 de septiembre de 2026, de madrugada.
+Última actualización: 12 de septiembre de 2026, por la tarde.
 Todo lo que dice «hecho» está **en producción**: subido, desplegado en Vercel y,
 cuando toca, con el worker del VPS reiniciado.
 
-- Último commit desplegado: `04f2cc8`
+- Último commit desplegado: `78f279d`
 - Migraciones aplicadas en producción: **hasta la 0038**
 - Worker del VPS: en pie y estable
 
@@ -90,6 +90,26 @@ agente y que, cuando falte, haya un respaldo digno en vez de un hueco en blanco.
 
 ---
 
+### Refactor (12-sep, tarde)
+
+Dos refactors **sin cambio de comportamiento**, en commits separados, con los
+937 tests en verde y ninguno editado.
+
+- **El esqueleto del agente estaba copiado seis veces.** Los cinco `loop.ts` y
+  las cinco ramas del worker se colapsaron en `packages/agentes/src/montaje.ts`.
+  Añadir un agente al worker pasa de **85 líneas a 35**.
+  - El bloque de compañeros se añade ahora en el armazón: olvidarlo en un oficio
+    nuevo no daba error, solo un agente que creía trabajar solo.
+  - Los siete parámetros posicionales del worker (varios del mismo tipo, se
+    podían intercambiar sin que el compilador dijera nada) pasaron a un objeto.
+- **El contenido de producto salió de `catalogo.ts`** (825 → 393 líneas) a
+  `catalogo-contenido.ts`, un bloque por agente. Añadir el séptimo es añadir un
+  bloque, no acordarse de editar tres diccionarios. Contenido idéntico,
+  comprobado texto por texto.
+- **No se tocaron** `wp.ts` (1.407), el cliente de WordPress (1.128) ni los tipos
+  de la base (1.101): grandes pero coherentes y sin duplicación. Partirlos ahora
+  sería riesgo sin ganancia.
+
 ## Pendiente, y depende de ti
 
 Por urgencia:
@@ -157,5 +177,11 @@ Orden sugerido:
   operativa vive ahora en la ficha de instrucciones del agente.
 - **Sin pantalla global de trabajo programado**: se ve en la ficha de cada
   agente, no hay una lista del espacio.
+- **Dos fallos anotados durante el refactor, sin tocar** (son de antes, y
+  merecen su propio cambio):
+  1. Al delegar en un compañero, el slug no se normaliza: `"Velocista "` con un
+     espacio cae en el rechazo aunque sea un oficio real.
+  2. En la rama del administrativo, el respaldo `AGENTES[quien] ?? administrativo`
+     dejaría pasar cualquier slug que llegue ahí; hoy lo protege el enrutado.
 - **Lección de anoche**: no desplegar el worker antes de que sus migraciones
   estén aplicadas, y comprobar que arranca **estable**, no solo que arrancó.
