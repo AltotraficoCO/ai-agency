@@ -46,7 +46,7 @@ de este documento dice con quién colabora.
 | Paquete | Qué sabe hacer de verdad |
 |---|---|
 | `@strappy/webmaster` | WordPress completo: páginas y entradas con Elementor siguiendo el diseño real del sitio, plugins, usuarios, medios, comentarios, ajustes, copias de seguridad, navegador para verificar como un visitante. Más vigilancia del sitio cada 15 minutos con avisos. |
-| `@strappy/marketing` | Google Ads, Meta Ads y Analytics detrás de puertos con dobles; criterio de campañas contra la mediana del propio negocio; cambio de presupuesto con aprobación. Sin credenciales reales todavía. |
+| `@strappy/marketing` | Google Ads, Meta Ads, TikTok Ads y Analytics detrás de puertos con dobles; adaptadores HTTP reales de las tres plataformas en `src/adaptadores/`; criterio de campañas contra la mediana del propio negocio; cambio de presupuesto con aprobación. Sin credenciales reales todavía. |
 | `@strappy/administrativo` | Alegra: cartera, facturas, pagos, recordatorios de cobro. Su bucle se está enchufando ahora. |
 | `@strappy/agentes` | El bucle común: aprobaciones, pasos en vivo, freno de repeticiones, tope de acciones y colaboración entre agentes. |
 | `@strappy/whatsapp` | WhatsApp Cloud API. Somos Tech Provider: Meta le cobra las conversaciones al cliente, nosotros no revendemos mensajes. |
@@ -272,7 +272,7 @@ trámites más largos.
 
 > Vigila en qué se va tu inversión en anuncios.
 
-**Qué hace.** Revisa las campañas de Google Ads y de Meta, compara cada una
+**Qué hace.** Revisa las campañas de Google Ads, de Meta y de TikTok, compara cada una
 contra la mediana del propio negocio (no contra promedios de sector), dice cuál
 gasta sin traer clientes y cuál merece más presupuesto, y propone los cambios.
 Con pocos clics dice «aún son pocos datos» en vez de condenar una campaña.
@@ -285,12 +285,15 @@ tirando el dinero?». «Súbele el presupuesto a la campaña que mejor va».
   Analytics.
 - *Con aprobación:* cambiar presupuesto, pausar y reactivar campañas.
 
-**Conexión y trámite.** Es el camino crítico de todo el lanzamiento:
+**Conexión y trámite.** Es el camino crítico de todo el lanzamiento. El código
+ya está: adaptadores de las tres plataformas y su conexión en Ajustes → Canales
+(`GOOGLE_ADS_*`, `META_APP_*`, `TIKTOK_APP_*`). Lo que falta son los accesos:
 
 | Plataforma | Qué hace falta | Plazo real |
 |---|---|---|
 | Google Ads | Token de desarrollador ligado a un proyecto de Google Cloud. Existe un nivel **Explorer** que da capacidades de producción **sin aprobación formal**, y el nivel **Basic** que sí se solicita | Basic: 5 días hábiles oficiales, con retrasos conocidos en 2026. La **verificación de marca** (piloto desde julio de 2026) baja la espera a horas |
 | Meta Ads | Si solo se leen cuentas del propio portafolio, basta un usuario de sistema: **inmediato**. Para cuentas de clientes, revisión de la app y verificación del negocio | 3–5 días hábiles la verificación; la revisión, más |
+| TikTok Ads | App en TikTok for Business con permisos de Ads Management. El anunciante autoriza desde el portal de TikTok | Revisión de la app: días |
 | Google Analytics | El permiso `analytics.readonly` es **sensible** y exige verificación de la app | Normalmente 1–2 días; hasta ~10 si hay idas y venidas |
 
 **Ojo con Google Ads:** no existe permiso de solo lectura. El mismo permiso lee

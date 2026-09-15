@@ -14,10 +14,10 @@ import { defineTool, type ToolDef } from "@strappy/tools";
 import { SCOPES } from "../context.js";
 import { dinero, impactoMensual } from "../analisis.js";
 import { puertaDeAprobacion, type Bloqueo } from "../aprobacion.js";
-import { adsDe, NOMBRE_PLATAFORMA, type Plataforma } from "../ports.js";
+import { adsDe, NOMBRE_PLATAFORMA, PLATAFORMAS, type Plataforma } from "../ports.js";
 import { entorno } from "./comun.js";
 
-const plataforma = z.enum(["google_ads", "meta_ads"]);
+const plataforma = z.enum(PLATAFORMAS);
 
 /** Tope de seguridad: multiplicar por diez el presupuesto nunca es un descuido aceptable. */
 const VECES_MAXIMO = 3;

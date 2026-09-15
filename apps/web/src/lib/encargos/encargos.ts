@@ -107,7 +107,7 @@ export const AGENTES_POR_ENCARGO = [
  */
 const PROVEEDORES_POR_AGENTE: Record<string, readonly string[]> = {
   webmaster: ["wordpress"],
-  marketing: ["google_ads", "meta_ads"],
+  marketing: ["google_ads", "meta_ads", "tiktok_ads"],
   administrativo: ["alegra"],
   // El Diseñador dibuja con nuestra propia cartera de modelos: no necesita que
   // el cliente conecte nada. El sitio le sirve para publicar y para medir los

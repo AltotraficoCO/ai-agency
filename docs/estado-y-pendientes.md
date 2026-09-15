@@ -116,8 +116,9 @@ Por urgencia:
 
 | Qué | Quién | Plazo / nota |
 |---|---|---|
-| Solicitud de acceso a **Google Ads** | Victor | el trámite más lento: de días a semanas |
-| Permiso de **Meta** para publicar por clientes | Victor | 2 a 4 semanas de revisión |
+| Solicitud de acceso a **Google Ads** | Victor | el trámite más lento: de días a semanas. El código ya está listo: falta el developer token en `GOOGLE_ADS_DEVELOPER_TOKEN` |
+| Permiso de **Meta** para publicar por clientes | Victor | 2 a 4 semanas de revisión. Para anuncios hacen falta además `ads_read` y `ads_management` en la misma app |
+| App de **TikTok for Business** | Victor | permisos de Ads Management; va en `TIKTOK_APP_ID` y `TIKTOK_APP_SECRET` |
 | Clave de **PageSpeed** (`PAGESPEED_API_KEY` en el VPS) | Victor | gratis y en minutos; sin ella el Velocista no mide |
 | **Token de Alegra** (usuario propio para Strappy, no la contraseña) | Pedro | sin él, Administrativo y Reportes no tienen dónde mirar |
 | **Cuadrar las claves de cifrado** | Victor | la web cifra con `ENCRYPTION_KEY` y el worker descifra con `APP_ENCRYPTION_KEY`; si no valen lo mismo, los avisos por WhatsApp nunca salen |

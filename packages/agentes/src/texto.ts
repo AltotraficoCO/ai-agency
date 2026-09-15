@@ -34,3 +34,46 @@ export function recortar(texto: string, maximo = 90): string {
   const limpio = texto.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   return limpio.length > maximo ? `${limpio.slice(0, maximo - 1)}…` : limpio;
 }
+
+// ---------------------------------------------------------------------------
+// Tapar credenciales
+// ---------------------------------------------------------------------------
+
+/**
+ * Cualquier cabecera de autenticación, venga como venga.
+ *
+ * El valor se traga entero, esquema incluido: si solo se tapara hasta el
+ * «Bearer», el token quedaría escrito justo detrás.
+ */
+const AUTORIZACION =
+  /\b(authorization|x-api-key|access[-_]token|api[-_]?key)\b["']?\s*[:=]\s*["']?\s*(?:(?:Bearer|Basic|Token)\s+)?[^\s"',}]+/gi;
+/** `Bearer …` y `Basic …` sueltos dentro del cuerpo de un error de un tercero. */
+const ESQUEMA = /\b(Bearer|Basic)\s+[A-Za-z0-9+/=._-]{8,}/gi;
+/** `?key=…`, `&access_token=…`: así viaja un secreto dentro de una URL. */
+const SECRETO_EN_URL = /([?&](?:key|api_?key|access_token|secret)=)[^&\s"']+/gi;
+
+/**
+ * Tapa lo que nunca debe llegar al cliente.
+ *
+ * No es paranoia: los adaptadores de servicios externos meten el cuerpo de la
+ * respuesta dentro de sus errores —es lo único que permite entender un 403 sin
+ * entrar al servidor de nadie— y ese cuerpo lo escribe un tercero. Si ese texto
+ * acaba en el resumen de un encargo, el token queda escrito en la base de datos
+ * del cliente y en su pantalla.
+ *
+ * Se tapan tres cosas: los secretos que el worker conoce porque los descifró,
+ * cualquier cabecera de autenticación y cualquier secreto metido en una URL.
+ * Los secretos cortos se ignoran a propósito: tapar una cadena de tres letras
+ * llenaría de asteriscos el texto entero.
+ */
+export function crearTapadera(secretos: readonly string[]): (texto: string) => string {
+  const utiles = secretos.filter((s) => typeof s === "string" && s.trim().length >= 6);
+  return (texto: string): string => {
+    let salida = texto
+      .replace(AUTORIZACION, "$1: ***")
+      .replace(ESQUEMA, "$1 ***")
+      .replace(SECRETO_EN_URL, "$1***");
+    for (const secreto of utiles) salida = salida.split(secreto).join("***");
+    return salida;
+  };
+}

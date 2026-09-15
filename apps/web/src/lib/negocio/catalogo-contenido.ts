@@ -271,6 +271,12 @@ export const CONTENIDO_POR_AGENTE: Readonly<Record<string, ContenidoDeAgente>> =
         ruta: "/ajustes/canales",
       },
       {
+        clave: "tiktok_ads",
+        nombre: "TikTok",
+        descripcion: "Tus campañas de TikTok, medidas con la misma vara que las demás.",
+        ruta: "/ajustes/canales",
+      },
+      {
         clave: "analytics",
         nombre: "Google Analytics",
         descripcion: "Para saber qué hace la gente en tu web después de hacer clic.",
@@ -287,7 +293,7 @@ export const CONTENIDO_POR_AGENTE: Readonly<Record<string, ContenidoDeAgente>> =
       {
         icono: "medir",
         titulo: "Vigila en qué se va tu inversión",
-        detalle: "Cuánto cuesta cada cliente que llega por Google, Facebook e Instagram.",
+        detalle: "Cuánto cuesta cada cliente que llega por Google, Facebook, Instagram y TikTok.",
       },
       {
         icono: "segmentar",

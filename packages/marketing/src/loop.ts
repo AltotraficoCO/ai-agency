@@ -7,13 +7,14 @@
  * cuentas de publicidad, cómo se cuentan sus pasos y cómo se le explica al
  * cliente lo que va a aprobar.
  *
- * Nada de este archivo sabe hablar con Google ni con Meta: eso son los puertos
- * (`ports.ts`), que en producción rellena el worker y en los tests rellenan los
- * dobles. Por eso el agente se puede probar entero hoy, aunque los accesos de
- * las plataformas tarden semanas en llegar.
+ * Nada de este archivo sabe hablar con Google, con Meta ni con TikTok: eso son
+ * los puertos (`ports.ts`), que en producción rellena el worker con los
+ * adaptadores de `adaptadores/` y en los tests rellenan los dobles. Por eso el
+ * agente se puede probar entero sin credenciales de ninguna plataforma.
  */
 import {
   contextoComun,
+  crearTapadera,
   filtrarHerramientas,
   lanzarOficio,
   oficioComun,
@@ -42,6 +43,16 @@ export type EjecucionMarketing = EntradaComunDeAgente & {
   /** Cómo se llama el negocio: el agente habla de él por su nombre. */
   readonly negocio: string;
   readonly cuentas: CuentasContext;
+  /**
+   * Textos que NUNCA pueden salir en un paso, un resumen o un error: los tokens
+   * con los que se entra a Google, a Meta y a TikTok.
+   *
+   * Las credenciales viven dentro del adaptador y no entran al contexto, así
+   * que esto es la última red: un error de la plataforma que devolviera la
+   * petición entera, o un modelo que copiara algo que vio. Lo inyecta el
+   * worker, que es quien las descifra.
+   */
+  readonly secretos?: readonly string[];
 };
 
 export async function ejecutarTareaMarketing(input: EjecucionMarketing): Promise<ResultadoTarea> {
@@ -69,7 +80,7 @@ export async function ejecutarTareaMarketing(input: EjecucionMarketing): Promise
     }),
     // Las credenciales de las plataformas nunca entran en el contexto en claro:
     // viven dentro de los adaptadores. No hay nada que tapar en el texto.
-    limpiarSecretos: (texto) => texto,
+    limpiarSecretos: crearTapadera(input.secretos ?? []),
     describirSolicitud,
     // La misma que usan las herramientas de este paquete al pasar por la puerta
     // de aprobación: una decisión guardada tiene que poder encontrarse.

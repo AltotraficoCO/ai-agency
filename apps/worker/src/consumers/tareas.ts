@@ -491,6 +491,7 @@ export class ConsumidorDeTareas implements Consumidor {
       agent: marketing,
       negocio: cuentas.negocio,
       cuentas: contexto,
+      ...(cuentas.secretos ? { secretos: cuentas.secretos } : {}),
     });
   }
 

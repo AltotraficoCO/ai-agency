@@ -4,6 +4,8 @@ import { MarcoApp } from "@/components/marco-app";
 import { DisposicionAjustes } from "@/components/nav-ajustes";
 import { AvisoAjustes } from "@/components/negocio/seccion-ajustes";
 import { canalesDeWhatsApp, configMeta, RUTA_CONECTAR, type CanalWhatsApp } from "@/lib/canales/whatsapp";
+import { conexionesDeAnuncios, configDe, PLATAFORMAS_ANUNCIOS } from "@/lib/canales/anuncios";
+import { SeccionAnuncios } from "@/components/canales/anuncios";
 import { datosDelMarco } from "@/lib/marco";
 
 export const metadata = { title: "Canales" };
@@ -25,10 +27,15 @@ export default async function PaginaCanales({
   const busqueda = await searchParams;
   const marco = await datosDelMarco();
   const canales = await canalesDeWhatsApp(marco.actual.workspaceId);
+  const anuncios = await conexionesDeAnuncios(marco.actual.workspaceId);
+  const plataformasConfiguradas = PLATAFORMAS_ANUNCIOS.filter((p) => configDe(p.plataforma) !== null).map(
+    (p) => p.plataforma,
+  );
   const hayConfiguracion = configMeta() !== null;
   const puedeConectar = marco.actual.rol === "owner" || marco.actual.rol === "admin";
   const resultado = texto(busqueda["whatsapp"]);
   const detalle = texto(busqueda["detalle"]);
+  const resultadoAnuncios = texto(busqueda["anuncios"]);
 
   const conectados = canales.filter((c) => c.estadoCanal === "connected").length;
 
@@ -42,7 +49,7 @@ export default async function PaginaCanales({
     >
       <DisposicionAjustes
         titulo="Canales"
-        descripcion="Por dónde te escriben tus clientes y por dónde contestan tus agentes."
+        descripcion="Por dónde te escriben tus clientes, por dónde contestan tus agentes y dónde anuncias."
       >
         {resultado === "ok" && (
           <AvisoAjustes tono="exito">
@@ -51,6 +58,8 @@ export default async function PaginaCanales({
           </AvisoAjustes>
         )}
         {resultado === "error" && detalle && <AvisoAjustes tono="error">{detalle}</AvisoAjustes>}
+        {resultadoAnuncios === "ok" && <AvisoAjustes tono="exito">{avisoAnuncios(detalle)}</AvisoAjustes>}
+        {resultadoAnuncios === "error" && detalle && <AvisoAjustes tono="error">{detalle}</AvisoAjustes>}
 
         <section className="strappy-slide-up overflow-hidden rounded-xl border border-border bg-raised shadow-e1">
           <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
@@ -111,6 +120,12 @@ export default async function PaginaCanales({
             Meta te cobra las conversaciones directamente a ti: nosotros no revendemos mensajes.
           </p>
         </section>
+
+        <SeccionAnuncios
+          conexiones={anuncios}
+          configuradas={plataformasConfiguradas}
+          puedeConectar={puedeConectar}
+        />
       </DisposicionAjustes>
     </MarcoApp>
   );
@@ -172,6 +187,20 @@ function FilaCanal({ canal }: { canal: CanalWhatsApp }) {
       <Badge tone={estado.tono}>{estado.etiqueta}</Badge>
     </li>
   );
+}
+
+/**
+ * El resultado de conectar anuncios viaja como «Google Ads·3»: el nombre de la
+ * plataforma y cuántas cuentas publicitarias se vieron. Decir cuántas importa
+ * porque es lo único que le confirma al cliente que autorizó la cuenta que
+ * quería y no otra.
+ */
+function avisoAnuncios(detalle: string | undefined): string {
+  const [plataforma, cuantas] = (detalle ?? "").split("·");
+  if (!plataforma) return "La plataforma de anuncios quedó conectada.";
+  const n = Number.parseInt(cuantas ?? "", 10);
+  if (!Number.isFinite(n) || n <= 0) return `${plataforma} quedó conectado.`;
+  return `${plataforma} quedó conectado con ${n === 1 ? "1 cuenta publicitaria" : `${n} cuentas publicitarias`}. Tu agente de marketing ya puede revisarlas.`;
 }
 
 function texto(valor: string | string[] | undefined): string | undefined {

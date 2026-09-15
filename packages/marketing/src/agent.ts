@@ -69,7 +69,7 @@ export const marketing: MarketingAgentDef = {
   slug: "marketing",
   label: "Marketing",
   description:
-    "Vigila lo que el negocio gasta en Google Ads y en Facebook e Instagram, dice dónde se está yendo el dinero sin traer clientes y propone los cambios, que ejecuta solo cuando una persona los aprueba.",
+    "Vigila lo que el negocio gasta en Google Ads, en Facebook e Instagram y en TikTok, dice dónde se está yendo el dinero sin traer clientes y propone los cambios, que ejecuta solo cuando una persona los aprueba.",
   agentTypeSlug: TIPO_TAREA_POR_ENCARGO,
   allowedToolPatterns: ["ads_*", "analytics_*", "pedir_aprobacion", "preguntar_al_cliente"],
   scopes: ["ads:read", "ads:write", "analytics:read"],

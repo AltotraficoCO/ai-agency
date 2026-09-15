@@ -71,9 +71,10 @@ async function main(): Promise<void> {
       sitios: new SitiosPostgres(pool, config.claveMaestra),
       backups: new BackupsPostgres(pool),
       aprobaciones: new AprobacionesPostgres(pool),
-      // Las cuentas de publicidad del espacio. Mientras los accesos de Google
-      // y Meta no estén aprobados llega sin plataformas, y el agente lo dice.
-      cuentas: new CuentasPostgres(pool),
+      // Las cuentas de publicidad del espacio: Google Ads, Meta y TikTok, las
+      // que el cliente haya conectado. Sin ninguna llega vacío y el agente lo
+      // dice en vez de fallar.
+      cuentas: new CuentasPostgres(pool, config.claveMaestra),
       // Los libros del negocio. Sin sistema de facturación conectado llega sin
       // contabilidad y el agente financiero lo explica en vez de fallar.
       libros: new LibrosPostgres(pool, config.claveMaestra),

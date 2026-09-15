@@ -20,6 +20,7 @@
     "@strappy/administrativo": "workspace:*",
     "@strappy/core": "workspace:*",
     "@strappy/db": "workspace:*",
+    "@strappy/marketing": "workspace:*",
     "@strappy/rag": "workspace:*",
     "@strappy/tools": "workspace:*",
     "@strappy/ui": "workspace:*",

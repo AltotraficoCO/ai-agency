@@ -102,7 +102,7 @@ export interface ApprovalPort {
     /**
      * Conexión sobre la que cuelga la aprobación. Null cuando todavía no hay
      * ninguna: un encargo de Marketing puede existir antes de que el cliente
-     * conecte Google Ads o Facebook.
+     * conecte Google Ads, Facebook o TikTok.
      */
     siteId: string | null;
     huella: string;

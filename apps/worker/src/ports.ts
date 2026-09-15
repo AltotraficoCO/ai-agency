@@ -181,9 +181,9 @@ export interface SitePort {
  * Lo que el agente de Marketing necesita para trabajar en un espacio.
  *
  * Se arma por tarea, igual que el sitio del Webmaster: las plataformas
- * conectadas son del cliente y no del proceso. Hoy el adaptador real está
- * pendiente de los accesos de Google y Meta, así que en producción llega sin
- * plataformas y el agente lo dice en vez de fallar con un error técnico.
+ * conectadas son del cliente y no del proceso. Pueden llegar las tres (Google
+ * Ads, Meta y TikTok), una o ninguna: un espacio sin ninguna conectada es
+ * normal y el agente lo dice en vez de fallar con un error técnico.
  */
 export type CuentasDeMarketing = {
   /** Conexión principal del encargo, si la hay: sobre ella cuelgan las aprobaciones. */
@@ -196,6 +196,8 @@ export type CuentasDeMarketing = {
   readonly agentName: string;
   /** Primer contacto con las cuentas: mira y propone, no cambia nada. */
   readonly primerContacto?: boolean;
+  /** Credenciales descifradas: se tapan en todo lo que lea el cliente. */
+  readonly secretos?: readonly string[];
 };
 
 export interface CuentasPort {

@@ -11,10 +11,10 @@ import { z } from "zod";
 import { defineTool, type ToolDef } from "@strappy/tools";
 import { SCOPES } from "../context.js";
 import { analizar, costePorResultado, dinero, frasePeriodo, resumir } from "../analisis.js";
-import { adsDe, requireAnalytics, NOMBRE_PLATAFORMA, type Plataforma } from "../ports.js";
+import { adsDe, requireAnalytics, NOMBRE_PLATAFORMA, PLATAFORMAS, type Plataforma } from "../ports.js";
 import { entorno, ultimosDias } from "./comun.js";
 
-const plataforma = z.enum(["google_ads", "meta_ads"]);
+const plataforma = z.enum(PLATAFORMAS);
 const dias = z
   .number()
   .int()
@@ -27,7 +27,7 @@ export const adsListarCuentas = defineTool({
   slug: "ads_listar_cuentas",
   label: "Ver las cuentas de publicidad",
   description:
-    "Lista las cuentas publicitarias conectadas (Google Ads y Facebook/Instagram) con su nombre y su moneda.",
+    "Lista las cuentas publicitarias conectadas (Google Ads, Facebook/Instagram y TikTok) con su nombre y su moneda.",
   whenToUse: "siempre lo primero, para saber con qué cuentas puedes trabajar y en qué moneda hablar",
   inputSchema: z.object({}),
   sensitive: false,

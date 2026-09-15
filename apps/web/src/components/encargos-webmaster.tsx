@@ -95,7 +95,7 @@ export const OFICIO_MARKETING: OficioEncargos = {
     conectado: (nombre) => `Mira tus cuentas de ${nombre}`,
     sinConectar: "Sin plataformas conectadas",
     aviso: (agente) =>
-      `Conecta Google Ads o Facebook para que ${agente} pueda ver tus campañas. Mientras tanto puede responder con lo que sepa de tu negocio.`,
+      `Conecta Google Ads, Facebook o TikTok para que ${agente} pueda ver tus campañas. Mientras tanto puede responder con lo que sepa de tu negocio.`,
     ctaTexto: "Conectar mis plataformas",
     ctaHref: "/canales",
     // Sin plataformas igual puede mirar y explicar qué le falta: encargar no

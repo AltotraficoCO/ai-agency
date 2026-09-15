@@ -2,12 +2,12 @@
  * Puertos del agente de Marketing.
  *
  * Aquí no hay ni una llamada HTTP: son las interfaces que el worker rellena
- * con adaptadores reales (Google Ads, Meta, Analytics) y que los tests
+ * con adaptadores reales (Google Ads, Meta, TikTok, Analytics) y que los tests
  * rellenan con dobles. Esa frontera es lo que permite construir y probar el
  * agente ENTERO hoy, aunque los accesos de las plataformas tarden semanas en
  * aprobarse.
  *
- * Las cifras viajan ya normalizadas —misma forma para Google y para Meta— por
+ * Las cifras viajan ya normalizadas —misma forma para Google, para Meta y para TikTok— por
  * una razón de producto: al cliente se le habla de «lo que te cuesta cada
  * cliente nuevo», no de los nombres que cada plataforma le da a sus métricas.
  * Traducir es trabajo del adaptador, no del modelo.
@@ -18,12 +18,24 @@
  * paquete dependa de aquel.
  */
 
-export type Plataforma = "google_ads" | "meta_ads";
+/**
+ * Las plataformas que el agente sabe mirar.
+ *
+ * La lista se declara UNA vez y de ella salen el tipo y los `z.enum` de las
+ * herramientas: cuando se añadió TikTok, el enum de `tools/lectura.ts` y el de
+ * `tools/cambios.ts` eran dos listas escritas a mano que había que acordarse de
+ * tocar, y olvidar una significa una herramienta que rechaza una plataforma que
+ * el resto del sistema da por conectada.
+ */
+export const PLATAFORMAS = ["google_ads", "meta_ads", "tiktok_ads"] as const;
+
+export type Plataforma = (typeof PLATAFORMAS)[number];
 
 /** Lo que hay que llamar por su nombre en la interfaz del cliente. */
 export const NOMBRE_PLATAFORMA: Readonly<Record<Plataforma, string>> = {
   google_ads: "Google Ads",
   meta_ads: "Facebook e Instagram",
+  tiktok_ads: "TikTok",
 };
 
 export type CuentaPublicitaria = {

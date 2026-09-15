@@ -44,6 +44,9 @@ importers:
       '@strappy/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@strappy/marketing':
+        specifier: workspace:*
+        version: link:../../packages/marketing
       '@strappy/rag':
         specifier: workspace:*
         version: link:../../packages/rag
