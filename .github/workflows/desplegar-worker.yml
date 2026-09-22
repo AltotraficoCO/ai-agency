@@ -38,6 +38,18 @@ jobs:
           sudo apt-get install -y -qq postgresql-client >/dev/null
           # Si el secreto se pegó con la línea entera del .env, se quita el nombre.
           URL="${DATABASE_URL#DATABASE_URL=}"
+          # Los runners de GitHub no tienen IPv6 y el host directo de Supabase
+          # (db.<ref>.supabase.co) solo resuelve a IPv6: «Network is unreachable».
+          # El pooler sí tiene IPv4. Se reescribe la URL directa al pooler de la
+          # región del proyecto (us-west-2) y se prueba cuál de los dos balanceadores
+          # atiende a este proyecto.
+          if [[ "$URL" =~ ^postgres(ql)?://postgres:([^@]*)@db\.([a-z]+)\.supabase\.co:5432/(.*)$ ]]; then
+            PASS="${BASH_REMATCH[2]}"; REF="${BASH_REMATCH[3]}"; DB="${BASH_REMATCH[4]}"
+            for n in 0 1; do
+              CAND="postgresql://postgres.${REF}:${PASS}@aws-${n}-us-west-2.pooler.supabase.com:5432/${DB}"
+              if psql -q -c 'select 1' "$CAND" >/dev/null 2>&1; then URL="$CAND"; echo "==> pooler aws-${n}"; break; fi
+            done
+          fi
           ./packages/db/scripts/apply.sh "$URL"
 
       - name: Clave SSH
