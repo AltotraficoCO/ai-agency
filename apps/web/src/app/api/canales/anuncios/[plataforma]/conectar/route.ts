@@ -11,6 +11,7 @@ import {
   esPlataformaDeAnuncios,
   RUTA_CANALES,
   origenPublico,
+  rutaDeVuelta,
   urlDeConexion,
   urlDeResultado,
 } from "@/lib/canales/anuncios";
@@ -25,14 +26,17 @@ export async function GET(
 ) {
   const origin = origenPublico(peticion);
   const { plataforma } = await params;
+  // Desde dónde se pulsó «Conectar»: el asistente de contratación quiere que
+  // la persona vuelva a su paso, no a Ajustes.
+  const volver = rutaDeVuelta(new URL(peticion.url).searchParams.get("volver"));
 
   if (!esPlataformaDeAnuncios(plataforma)) {
-    return NextResponse.redirect(urlDeResultado(origin, "error", "Esa plataforma de anuncios no existe."));
+    return NextResponse.redirect(urlDeResultado(origin, "error", "Esa plataforma de anuncios no existe.", volver));
   }
 
   const usuario = await obtenerUsuarioActual();
   if (!usuario) {
-    return NextResponse.redirect(new URL(`/entrar?siguiente=${encodeURIComponent(RUTA_CANALES)}`, origin));
+    return NextResponse.redirect(new URL(`/entrar?siguiente=${encodeURIComponent(volver)}`, origin));
   }
   if (!PAPELES_QUE_CONECTAN.has(usuario.rol)) {
     return NextResponse.redirect(
@@ -40,6 +44,7 @@ export async function GET(
         origin,
         "error",
         "Solo el propietario o un administrador pueden conectar una cuenta de anuncios.",
+        volver,
       ),
     );
   }
@@ -49,10 +54,11 @@ export async function GET(
     origen: origin,
     workspaceId: usuario.workspaceId,
     userId: usuario.id,
+    volver,
   });
   if (!destino) {
     return NextResponse.redirect(
-      urlDeResultado(origin, "error", "Esa plataforma todavía no está configurada en este servidor."),
+      urlDeResultado(origin, "error", "Esa plataforma todavía no está configurada en este servidor.", volver),
     );
   }
   return NextResponse.redirect(destino);

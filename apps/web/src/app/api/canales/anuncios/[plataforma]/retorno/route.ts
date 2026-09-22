@@ -100,7 +100,8 @@ export async function GET(
           origin,
           "ok",
           `${NOMBRE_PLATAFORMA[resultado.plataforma]}·${resultado.cuentas}`,
+          estado.volver,
         )
-      : urlDeResultado(origin, "error", resultado.mensaje),
+      : urlDeResultado(origin, "error", resultado.mensaje, estado.volver),
   );
 }

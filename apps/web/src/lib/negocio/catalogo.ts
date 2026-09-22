@@ -66,7 +66,7 @@ export type FichaCatalogo = {
 
 export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCatalogo[]> {
   return conEspacio(workspaceId, async (scope) => {
-    const [catalogo, contratos, herramientas, canales, bases, sitios, contabilidades] =
+    const [catalogo, contratos, herramientas, canales, bases, conexiones] =
       await Promise.all([
       scope.query<{
         slug: string;
@@ -114,29 +114,33 @@ export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCata
         `select count(*)::text as n from public.brains where workspace_id = $1`,
         [workspaceId],
       ),
-      scope.query<{ n: string }>(
-        `select count(*)::text as n from public.connections
-          where workspace_id = $1 and provider = 'wordpress' and status = 'active'`,
-        [workspaceId],
-      ),
-      scope.query<{ n: string }>(
-        `select count(*)::text as n from public.connections
-          where workspace_id = $1 and provider = 'alegra' and status = 'active'`,
+      // Todas las conexiones activas del espacio, por proveedor. Antes se
+      // contaban solo WordPress y Alegra, y las de anuncios nunca salían
+      // «listas» aunque estuvieran conectadas: el mismo patrón del diccionario
+      // escrito a mano que ya nos mordió cuatro veces.
+      scope.query<{ provider: string }>(
+        `select distinct provider from public.connections
+          where workspace_id = $1 and status = 'active'`,
         [workspaceId],
       ),
     ]);
 
     const nombreHerramienta = new Map(herramientas.rows.map((h) => [h.slug, h.name]));
     const contratados = new Map(contratos.rows.map((c) => [c.catalog_slug, c]));
+    const activas = new Set(conexiones.rows.map((c) => c.provider));
     const listo: Record<string, boolean> = {
+      // Cada proveedor conectado cuenta como listo bajo su propio nombre
+      // (google_ads, meta_ads, tiktok_ads, ...): así una conexión nueva no
+      // necesita que alguien se acuerde de añadirla aquí.
+      ...Object.fromEntries([...activas].map((p) => [p, true])),
       whatsapp: Number(canales.rows[0]?.n ?? 0) > 0,
       conocimiento: Number(bases.rows[0]?.n ?? 0) > 0,
       // Listo cuando hay un WordPress con credenciales que ya se probaron: la
       // dirección sola, sin acceso, no le sirve de nada al Webmaster.
-      sitio: Number(sitios.rows[0]?.n ?? 0) > 0,
+      sitio: activas.has("wordpress"),
       // Igual con la facturación: sin ella el agente financiero no tiene libros
       // que mirar, y más vale decirlo antes de contratarlo.
-      contabilidad: Number(contabilidades.rows[0]?.n ?? 0) > 0,
+      contabilidad: activas.has("alegra"),
     };
 
     return catalogo.rows.map((f) => {

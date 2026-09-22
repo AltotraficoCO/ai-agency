@@ -134,9 +134,27 @@ function clave(): Buffer {
   return leerClave(process.env.ENCRYPTION_KEY);
 }
 
-/** Vuelta a Canales con el resultado en la URL. */
-export function urlDeResultado(origen: string, resultado: "ok" | "error", detalle: string): URL {
-  const url = new URL(RUTA_CANALES, origen);
+/**
+ * A dónde volver cuando termine el permiso: la página desde la que se pulsó
+ * «Conectar» (el asistente de contratación, por ejemplo) o Canales si no se
+ * dijo nada. Solo rutas de esta misma app: un `volver` con dominio sería un
+ * redireccionamiento abierto.
+ */
+export function rutaDeVuelta(valor: string | null | undefined): string {
+  if (!valor || !valor.startsWith("/") || valor.startsWith("//") || valor.startsWith("/api/")) {
+    return RUTA_CANALES;
+  }
+  return valor;
+}
+
+/** Vuelta con el resultado en la URL, a `volver` o a Canales. */
+export function urlDeResultado(
+  origen: string,
+  resultado: "ok" | "error",
+  detalle: string,
+  volver?: string,
+): URL {
+  const url = new URL(rutaDeVuelta(volver), origen);
   url.searchParams.set("anuncios", resultado);
   url.searchParams.set("detalle", detalle);
   return url;
@@ -152,6 +170,8 @@ export function urlDeConexion(input: {
   origen: string;
   workspaceId: string;
   userId: string;
+  /** Página a la que volver al terminar. Va dentro del `state`, firmado. */
+  volver?: string;
 }): string | null {
   const config = configDe(input.plataforma);
   if (!config) return null;
@@ -164,6 +184,7 @@ export function urlDeConexion(input: {
       w: input.workspaceId,
       u: input.userId,
       p: input.plataforma,
+      v: rutaDeVuelta(input.volver),
       exp: Date.now() + VIGENCIA_ESTADO_MS,
     }),
     clave(),
@@ -190,14 +211,14 @@ export function urlDeConexion(input: {
 
 export function leerEstado(
   state: string,
-): { workspaceId: string; userId: string; plataforma: Plataforma } | null {
+): { workspaceId: string; userId: string; plataforma: Plataforma; volver: string } | null {
   try {
     const datos = JSON.parse(descifrar(state, clave())) as Record<string, unknown>;
-    const { w, u, p, exp } = datos;
+    const { w, u, p, v, exp } = datos;
     if (typeof w !== "string" || typeof u !== "string" || typeof p !== "string") return null;
     if (typeof exp !== "number" || exp < Date.now()) return null;
     if (!esPlataformaDeAnuncios(p)) return null;
-    return { workspaceId: w, userId: u, plataforma: p };
+    return { workspaceId: w, userId: u, plataforma: p, volver: rutaDeVuelta(typeof v === "string" ? v : null) };
   } catch {
     return null;
   }

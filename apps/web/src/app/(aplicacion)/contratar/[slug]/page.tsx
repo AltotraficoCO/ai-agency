@@ -4,12 +4,13 @@ import { ArrowLeft, Check, CircleCheck, CircleDashed } from "lucide-react";
 import { Badge } from "@strappy/ui";
 import { MarcoApp } from "@/components/marco-app";
 import { SelectorFoto } from "@/components/agentes/selector-foto";
-import { AsistenteContratacion } from "@/components/negocio/asistente-contratacion";
+import { AsistenteContratacion, type AvisoConexion } from "@/components/negocio/asistente-contratacion";
 import { ICONO_CAPACIDAD } from "@/components/negocio/contratar/personajes";
 import { RetratoAgente } from "@/components/negocio/contratar/retrato-agente";
 import { datosDelMarco } from "@/lib/marco";
 import { accionCancelarAgente } from "@/lib/negocio/acciones";
 import { fichaDelCatalogo } from "@/lib/negocio/catalogo";
+import { enlaceParaConectar } from "@/lib/negocio/catalogo-contenido";
 
 export const dynamic = "force-dynamic";
 
@@ -29,13 +30,22 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
  * El detalle de cada capacidad SOLO se lee aquí: en el catálogo cabe el titular
  * y en la ficha se explica. Por eso la ficha es la que convence.
  */
-export default async function PaginaFicha({ params }: { params: Promise<{ slug: string }> }) {
+export default async function PaginaFicha({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { slug } = await params;
+  const busqueda = await searchParams;
   const marco = await datosDelMarco();
   const ficha = await fichaDelCatalogo(marco.actual.workspaceId, slug);
   if (!ficha) notFound();
 
   const pendientes = ficha.conexiones.filter((c) => !c.lista);
+  const aviso = avisoDeConexion(primero(busqueda["anuncios"]), primero(busqueda["detalle"]));
+  const volver = `/contratar/${ficha.slug}`;
 
   return (
     <MarcoApp
@@ -124,7 +134,7 @@ export default async function PaginaFicha({ params }: { params: Promise<{ slug: 
                       </span>
                       <span className="flex min-w-0 flex-col">
                         <Link
-                          href={c.ruta}
+                          href={enlaceParaConectar(c, volver)}
                           className="w-fit cursor-pointer text-base font-medium text-fg underline-offset-4 hover:underline"
                         >
                           {c.nombre}
@@ -184,8 +194,32 @@ export default async function PaginaFicha({ params }: { params: Promise<{ slug: 
           ) : null}
         </aside>
 
-        <AsistenteContratacion ficha={ficha} />
+        <AsistenteContratacion ficha={ficha} aviso={aviso} />
       </div>
     </MarcoApp>
   );
+}
+
+function primero(valor: string | string[] | undefined): string | undefined {
+  return Array.isArray(valor) ? valor[0] : valor;
+}
+
+/**
+ * Lo que dijo la plataforma de anuncios al volver aquí. El detalle del éxito
+ * viene como «Google Ads·3» (plataforma y cuántas cuentas); el del error, tal
+ * cual lo explicó la plataforma.
+ */
+function avisoDeConexion(resultado: string | undefined, detalle: string | undefined): AvisoConexion | undefined {
+  if (resultado === "error") {
+    return { tono: "error", texto: detalle || "No se pudo conectar. Vuelve a intentarlo." };
+  }
+  if (resultado !== "ok") return undefined;
+  const [plataforma, cuantas] = (detalle ?? "").split("·");
+  const n = Number.parseInt(cuantas ?? "", 10);
+  if (!plataforma) return { tono: "exito", texto: "La plataforma quedó conectada." };
+  if (!Number.isFinite(n) || n <= 0) return { tono: "exito", texto: `${plataforma} quedó conectado.` };
+  return {
+    tono: "exito",
+    texto: `${plataforma} quedó conectado con ${n === 1 ? "1 cuenta publicitaria" : `${n} cuentas publicitarias`}.`,
+  };
 }

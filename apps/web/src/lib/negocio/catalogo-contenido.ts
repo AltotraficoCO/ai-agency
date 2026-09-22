@@ -56,8 +56,26 @@ export type ConexionDeclarada = {
   readonly clave: string;
   readonly nombre: string;
   readonly descripcion: string;
+  /**
+   * A dónde lleva «Conectar». Una página de la app, o una ruta `/api/.../conectar`
+   * que arranca el permiso directamente y devuelve a quien pulsó a la página
+   * desde la que lo hizo (ver `enlaceParaConectar`).
+   */
   readonly ruta: string;
 };
+
+/**
+ * El enlace de «Conectar» para una conexión, sabiendo desde qué página se pulsa.
+ *
+ * Las conexiones por permiso (Google Ads, Meta, TikTok) no tienen pantalla
+ * propia: el enlace abre el consentimiento de la plataforma y, al volver, la
+ * persona aterriza otra vez en `volver`, con el resultado. Así el asistente de
+ * contratación no la manda a Ajustes a mitad de un paso a paso.
+ */
+export function enlaceParaConectar(conexion: ConexionDeclarada, volver: string): string {
+  if (!conexion.ruta.startsWith("/api/")) return conexion.ruta;
+  return `${conexion.ruta}?volver=${encodeURIComponent(volver)}`;
+}
 
 export type CampoPersonalizable = {
   readonly clave: string;
@@ -262,19 +280,19 @@ export const CONTENIDO_POR_AGENTE: Readonly<Record<string, ContenidoDeAgente>> =
         clave: "google_ads",
         nombre: "Google Ads",
         descripcion: "Para ver en qué se va tu inversión y proponerte cambios.",
-        ruta: "/ajustes/canales",
+        ruta: "/api/canales/anuncios/google_ads/conectar",
       },
       {
         clave: "meta_ads",
         nombre: "Facebook e Instagram",
         descripcion: "Tus campañas de Meta, con el mismo criterio que las de Google.",
-        ruta: "/ajustes/canales",
+        ruta: "/api/canales/anuncios/meta_ads/conectar",
       },
       {
         clave: "tiktok_ads",
         nombre: "TikTok",
         descripcion: "Tus campañas de TikTok, medidas con la misma vara que las demás.",
-        ruta: "/ajustes/canales",
+        ruta: "/api/canales/anuncios/tiktok_ads/conectar",
       },
       {
         clave: "analytics",

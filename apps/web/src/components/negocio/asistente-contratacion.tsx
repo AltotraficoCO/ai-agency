@@ -26,6 +26,7 @@ import { EnlaceBoton } from "@/components/enlace-boton";
 import { accionContratar } from "@/lib/negocio/acciones";
 import { dolares } from "@/lib/negocio/creditos";
 import type { FichaCatalogo } from "@/lib/negocio/catalogo";
+import { enlaceParaConectar } from "@/lib/negocio/catalogo-contenido";
 import { ICONO_CAPACIDAD } from "./contratar/personajes";
 import { RetratoAgente } from "./contratar/retrato-agente";
 
@@ -36,13 +37,20 @@ const PASOS = [
   { id: "probar", label: "Probar" },
 ] as const;
 
-export function AsistenteContratacion({ ficha }: { ficha: FichaCatalogo }) {
+/** Lo que dijo una plataforma al volver de conectarla desde este asistente. */
+export type AvisoConexion = { tono: "exito" | "error"; texto: string };
+
+export function AsistenteContratacion({ ficha, aviso }: { ficha: FichaCatalogo; aviso?: AvisoConexion }) {
   const router = useRouter();
-  const [paso, setPaso] = React.useState(0);
+  // Quien vuelve de conectar una plataforma aterriza en su paso, no en el
+  // primero: el paso a paso no se reinicia por haber salido a dar un permiso.
+  const [paso, setPaso] = React.useState(aviso ? 1 : 0);
   const [valores, setValores] = React.useState<Record<string, string>>(() =>
     Object.fromEntries(ficha.campos.map((c) => [c.clave, c.valorPorDefecto])),
   );
-  const [nombre, setNombre] = React.useState(ficha.nombre);
+  // El nombre es el del catálogo: un agente contratado se llama como se llama.
+  const nombre = ficha.nombre;
+  const volver = `/contratar/${ficha.slug}`;
   const [enviando, setEnviando] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [agenteId, setAgenteId] = React.useState<string | null>(ficha.agenteId);
@@ -159,6 +167,22 @@ export function AsistenteContratacion({ ficha }: { ficha: FichaCatalogo }) {
             </Button>
           }
         >
+          {aviso ? (
+            <p
+              className={cn(
+                "flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm",
+                aviso.tono === "exito" ? "bg-success-soft text-success-fg" : "bg-danger-soft text-danger-fg",
+              )}
+            >
+              {aviso.tono === "exito" ? (
+                <CircleCheck size={16} strokeWidth={2} className="mt-0.5 shrink-0" aria-hidden />
+              ) : (
+                <CircleAlert size={16} strokeWidth={2} className="mt-0.5 shrink-0" aria-hidden />
+              )}
+              <span>{aviso.texto}</span>
+            </p>
+          ) : null}
+
           <ul className="flex flex-col gap-2">
             {ficha.conexiones.map((c) => (
               <li
@@ -182,7 +206,7 @@ export function AsistenteContratacion({ ficha }: { ficha: FichaCatalogo }) {
                 {c.lista ? (
                   <span className="text-sm font-medium text-success-fg">Listo</span>
                 ) : (
-                  <EnlaceBoton href={c.ruta} variant="secondary" size="sm">
+                  <EnlaceBoton href={enlaceParaConectar(c, volver)} variant="secondary" size="sm">
                     Conectar
                   </EnlaceBoton>
                 )}
@@ -211,12 +235,12 @@ export function AsistenteContratacion({ ficha }: { ficha: FichaCatalogo }) {
           clave="personalizar"
           titulo="Ajústalo a tu negocio"
           // Un agente sin campos propios no enseña un formulario a medias: se
-          // dice que solo hace falta el nombre. Prometer «ajústalo» y no
-          // preguntar nada es peor que no tener el paso.
+          // dice que no hace falta nada. Prometer «ajústalo» y no preguntar
+          // nada es peor que no tener el paso.
           descripcion={
             ficha.campos.length > 0
               ? "Solo esto. Tu empresa, tu horario, tu tono y tus políticas los hereda de la ficha de tu espacio."
-              : "Este agente no necesita más ajustes: ponle un nombre y ya trabaja. Tu empresa, tu horario y tu tono los hereda de la ficha de tu espacio."
+              : "Este agente no necesita más ajustes: ya trabaja. Tu empresa, tu horario y tu tono los hereda de la ficha de tu espacio."
           }
           atras={() => setPaso(1)}
           principal={
@@ -226,10 +250,6 @@ export function AsistenteContratacion({ ficha }: { ficha: FichaCatalogo }) {
             </Button>
           }
         >
-          <Campo etiqueta="Nombre del agente" ayuda="Cómo lo verás tú en tu panel.">
-            {(id) => <Input id={id} value={nombre} onChange={(e) => setNombre(e.target.value)} />}
-          </Campo>
-
           {ficha.campos.map((campo) => (
             <Campo key={campo.clave} etiqueta={campo.etiqueta} ayuda={campo.ayuda}>
               {(id) =>
@@ -290,7 +310,7 @@ export function AsistenteContratacion({ ficha }: { ficha: FichaCatalogo }) {
             <RetratoAgente slug={ficha.slug} tamano={140} />
             <p className="inline-flex items-center gap-2 text-lg font-semibold text-fg">
               <PartyPopper size={18} strokeWidth={2} className="text-primary-fg" aria-hidden />
-              {nombre.trim() || ficha.nombre} está listo para probar
+              {nombre} está listo para probar
             </p>
             {faltanConexiones.length > 0 ? (
               <p className="max-w-[48ch] text-sm text-fg-muted">
