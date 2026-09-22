@@ -92,11 +92,16 @@ type ResultadoEncargo = { ok: true } | { ok: false; error: string };
  * aprueba. La lista vive aquí y no repartida por la interfaz para que añadir el
  * tercero (el administrativo) sea una línea.
  */
+// Los mismos oficios que el worker sabe ejecutar (`apps/worker/src/consumers/
+// tareas.ts`). Si uno falta aquí, la web lo trata como agente de conversación
+// y lo contesta el modelo del chat sin herramientas: al Velocista le pasó.
 export const AGENTES_POR_ENCARGO = [
   "webmaster",
   "marketing",
   "administrativo",
   "disenador",
+  "velocista",
+  "reportes",
 ] as const;
 
 /**
@@ -113,6 +118,10 @@ const PROVEEDORES_POR_AGENTE: Record<string, readonly string[]> = {
   // el cliente conecte nada. El sitio le sirve para publicar y para medir los
   // colores de la marca, pero sin él sigue pudiendo trabajar y entregar.
   disenador: ["wordpress"],
+  // El Velocista mide y arregla el mismo WordPress que el Webmaster.
+  velocista: ["wordpress"],
+  // Reportes lee los mismos libros que el Administrativo.
+  reportes: ["alegra"],
 };
 
 export type AgenteDeEncargos = (typeof AGENTES_POR_ENCARGO)[number];

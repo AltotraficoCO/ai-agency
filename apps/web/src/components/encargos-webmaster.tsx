@@ -90,6 +90,95 @@ export const OFICIO_WEBMASTER: OficioEncargos = {
     "Lo hace él mismo en tu sitio, guarda una copia antes y te pide permiso en lo delicado. Verás cada paso mientras trabaja.",
 };
 
+export const OFICIO_VELOCISTA: OficioEncargos = {
+  foto: "/agentes/strap.webp",
+  trabajando: "Midiendo tu web…",
+  conexion: {
+    conectado: (nombre) => `Mide ${nombre}`,
+    sinConectar: "Sin sitio conectado",
+    aviso: (agente) => `Conecta tu sitio para que ${agente} pueda medirlo y arreglar lo que lo frena.`,
+    ctaTexto: "Conectar mi sitio",
+    ctaHref: "/ajustes/sitio",
+    bloquea: true,
+  },
+  ejemplos: [
+    "Mide la velocidad de mi web y dime qué la hace lenta",
+    "¿Cuánto tarda en cargar en celular?",
+    "Arregla lo que puedas sin tocar el diseño",
+    "Compara la velocidad de hoy con la de la semana pasada",
+  ],
+  placeholder: (agente) => `¿Qué quieres que ${agente} mida o arregle?`,
+  invitacion:
+    "Mide con PageSpeed, explica en dinero y en cristiano qué frena tu web, y arregla lo que puede con tu permiso y copia previa.",
+};
+
+export const OFICIO_DISENADOR: OficioEncargos = {
+  foto: "/agentes/strap.webp",
+  trabajando: "Dibujando…",
+  conexion: {
+    conectado: (nombre) => `Publica en ${nombre}`,
+    sinConectar: "Sin sitio conectado",
+    aviso: (agente) =>
+      `Conecta tu sitio para que ${agente} tome los colores de tu marca y pueda publicar lo que dibuje. Sin él, igual te entrega las imágenes.`,
+    ctaTexto: "Conectar mi sitio",
+    ctaHref: "/ajustes/sitio",
+    // Sin sitio dibuja igual: solo no puede publicar ni copiar la marca.
+    bloquea: false,
+  },
+  ejemplos: [
+    "Una portada para el artículo de esta semana",
+    "Tres imágenes para redes sobre nuestra promoción",
+    "Un banner para la página de inicio",
+    "Rehaz esta imagen con los colores de la marca",
+  ],
+  placeholder: (agente) => `¿Qué quieres que ${agente} dibuje?`,
+  invitacion:
+    "Dibuja con la identidad de tu sitio y te enseña el resultado antes de publicar nada.",
+};
+
+export const OFICIO_ADMINISTRATIVO: OficioEncargos = {
+  foto: "/agentes/strap.webp",
+  trabajando: "Revisando tus cuentas…",
+  conexion: {
+    conectado: (nombre) => `Trabaja sobre ${nombre}`,
+    sinConectar: "Sin contabilidad conectada",
+    aviso: (agente) => `Conecta tu sistema de facturación para que ${agente} pueda ver tu cartera y tus facturas.`,
+    ctaTexto: "Conectar contabilidad",
+    ctaHref: "/ajustes/contabilidad",
+    bloquea: true,
+  },
+  ejemplos: [
+    "¿Qué facturas vencen esta semana?",
+    "Recuérdale el pago a quien lleva más de 30 días",
+    "Prepara la factura de este mes para el cliente X",
+    "¿Cuánto tengo por cobrar?",
+  ],
+  placeholder: (agente) => `¿Qué quieres que ${agente} gestione?`,
+  invitacion:
+    "Cartera, facturas, pagos y recordatorios. Emitir o cobrar siempre pasa por tu aprobación.",
+};
+
+export const OFICIO_REPORTES: OficioEncargos = {
+  foto: "/agentes/strap.webp",
+  trabajando: "Preparando el informe…",
+  conexion: {
+    conectado: (nombre) => `Lee ${nombre}`,
+    sinConectar: "Sin contabilidad conectada",
+    aviso: (agente) => `Conecta tu sistema de facturación para que ${agente} tenga cifras reales que contarte.`,
+    ctaTexto: "Conectar contabilidad",
+    ctaHref: "/ajustes/contabilidad",
+    bloquea: true,
+  },
+  ejemplos: [
+    "¿Cómo vamos este mes?",
+    "Dame el informe del negocio en una página",
+    "¿Quién me debe más y desde cuándo?",
+    "Compara las ventas de este mes con el anterior",
+  ],
+  placeholder: (agente) => `¿Qué quieres que ${agente} te cuente?`,
+  invitacion: "Solo lee. Te explica el negocio en una página, con las cifras de tu contabilidad.",
+};
+
 export const OFICIO_MARKETING: OficioEncargos = {
   foto: "/agentes/marketing-plastilina.webp",
   trabajando: "Revisando tus campañas…",

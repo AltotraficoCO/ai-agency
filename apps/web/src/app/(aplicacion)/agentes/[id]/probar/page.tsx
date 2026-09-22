@@ -3,8 +3,13 @@ import { notFound } from "next/navigation";
 import { EmptyState, rutas } from "@strappy/ui";
 import {
   EncargosWebmaster,
+  OFICIO_ADMINISTRATIVO,
+  OFICIO_DISENADOR,
   OFICIO_MARKETING,
+  OFICIO_REPORTES,
+  OFICIO_VELOCISTA,
   OFICIO_WEBMASTER,
+  type OficioEncargos,
 } from "@/components/encargos-webmaster";
 import { EnlaceBoton } from "@/components/enlace-boton";
 import { MarcoApp } from "@/components/marco-app";
@@ -31,6 +36,7 @@ import { hayModeloReal } from "@/lib/motor/modelo";
 import { avisosDelSitio } from "@/lib/sitio/avisos-sitio";
 import { sitioDelEspacio } from "@/lib/sitio/sitio";
 import { conexionesDeAnuncios } from "@/lib/canales/anuncios";
+import { contabilidadDelEspacio } from "@/lib/contabilidad/contabilidad";
 
 export const metadata = { title: "Probar el agente" };
 export const dynamic = "force-dynamic";
@@ -57,11 +63,15 @@ export default async function PaginaProbar({
   const porEncargo = await agenteDeEncargos(marco.actual.workspaceId, id);
   if (porEncargo) {
     const esWeb = porEncargo === "webmaster";
+    const oficioBase = OFICIOS[porEncargo] ?? OFICIO_WEBMASTER;
+    // La cara es la del agente contratado; los oficios sin foto propia de
+    // plastilina usan la que el cliente le puso o la del catálogo.
+    const oficio: OficioEncargos = { ...oficioBase, foto: agente.avatar ?? oficioBase.foto };
     const [sitio, encargos, avisos, programados] = await Promise.all([
-      // Cada oficio tiene «lo suyo conectado»: el Webmaster, el WordPress;
-      // Marketing, sus plataformas de anuncios. Antes Marketing no miraba
-      // ninguna y decía «sin plataformas» con Google Ads conectado.
-      esWeb ? sitioDelEspacio(marco.actual.workspaceId) : plataformasConectadas(marco.actual.workspaceId),
+      // Cada oficio tiene «lo suyo conectado»: el WordPress, las plataformas
+      // de anuncios o la contabilidad. Antes solo el Webmaster miraba algo y
+      // los demás decían «sin conectar» con todo conectado.
+      loConectado(porEncargo, marco.actual.workspaceId),
       encargosDelAgente(marco.actual.workspaceId, id),
       // Lo que vio vigilando por su cuenta: se lee aquí porque es donde la
       // persona mira cuando piensa en su web.
@@ -80,7 +90,7 @@ export default async function PaginaProbar({
       >
         <EncargosWebmaster
           nombreAgente={nombreAgente}
-          oficio={esWeb ? OFICIO_WEBMASTER : OFICIO_MARKETING}
+          oficio={oficio}
           sitio={sitio && sitio.estado === "active" ? { nombre: sitio.nombre, url: sitio.url } : null}
           encargos={encargos}
           avisos={avisos.map((a) => ({
@@ -187,7 +197,43 @@ const SUGERENCIAS: Record<string, string> = {
   administrativo: "Revisa qué facturas vencen esta semana y dime lo más urgente.",
   webmaster: "Revisa que mi web esté bien y avísame si algo cambió o dejó de funcionar.",
   marketing: "Dime cómo van mis campañas y en qué estoy tirando el dinero.",
+  velocista: "Mide la velocidad de mi web y avísame si empeora.",
+  reportes: "Cuéntame cómo va el negocio esta semana.",
+  disenador: "Prepara una imagen para redes con la novedad de la semana.",
 };
+
+/** Las palabras de cada oficio en la pantalla de encargos. */
+const OFICIOS: Record<string, OficioEncargos> = {
+  webmaster: OFICIO_WEBMASTER,
+  velocista: OFICIO_VELOCISTA,
+  disenador: OFICIO_DISENADOR,
+  marketing: OFICIO_MARKETING,
+  administrativo: OFICIO_ADMINISTRATIVO,
+  reportes: OFICIO_REPORTES,
+};
+
+/**
+ * Lo que cada oficio tiene conectado, con la forma que entiende la pantalla:
+ * nombre, dónde verlo y si está activo.
+ */
+async function loConectado(
+  oficio: string,
+  workspaceId: string,
+): Promise<{ nombre: string; url: string; estado: string } | null> {
+  switch (oficio) {
+    case "marketing":
+      return plataformasConectadas(workspaceId);
+    case "administrativo":
+    case "reportes": {
+      const contabilidad = await contabilidadDelEspacio(workspaceId);
+      return contabilidad ? { nombre: contabilidad.nombre, url: "/ajustes/contabilidad", estado: contabilidad.estado } : null;
+    }
+    default: {
+      const sitio = await sitioDelEspacio(workspaceId);
+      return sitio ? { nombre: sitio.nombre, url: sitio.url, estado: sitio.estado } : null;
+    }
+  }
+}
 
 /** Un agente de WhatsApp vuelve a Comunicaciones; uno por encargo, a tu equipo. */
 function seccionDe(tipo: string) {
