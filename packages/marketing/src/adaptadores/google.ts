@@ -232,6 +232,10 @@ export class GoogleAdsAdapter implements AdsPort {
       .filter((id) => id.length > 0);
 
     const salida: CuentaPublicitaria[] = [];
+    // Si NINGUNA cuenta se deja leer, «no tienes cuentas» sería mentira: lo
+    // que hay es un problema de acceso, y el cliente tiene que ver lo que dijo
+    // Google para poder arreglarlo (o para poder contárnoslo).
+    let primerFallo: AdsApiError | undefined;
     for (const id of ids) {
       // Cada cuenta accesible puede ser una gestora con hijas debajo. Se
       // preguntan las dos cosas de una vez con `customer_client`, que sobre una
@@ -250,7 +254,10 @@ export class GoogleAdsAdapter implements AdsPort {
       } catch (error) {
         // Una cuenta cancelada o sin permiso no puede tumbar la lista entera:
         // el cliente tiene las demás y el agente debe poder trabajar con ellas.
-        if (error instanceof AdsApiError) continue;
+        if (error instanceof AdsApiError) {
+          primerFallo ??= error;
+          continue;
+        }
         throw error;
       }
 
@@ -268,6 +275,8 @@ export class GoogleAdsAdapter implements AdsPort {
         });
       }
     }
+
+    if (salida.length === 0 && primerFallo) throw primerFallo;
 
     this.#cuentas = salida;
     return salida;

@@ -100,6 +100,15 @@ describe("Google Ads", () => {
     expect(cuentas.map((c) => c.id)).toEqual(["2"]);
   });
 
+  it("si ninguna cuenta se deja leer, enseña lo que dijo Google en vez de «no tienes cuentas»", async () => {
+    const { fetch } = fetchFalso([
+      TOKEN_GOOGLE,
+      CUENTAS,
+      { ...busqueda({ error: { code: 403, message: "PERMISSION_DENIED: el proyecto no tiene acceso" } }), status: 403 },
+    ]);
+    await expect(crearAdsGoogle(credsGoogle(), { fetch }).cuentas()).rejects.toThrow(/PERMISSION_DENIED/);
+  });
+
   it("escribe la moneda en mayúsculas aunque Google la mande en minúsculas", async () => {
     const { fetch } = fetchFalso([TOKEN_GOOGLE, CUENTAS, busqueda(FICHA)]);
     const cuentas = await crearAdsGoogle(credsGoogle(), { fetch }).cuentas();
