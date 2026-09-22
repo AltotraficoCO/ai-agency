@@ -31,6 +31,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Badge, Button, Drawer, DrawerContent, IndicadorEscribiendo, Input, Textarea, cn } from "@strappy/ui";
+import { TextoStrap } from "@/components/meta/texto-strap";
 import type { AprobacionVista, EncargoVista } from "@/lib/encargos/encargos";
 import type { Resultado } from "@/lib/negocio/acciones";
 import { PanelHistorial, type ItemHistorial, type TonoHistorial } from "@/components/conversacion/panel-historial";
@@ -598,7 +599,7 @@ function Encargo({
           )}
 
           {encargo.resumen && encargo.aprobaciones.length === 0 && (
-            <p className="whitespace-pre-wrap text-md text-fg">{encargo.resumen}</p>
+            <TextoStrap texto={encargo.resumen} />
           )}
 
           {/*
@@ -684,7 +685,7 @@ function Aprobacion({
         <ShieldAlert size={16} aria-hidden />
         Necesito tu aprobación
       </p>
-      <p className="text-md text-fg">{aprobacion.resumen}</p>
+      <TextoStrap texto={aprobacion.resumen} />
       <p className="text-sm text-fg-muted">Te lo pregunto porque {aprobacion.motivo}.</p>
       <div className="flex flex-wrap gap-2">
         <Button loading={decidiendo === true} disabled={decidiendo !== null} onClick={() => responderCon(true)}>
@@ -733,7 +734,7 @@ function Pregunta({
         <MessageCircleQuestion size={16} aria-hidden />
         Tengo una pregunta
       </p>
-      <p className="text-md text-fg">{aprobacion.resumen}</p>
+      <TextoStrap texto={aprobacion.resumen} />
       {aprobacion.opciones.length > 0 && (
         <div className="flex flex-col gap-2">
           {aprobacion.opciones.map((opcion) => (

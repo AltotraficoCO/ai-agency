@@ -26,6 +26,9 @@ export function limpiarTextoStrap(texto: string): string {
     .join("\n")
     // `[Abrir el agente]` sin dirección es un botón fingido: se queda el texto.
     .replace(/\[([^\]]+)\](?!\()/g, "$1")
+    // Un `**` huérfano al empezar (el modelo abrió negrita y no la cerró) no es
+    // formato: es basura y se tira.
+    .replace(/^\*\*\s+/, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
