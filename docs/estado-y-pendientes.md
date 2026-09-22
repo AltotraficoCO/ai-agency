@@ -146,6 +146,12 @@ conexión que no podía descifrar. Los tres corregidos de raíz.
   Antes iniciar sesión devolvía a strappy.vercel.app.
 - `strappy.vercel.app` redirige a `www.strappy.io` en producción.
 - Páginas legales públicas: strappy.io/policy y strappy.io/terms.
+- Ajustes → Canales: **Desconectar** una plataforma de anuncios y **Eliminar**
+  un número de WhatsApp (conservando conversaciones).
+- **Verificación de la app en Google enviada** con vídeo del flujo real
+  (capturas de www.strappy.io con atencion@altotrafico.co, locución de
+  ElevenLabs, voz Matilda). Las fuentes están en `.playwright-mcp/video/`
+  (fuera del repo).
 
 **Producto**:
 
@@ -167,7 +173,7 @@ Por urgencia:
 
 | Qué | Quién | Plazo / nota |
 |---|---|---|
-| **Verificación de marca en Google** | Victor + Claude | desbloquea el nivel Básico de la API y quita el aviso de «app no verificada». Falta: TXT de Search Console en GoDaddy, y el vídeo del flujo (Claude lo monta; falta clave de ElevenLabs o voz local) |
+| **Verificación de la app en Google** | Google | **enviada el 22-sep** con el vídeo https://youtu.be/LW8hYX47nJw (no listado). Primer correo en 3-5 días, revisión de 4-6 semanas. Al aprobarse: fuera el aviso de «app no verificada» y se puede pedir el nivel Básico de la API |
 | **Dominio propio en Supabase** (`auth.strappy.io`) | Victor | la pantalla de Google enseña `witlvqvwbgixlewzdbfe.supabase.co` al iniciar sesión. Plan Pro + complemento, ~35 USD/mes |
 | **Correo de contacto y razón social** en las páginas legales | Victor | hoy `hola@strappy.io` y «Strappy» sin NIT |
 | **Acceso al VPS solo por clave SSH** | Victor | la contraseña se compartió por chat dos veces; conviene desactivar el acceso por contraseña |
@@ -194,8 +200,8 @@ Por urgencia:
    - **Conectar Alegra** en solo lectura y pedirle a Reportes «cómo vamos».
    - **Velocista**: «mide mi web y dime qué la hace lenta», con la clave puesta.
    - **Webmaster + Diseñador**: un artículo con portada.
-2. **Vídeo de verificación de Google**, con el flujo ya funcionando. Usar una
-   cuenta con campañas activas: las de Altotráfico están pausadas.
+2. **Verificación de Google**: enviada. Vigilar el correo de
+   victor.sandoval@altotrafico.co por si piden algo.
 3. **Dos detalles del agente de Marketing vistos el 22-sep**, sin tocar:
    «este mes» lo leyó como «últimos 7 días», y al no tener Analytics lo dijo
    bien pero gastó un paso en intentarlo.
