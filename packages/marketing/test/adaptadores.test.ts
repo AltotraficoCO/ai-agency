@@ -109,6 +109,36 @@ describe("Google Ads", () => {
     await expect(crearAdsGoogle(credsGoogle(), { fetch }).cuentas()).rejects.toThrow(/PERMISSION_DENIED/);
   });
 
+  it("el error enseña la causa de Google, no el «invalid argument» genérico", async () => {
+    const { fetch } = fetchFalso([
+      TOKEN_GOOGLE,
+      CUENTAS,
+      {
+        ...busqueda({
+          error: {
+            code: 400,
+            message: "Request contains an invalid argument.",
+            status: "INVALID_ARGUMENT",
+            details: [
+              {
+                errors: [
+                  {
+                    errorCode: { requestError: "PAGE_SIZE_NOT_SUPPORTED" },
+                    message: "Page size is not supported for this request.",
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+        status: 400,
+      },
+    ]);
+    await expect(crearAdsGoogle(credsGoogle(), { fetch }).cuentas()).rejects.toThrow(
+      /Page size is not supported for this request\. \[PAGE_SIZE_NOT_SUPPORTED\]/,
+    );
+  });
+
   it("escribe la moneda en mayúsculas aunque Google la mande en minúsculas", async () => {
     const { fetch } = fetchFalso([TOKEN_GOOGLE, CUENTAS, busqueda(FICHA)]);
     const cuentas = await crearAdsGoogle(credsGoogle(), { fetch }).cuentas();

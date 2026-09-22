@@ -78,7 +78,7 @@ export async function pedirJson(
       plataforma,
       res.status,
       cuerpo,
-      `${plataforma} rechazó ${contexto} (${res.status}): ${cuerpo}`,
+      `${plataforma} rechazó ${contexto} (${res.status}): ${resumirError(texto)}`,
     );
   }
   if (!texto) return null;
@@ -159,3 +159,36 @@ export const METRICAS_VACIAS = {
   clics: 0,
   conversiones: 0,
 } as const;
+
+/**
+ * Lo que de verdad dice un error, sin el envoltorio.
+ *
+ * Google Ads contesta un `error.message` genérico («Request contains an
+ * invalid argument») y esconde la causa en `error.details[].errors[]`, que
+ * con un recorte a 400 caracteres nunca llegaba a verse. Meta la pone en
+ * `error.message` directamente. Si no es JSON, se recorta el texto y ya.
+ */
+export function resumirError(texto: string): string {
+  let datos: unknown;
+  try {
+    datos = JSON.parse(texto);
+  } catch {
+    return texto.slice(0, 400);
+  }
+  const error = (datos as { error?: unknown })?.error;
+  if (!error || typeof error !== "object") return texto.slice(0, 400);
+  const e = error as { message?: unknown; details?: unknown };
+
+  const causas: string[] = [];
+  for (const detalle of Array.isArray(e.details) ? e.details : []) {
+    const errores = (detalle as { errors?: unknown })?.errors;
+    for (const err of Array.isArray(errores) ? errores : []) {
+      const x = err as { message?: unknown; errorCode?: unknown };
+      const codigo = x.errorCode && typeof x.errorCode === "object" ? Object.values(x.errorCode)[0] : undefined;
+      const mensaje = typeof x.message === "string" ? x.message : "";
+      if (mensaje) causas.push(typeof codigo === "string" ? `${mensaje} [${codigo}]` : mensaje);
+    }
+  }
+  if (causas.length > 0) return causas.join(" · ").slice(0, 400);
+  return (typeof e.message === "string" ? e.message : texto).slice(0, 400);
+}
