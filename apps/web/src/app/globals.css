@@ -413,3 +413,28 @@
     }
   }
 }
+
+/* Páginas legales (/policy, /terms): texto largo, legible, sin componentes. */
+@layer components {
+  .legal h1 {
+    @apply mb-2 text-3xl font-semibold tracking-tight;
+  }
+  .legal h2 {
+    @apply mt-10 mb-3 text-xl font-semibold tracking-tight;
+  }
+  .legal h3 {
+    @apply mt-6 mb-2 text-base font-semibold;
+  }
+  .legal p {
+    @apply my-4 text-base leading-relaxed text-fg-secondary;
+  }
+  .legal ul {
+    @apply my-4 list-disc space-y-2 pl-6 text-fg-secondary;
+  }
+  .legal a {
+    @apply text-primary-fg underline underline-offset-4 hover:text-fg;
+  }
+  .legal strong {
+    @apply font-semibold text-fg;
+  }
+}

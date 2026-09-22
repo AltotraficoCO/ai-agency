@@ -29,6 +29,8 @@ const PUBLICAS = [
   "/registro",
   "/recuperar",
   "/actualizar-clave",
+  "/policy",
+  "/terms",
   "/auth",
   "/api/webhooks",
   "/api/stripe/webhook",
