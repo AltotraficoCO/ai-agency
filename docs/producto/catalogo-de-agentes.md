@@ -675,7 +675,7 @@ con honestidad qué les falta para empezar.
 
 ## Fuentes
 
-- [Developer token · Google Ads API](https://developers.google.com/google-ads/api/docs/api-policy/developer-token)
+- [Developer token sunset · Google Ads API](https://developers.google.com/google-ads/api/docs/get-started/dev-token)
 - [Access levels · Google Ads API](https://developers.google.com/google-ads/api/docs/api-policy/access-levels)
 - [Google faces developer token application backlog as new API tier debuts · PPC Land](https://ppc.land/google-faces-developer-token-application-backlog-as-new-api-tier-debuts/)
 - [High Demand Slows Google Ads API Access Approvals · PPC News Feed](https://ppcnewsfeed.com/ppc-news/2026-02/high-demand-slows-google-ads-api-access-approvals/)

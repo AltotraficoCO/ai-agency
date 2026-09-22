@@ -108,7 +108,7 @@ export class CuentasPostgres implements CuentasPort {
       yaConectadas.add(fila.provider);
 
       // Ni el token ni el refresco pueden salir en un paso ni en un error.
-      for (const clave of ["accessToken", "refreshToken", "clientSecret", "developerToken", "secret"]) {
+      for (const clave of ["accessToken", "refreshToken", "clientSecret", "secret"]) {
         const valor = creds[clave];
         if (typeof valor === "string" && valor.length > 0) secretos.push(valor);
       }

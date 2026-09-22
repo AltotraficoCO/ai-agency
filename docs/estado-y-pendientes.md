@@ -116,7 +116,7 @@ Por urgencia:
 
 | Qué | Quién | Plazo / nota |
 |---|---|---|
-| Solicitud de acceso a **Google Ads** | Victor | el trámite más lento: de días a semanas. El código ya está listo: falta el developer token en `GOOGLE_ADS_DEVELOPER_TOKEN` |
+| Nivel de acceso a la **API de Google Ads** | Victor | ya no hay developer token (Google los retiró el 9-sep-2026): el nivel lo tiene el proyecto de Cloud. Explorador solicitado el 22-sep; Básico exige la verificación de marca |
 | Permiso de **Meta** para publicar por clientes | Victor | 2 a 4 semanas de revisión. Para anuncios hacen falta además `ads_read` y `ads_management` en la misma app |
 | App de **TikTok for Business** | Victor | permisos de Ads Management; va en `TIKTOK_APP_ID` y `TIKTOK_APP_SECRET` |
 | Clave de **PageSpeed** (`PAGESPEED_API_KEY` en el VPS) | Victor | gratis y en minutos; sin ella el Velocista no mide |

@@ -85,7 +85,7 @@ function redirectUri(origen: string, plataforma: Plataforma): string {
 // ---------------------------------------------------------------------------
 
 type ConfigPlataforma =
-  | { plataforma: "google_ads"; clientId: string; clientSecret: string; developerToken: string }
+  | { plataforma: "google_ads"; clientId: string; clientSecret: string }
   | { plataforma: "meta_ads"; appId: string; appSecret: string }
   | { plataforma: "tiktok_ads"; appId: string; secret: string };
 
@@ -93,8 +93,8 @@ type ConfigPlataforma =
  * Las credenciales de NUESTRA app en cada plataforma. `null` si falta alguna.
  *
  * Las de Meta son las mismas que las de WhatsApp: es la misma app, con permisos
- * de anuncios añadidos. Las de Google necesitan además el `developer-token`,
- * que es lo que Google aprueba y sin lo cual la API contesta 403 a todo.
+ * de anuncios añadidos. Las de Google son el cliente OAuth del proyecto de
+ * Google Cloud: el nivel de acceso a la API lo tiene ese proyecto, no un token.
  */
 export function configDe(plataforma: Plataforma): ConfigPlataforma | null {
   if (!process.env.ENCRYPTION_KEY || !process.env.APP_ENCRYPTION_KEY) return null;
@@ -102,10 +102,7 @@ export function configDe(plataforma: Plataforma): ConfigPlataforma | null {
     case "google_ads": {
       const clientId = process.env.GOOGLE_ADS_CLIENT_ID;
       const clientSecret = process.env.GOOGLE_ADS_CLIENT_SECRET;
-      const developerToken = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
-      return clientId && clientSecret && developerToken
-        ? { plataforma, clientId, clientSecret, developerToken }
-        : null;
+      return clientId && clientSecret ? { plataforma, clientId, clientSecret } : null;
     }
     case "meta_ads": {
       const appId = process.env.META_APP_ID;
@@ -297,7 +294,6 @@ async function canjear(
           app: { clientId: config.clientId, clientSecret: config.clientSecret },
           code,
           redirectUri: uri,
-          developerToken: config.developerToken,
         }),
       };
     case "meta_ads":

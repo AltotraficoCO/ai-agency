@@ -185,7 +185,6 @@ function credsGoogle() {
     clientId: "cid",
     clientSecret: "secreto",
     refreshToken: "refresco",
-    developerToken: "dev",
   };
 }
 

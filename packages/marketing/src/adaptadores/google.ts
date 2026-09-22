@@ -21,9 +21,14 @@
  *     campañas que nadie nombró, así que un presupuesto compartido se rechaza
  *     con un mensaje que explica por qué.
  *
- * No se ha probado contra la API real: el `developer-token` está pendiente de
- * aprobación. Los tipos de respuesta siguen la referencia REST de la API y
- * cualquier campo que falte se trata como ausente en vez de romper.
+ * Desde el 9 de septiembre de 2026 ya no existe el `developer-token`: el nivel
+ * de acceso lo tiene el proyecto de Google Cloud dueño del cliente OAuth, y la
+ * API identifica ese proyecto por el access token. La cabecera se ignora hoy y
+ * se rechazará en una versión futura, así que no se envía.
+ *
+ * No se ha probado contra la API real. Los tipos de respuesta siguen la
+ * referencia REST de la API y cualquier campo que falte se trata como ausente
+ * en vez de romper.
  */
 import type {
   AdsPort,
@@ -51,8 +56,6 @@ export type CredencialesGoogleAds = {
   readonly clientSecret: string;
   /** El que devolvió el consentimiento del cliente. No caduca mientras no lo revoque. */
   readonly refreshToken: string;
-  /** El de NUESTRA cuenta de gestor, no del cliente. Es el que Google aprueba. */
-  readonly developerToken: string;
   /** Cuenta gestora, si el acceso llegó por una. Solo dígitos. */
   readonly loginCustomerId?: string;
   /** Por si hay que fijar una versión distinta sin tocar el código. */
@@ -186,7 +189,6 @@ export class GoogleAdsAdapter implements AdsPort {
     const gestora = this.creds.loginCustomerId ? soloDigitos(this.creds.loginCustomerId) : undefined;
     return {
       Authorization: `Bearer ${await this.#accessToken()}`,
-      "developer-token": this.creds.developerToken,
       "content-type": "application/json",
       // Sin esto, una cuenta a la que se llega por la gestora "no existe".
       ...(gestora && gestora !== cuentaId ? { "login-customer-id": gestora } : {}),

@@ -75,7 +75,7 @@ export function urlPermisoTiktok(input: { app: AppTiktok; redirectUri: string; s
 // ---------------------------------------------------------------------------
 
 export async function canjearGoogle(
-  input: { app: AppGoogle; code: string; redirectUri: string; developerToken: string; loginCustomerId?: string },
+  input: { app: AppGoogle; code: string; redirectUri: string; loginCustomerId?: string },
   o: OpcionesAds = {},
 ): Promise<CredencialesGoogleAds> {
   const datos = (await pedirJson("Google Ads", "completar la conexión", o, "https://oauth2.googleapis.com/token", {
@@ -103,7 +103,6 @@ export async function canjearGoogle(
     clientId: input.app.clientId,
     clientSecret: input.app.clientSecret,
     refreshToken,
-    developerToken: input.developerToken,
     ...(input.loginCustomerId ? { loginCustomerId: input.loginCustomerId } : {}),
   };
 }

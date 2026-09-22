@@ -47,7 +47,6 @@ const GOOGLE = {
   clientId: "id-publico-de-la-app",
   clientSecret: "secreto-de-la-app",
   refreshToken: "refresco-del-cliente",
-  developerToken: "token-de-desarrollador",
 };
 const META = { accessToken: "token-de-meta-larguisimo" };
 const TIKTOK = { accessToken: "token-de-tiktok", appId: "a", secret: "s" };
@@ -121,12 +120,10 @@ describe("las cuentas de publicidad de un espacio", () => {
       workspaceId: "w1",
       conexionId: null,
     });
-    // El refresco, el secreto de la app y el token de desarrollador abren la
-    // cuenta del cliente: no pueden aparecer en un paso ni en el texto de un
-    // error. El `clientId` no es secreto y no tiene por qué taparse.
-    expect(cargado.secretos).toEqual(
-      expect.arrayContaining(["refresco-del-cliente", "secreto-de-la-app", "token-de-desarrollador"]),
-    );
+    // El refresco y el secreto de la app abren la cuenta del cliente: no pueden
+    // aparecer en un paso ni en el texto de un error. El `clientId` no es
+    // secreto y no tiene por qué taparse.
+    expect(cargado.secretos).toEqual(expect.arrayContaining(["refresco-del-cliente", "secreto-de-la-app"]));
     expect(cargado.secretos).not.toContain("id-publico-de-la-app");
   });
 
