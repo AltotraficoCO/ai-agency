@@ -210,7 +210,9 @@ export class GoogleAdsAdapter implements AdsPort {
       {
         method: "POST",
         headers: await this.#cabeceras(cuentaId),
-        body: JSON.stringify({ query, pageSize: TOPE_CAMPANAS }),
+        // Sin `pageSize`: la búsqueda dejó de aceptarlo en la v17 y desde
+        // entonces responde INVALID_ARGUMENT. El tope va en el `limit` de GAQL.
+        body: JSON.stringify({ query }),
       },
     )) as RespuestaBusqueda | null;
     return datos?.results ?? [];
