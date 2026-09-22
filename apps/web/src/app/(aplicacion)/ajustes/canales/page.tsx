@@ -6,6 +6,8 @@ import { AvisoAjustes } from "@/components/negocio/seccion-ajustes";
 import { canalesDeWhatsApp, configMeta, RUTA_CONECTAR, type CanalWhatsApp } from "@/lib/canales/whatsapp";
 import { conexionesDeAnuncios, configDe, PLATAFORMAS_ANUNCIOS } from "@/lib/canales/anuncios";
 import { SeccionAnuncios } from "@/components/canales/anuncios";
+import { BotonQuitar } from "@/components/canales/boton-quitar";
+import { accionEliminarNumeroWhatsApp } from "@/lib/canales/acciones";
 import { datosDelMarco } from "@/lib/marco";
 
 export const metadata = { title: "Canales" };
@@ -108,7 +110,7 @@ export default async function PaginaCanales({
           {canales.length > 0 ? (
             <ul className="divide-y divide-[var(--border-subtle)] border-t border-[var(--border-subtle)]">
               {canales.map((canal) => (
-                <FilaCanal key={canal.id} canal={canal} />
+                <FilaCanal key={canal.id} canal={canal} puedeQuitar={puedeConectar} />
               ))}
             </ul>
           ) : (
@@ -166,7 +168,7 @@ const ESTADOS: Record<string, { etiqueta: string; tono: "exito" | "aviso" | "err
   disconnected: { etiqueta: "Desconectado", tono: "error" },
 };
 
-function FilaCanal({ canal }: { canal: CanalWhatsApp }) {
+function FilaCanal({ canal, puedeQuitar }: { canal: CanalWhatsApp; puedeQuitar: boolean }) {
   const estado = ESTADOS[canal.estadoCanal] ?? { etiqueta: canal.estadoCanal, tono: "aviso" as const };
 
   return (
@@ -184,7 +186,18 @@ function FilaCanal({ canal }: { canal: CanalWhatsApp }) {
           </p>
         )}
       </div>
-      <Badge tone={estado.tono}>{estado.etiqueta}</Badge>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <Badge tone={estado.tono}>{estado.etiqueta}</Badge>
+        {puedeQuitar ? (
+          <BotonQuitar
+            accion={accionEliminarNumeroWhatsApp}
+            campos={{ id: canal.id }}
+            pregunta={`¿Eliminar el número ${canal.numero}? Tus agentes dejarán de atender por ahí. Las conversaciones que ya tienes se conservan.`}
+          >
+            Eliminar número
+          </BotonQuitar>
+        ) : null}
+      </div>
     </li>
   );
 }

@@ -17,6 +17,8 @@ import {
   rutaConectar,
   type ConexionDeAnuncios,
 } from "@/lib/canales/anuncios";
+import { accionDesconectarAnuncios } from "@/lib/canales/acciones";
+import { BotonQuitar } from "./boton-quitar";
 
 /**
  * Un icono por plataforma, del juego que ya usa la app.
@@ -131,11 +133,22 @@ function FilaPlataforma({
         ) : (
           // Formulario GET y no enlace: un <Link> precargaría la ruta y abriría
           // el diálogo de la plataforma sin que nadie lo pidiera.
-          <form action={rutaConectar(plataforma.plataforma)} method="get">
-            <Button type="submit" {...(conectada ? { variant: "secondary" as const } : {})}>
-              {conectada ? "Reconectar" : "Conectar"}
-            </Button>
-          </form>
+          <div className="flex items-center gap-2">
+            <form action={rutaConectar(plataforma.plataforma)} method="get">
+              <Button type="submit" {...(conectada ? { variant: "secondary" as const } : {})}>
+                {conectada ? "Reconectar" : "Conectar"}
+              </Button>
+            </form>
+            {conectada ? (
+              <BotonQuitar
+                accion={accionDesconectarAnuncios}
+                campos={{ plataforma: plataforma.plataforma }}
+                pregunta={`¿Desconectar ${plataforma.nombre}? Se borra la credencial y tu agente de marketing dejará de ver esas cuentas.`}
+              >
+                Desconectar
+              </BotonQuitar>
+            ) : null}
+          </div>
         )}
       </div>
     </li>
