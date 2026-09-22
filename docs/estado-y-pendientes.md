@@ -146,6 +146,11 @@ conexión que no podía descifrar. Los tres corregidos de raíz.
   Antes iniciar sesión devolvía a strappy.vercel.app.
 - `strappy.vercel.app` redirige a `www.strappy.io` en producción.
 - Páginas legales públicas: strappy.io/policy y strappy.io/terms.
+- **«Continuar con Google» lo pide la app de Strappy**: Google dice «Ir a
+  strappy.io» y no el dominio de Supabase. Strappy hace el OAuth con su cliente
+  y Supabase crea la sesión con el `id_token` (`signInWithIdToken`, con nonce).
+  Probado en producción. Ahorra el dominio de Supabase (35 USD/mes). El cliente
+  de Google Ads está autorizado en el proveedor Google de Supabase.
 - Ajustes → Canales: **Desconectar** una plataforma de anuncios y **Eliminar**
   un número de WhatsApp (conservando conversaciones).
 - **Verificación de la app en Google enviada** con vídeo del flujo real
@@ -174,7 +179,6 @@ Por urgencia:
 | Qué | Quién | Plazo / nota |
 |---|---|---|
 | **Verificación de la app en Google** | Google | **enviada el 22-sep** con el vídeo https://youtu.be/LW8hYX47nJw (no listado). Primer correo en 3-5 días, revisión de 4-6 semanas. Al aprobarse: fuera el aviso de «app no verificada» y se puede pedir el nivel Básico de la API |
-| **Dominio propio en Supabase** (`auth.strappy.io`) | Victor | la pantalla de Google enseña `witlvqvwbgixlewzdbfe.supabase.co` al iniciar sesión. Plan Pro + complemento, ~35 USD/mes |
 | **Correo de contacto y razón social** en las páginas legales | Victor | hoy `hola@strappy.io` y «Strappy» sin NIT |
 | **Acceso al VPS solo por clave SSH** | Victor | la contraseña se compartió por chat dos veces; conviene desactivar el acceso por contraseña |
 | Permiso de **Meta** para publicar por clientes | Victor | 2 a 4 semanas de revisión. Para anuncios hacen falta además `ads_read` y `ads_management` en la misma app |
