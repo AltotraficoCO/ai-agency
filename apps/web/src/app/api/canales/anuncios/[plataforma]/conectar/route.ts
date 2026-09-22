@@ -10,6 +10,7 @@ import { obtenerUsuarioActual } from "@/lib/identidad";
 import {
   esPlataformaDeAnuncios,
   RUTA_CANALES,
+  origenPublico,
   urlDeConexion,
   urlDeResultado,
 } from "@/lib/canales/anuncios";
@@ -22,7 +23,7 @@ export async function GET(
   peticion: Request,
   { params }: { params: Promise<{ plataforma: string }> },
 ) {
-  const { origin } = new URL(peticion.url);
+  const origin = origenPublico(peticion);
   const { plataforma } = await params;
 
   if (!esPlataformaDeAnuncios(plataforma)) {

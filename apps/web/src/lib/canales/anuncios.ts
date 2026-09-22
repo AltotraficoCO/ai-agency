@@ -76,6 +76,19 @@ function rutaRetorno(plataforma: Plataforma): string {
   return `/api/canales/anuncios/${plataforma}/retorno`;
 }
 
+/**
+ * El origen con el que el cliente nos ve. En Vercel la petición llega por un
+ * proxy y `request.url` trae el host interno del despliegue, que no es el que
+ * está registrado en Google, Meta ni TikTok como URL de retorno: un
+ * `redirect_uri_mismatch` sin que nadie haya escrito nada mal.
+ */
+export function origenPublico(peticion: Request): string {
+  const host = peticion.headers.get("x-forwarded-host") ?? peticion.headers.get("host");
+  const proto = peticion.headers.get("x-forwarded-proto") ?? "https";
+  if (host) return `${proto.split(",")[0]!.trim()}://${host.split(",")[0]!.trim()}`;
+  return new URL(peticion.url).origin;
+}
+
 function redirectUri(origen: string, plataforma: Plataforma): string {
   return new URL(rutaRetorno(plataforma), origen).toString();
 }

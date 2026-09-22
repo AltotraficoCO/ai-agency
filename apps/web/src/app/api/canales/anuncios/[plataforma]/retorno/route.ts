@@ -13,6 +13,7 @@ import {
   completarConexion,
   esPlataformaDeAnuncios,
   leerEstado,
+  origenPublico,
   RUTA_CANALES,
   urlDeResultado,
   type ResultadoConexion,
@@ -25,7 +26,7 @@ export async function GET(
   { params }: { params: Promise<{ plataforma: string }> },
 ) {
   const url = new URL(peticion.url);
-  const { origin } = url;
+  const origin = origenPublico(peticion);
   const { plataforma } = await params;
 
   if (!esPlataformaDeAnuncios(plataforma)) {
