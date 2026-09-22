@@ -36,7 +36,9 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           sudo apt-get install -y -qq postgresql-client >/dev/null
-          ./packages/db/scripts/apply.sh "$DATABASE_URL"
+          # Si el secreto se pegó con la línea entera del .env, se quita el nombre.
+          URL="${DATABASE_URL#DATABASE_URL=}"
+          ./packages/db/scripts/apply.sh "$URL"
 
       - name: Clave SSH
         env:
