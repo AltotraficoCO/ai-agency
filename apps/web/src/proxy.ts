@@ -36,7 +36,21 @@ const PUBLICAS = [
   "/api/stripe/webhook",
 ];
 
+/** El dominio de la marca. La URL `*.vercel.app` de producción manda aquí. */
+const DOMINIO_PUBLICO = "www.strappy.io";
+
 export async function proxy(peticion: NextRequest) {
+  // La app de producción también responde en strappy.vercel.app. Si alguien
+  // entra por ahí, las URL de retorno que se registran en Google, Meta o
+  // TikTok se construyen con ese host y el consentimiento dice «ir a
+  // strappy.vercel.app». Solo en producción: las previsualizaciones también
+  // viven en *.vercel.app y tienen que seguir abriéndose.
+  const host = peticion.headers.get("x-forwarded-host") ?? peticion.headers.get("host") ?? "";
+  if (process.env.VERCEL_ENV === "production" && host.endsWith(".vercel.app")) {
+    const destino = new URL(peticion.nextUrl.pathname + peticion.nextUrl.search, `https://${DOMINIO_PUBLICO}`);
+    return NextResponse.redirect(destino, 308);
+  }
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = claveDeNavegador();
 
