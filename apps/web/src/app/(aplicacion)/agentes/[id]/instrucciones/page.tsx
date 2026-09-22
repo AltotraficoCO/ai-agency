@@ -43,6 +43,7 @@ export default async function PaginaInstrucciones({
         agentId={id}
         inicial={agente.spec}
         publicado={agente.publicado}
+        nombreFijo={agente.tipo !== "conversational"}
         cabecera={
           // La cara se cambia AQUI, en la pantalla del agente, venga de donde
           // venga. Antes solo se ofrecia a los de WhatsApp, asi que a un agente

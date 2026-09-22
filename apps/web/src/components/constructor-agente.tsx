@@ -52,9 +52,15 @@ export interface ConstructorAgenteProps {
   publicado: boolean;
   /** Lo que va entre el título y el formulario, p. ej. el selector de foto. */
   cabecera?: React.ReactNode;
+  /**
+   * true para un agente del catálogo: se llama como su puesto (Webmaster,
+   * Velocista...) y ese nombre no se cambia. La cara sí; el nombre es lo que
+   * lo identifica en el catálogo, en los encargos y entre compañeros.
+   */
+  nombreFijo?: boolean;
 }
 
-export function ConstructorAgente({ agentId, inicial, publicado, cabecera }: ConstructorAgenteProps) {
+export function ConstructorAgente({ agentId, inicial, publicado, cabecera, nombreFijo = false }: ConstructorAgenteProps) {
   const [spec, setSpec] = React.useState<EspecificacionAgente>(inicial);
   const [manual, setManual] = React.useState<string | null>(
     inicial.instruccionesManuales?.trim() ? inicial.instruccionesManuales : null,
@@ -253,14 +259,22 @@ export function ConstructorAgente({ agentId, inicial, publicado, cabecera }: Con
             descripcion="Su nombre, para qué existe y cómo le habla a tus clientes."
             activa={seccion === "identidad"}
           >
-            <Field label="Cómo se llama">
+            <Field
+              label="Cómo se llama"
+              help={nombreFijo ? "Es su puesto en el catálogo y no se cambia. La cara, sí." : undefined}
+            >
               {(campo) => (
                 <Input
                   {...campo}
                   value={spec.identidad.nombre}
                   placeholder="Espiga"
+                  readOnly={nombreFijo}
+                  disabled={nombreFijo}
                   onFocus={() => setSeccion("identidad")}
-                  onChange={(e) => actualizar({ identidad: { ...spec.identidad, nombre: e.target.value } })}
+                  onChange={(e) => {
+                    if (nombreFijo) return;
+                    actualizar({ identidad: { ...spec.identidad, nombre: e.target.value } });
+                  }}
                 />
               )}
             </Field>
