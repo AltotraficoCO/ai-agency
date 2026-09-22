@@ -331,13 +331,19 @@ export class ConsumidorDeTareas implements Consumidor {
     const { tarea, motor, registro, decir } = e;
     const colaboracion = this.#colaboracion(slug, e);
     const companeros = await this.#companeros(slug, tarea.workspaceId);
+    // El nombre manda desde `agents`: el que guardó cada conexión al crearse
+    // («Larry») se queda viejo cuando el agente pasa a llamarse como su puesto.
+    const nombreReal =
+      tarea.agentId && this.#o.puertos.nomina
+        ? await this.#o.puertos.nomina.nombreDe({ workspaceId: tarea.workspaceId, agentId: tarea.agentId })
+        : null;
     return {
       model: motor.model,
       modelId: motor.modelId,
       rates: motor.rates,
       workspaceId: tarea.workspaceId,
       ...(tarea.agentId ? { agentId: tarea.agentId } : {}),
-      agentName,
+      agentName: nombreReal ?? agentName,
       tarea: e.delegado
         ? { id: tarea.id, titulo: e.delegado.titulo, detalle: e.delegado.detalle }
         : { id: tarea.id, titulo: tarea.titulo, detalle: tarea.detalle },

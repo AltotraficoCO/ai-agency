@@ -7,6 +7,10 @@
 -- contratados antes seguían llamándose de dos maneras según la pantalla.
 -- Aquí se devuelven todos a su nombre de catálogo. Los agentes de WhatsApp
 -- (sin catalog_slug) no se tocan: esos se llaman como quiera la persona.
+--
+-- Las versiones publicadas (`agent_versions`) son inmutables por diseño y no
+-- se tocan: el worker y la web leen el nombre de `agents.name`, no de la
+-- versión, así que basta con esto.
 -- =============================================================================
 
 update public.agents a
@@ -25,10 +29,3 @@ update public.agent_drafts d
    and d.spec ? 'identidad'
    and d.spec #>> '{identidad,nombre}' is distinct from c.name;
 
-update public.agent_versions v
-   set spec = jsonb_set(v.spec, '{identidad,nombre}', to_jsonb(c.name), true)
-  from public.agents a
-  join public.catalog_agents c on c.slug = a.catalog_slug
- where v.agent_id = a.id
-   and v.spec ? 'identidad'
-   and v.spec #>> '{identidad,nombre}' is distinct from c.name;

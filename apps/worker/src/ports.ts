@@ -390,6 +390,12 @@ export interface NotificacionPort {
  */
 export interface NominaPort {
   companeros(input: { workspaceId: string; exceptoSlug: string }): Promise<readonly Companero[]>;
+  /**
+   * Cómo se llama un agente contratado, según `agents.name` (que para los del
+   * catálogo es su puesto). null si no existe. Es la única fuente del nombre:
+   * el `agent_name` guardado en cada conexión es una copia vieja.
+   */
+  nombreDe(input: { workspaceId: string; agentId: string }): Promise<string | null>;
 }
 
 // ---------------------------------------------------------------------------

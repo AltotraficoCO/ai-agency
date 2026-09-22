@@ -32,6 +32,17 @@ const PARA_QUE: Record<string, string> = {
 export class NominaPostgres {
   constructor(private readonly sql: SqlExecutor) {}
 
+  async nombreDe(input: { workspaceId: string; agentId: string }): Promise<string | null> {
+    const { rows } = await this.sql.query<{ nombre: string | null }>(
+      `select coalesce(nullif(a.name, ''), c.name) as nombre
+         from public.agents a
+         left join public.catalog_agents c on c.slug = a.catalog_slug
+        where a.workspace_id = $1 and a.id = $2`,
+      [input.workspaceId, input.agentId],
+    );
+    return rows[0]?.nombre ?? null;
+  }
+
   /**
    * Los contratados del espacio, sin contar a quien pregunta.
    *
