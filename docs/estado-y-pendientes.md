@@ -1,12 +1,13 @@
 # Estado y pendientes
 
-Última actualización: 12 de septiembre de 2026, por la tarde.
-Todo lo que dice «hecho» está **en producción**: subido, desplegado en Vercel y,
-cuando toca, con el worker del VPS reiniciado.
+Última actualización: 22 de septiembre de 2026, por la tarde.
+Todo lo que dice «hecho» está **en producción**: subido y desplegado en Vercel
+y en el worker del VPS, que desde hoy se despliega solo.
 
-- Último commit desplegado: `78f279d`
-- Migraciones aplicadas en producción: **hasta la 0038**
-- Worker del VPS: en pie y estable
+- Último commit desplegado: `7f8dc5b` (web y worker)
+- Migraciones aplicadas en producción: **hasta la 0039**, y desde hoy las aplica
+  el flujo de despliegue del worker en cada commit
+- Worker del VPS: en pie y estable, desplegado por GitHub Actions
 
 ---
 
@@ -110,18 +111,71 @@ Dos refactors **sin cambio de comportamiento**, en commits separados, con los
   de la base (1.101): grandes pero coherentes y sin duplicación. Partirlos ahora
   sería riesgo sin ganancia.
 
+### 22 de septiembre: Google Ads de punta a punta, y el worker se despliega solo
+
+**Google Ads funciona**: un cliente pulsa «Conectar Google Ads», acepta en
+Google y Strappy lista sus cuentas. Para llegar ahí hubo que estrenar el
+adaptador contra la API real, y salieron cinco cosas seguidas:
+
+1. **Google retiró los developer tokens el 9-sep-2026.** El nivel de acceso lo
+   tiene ahora el proyecto de Google Cloud dueño del cliente OAuth. Fuera la
+   variable, fuera la cabecera. El proyecto «Strappy» tiene nivel
+   **Explorador** (cuentas reales, 2.880 operaciones/día); **Básico** exige
+   la verificación de marca.
+2. **La v21 de la API ya no existe**: 404 en HTML. Se usa la **v25**, la última
+   publicada (la v26 acepta la ruta pero no tiene métodos). Todo el adaptador
+   está verificado contra el esquema oficial de la v25.
+3. **`pageSize` en la búsqueda** devuelve `PAGE_SIZE_NOT_SUPPORTED` desde la
+   v17. Fuera.
+4. **El origen de la URL de retorno** salía de `request.url`, que en Vercel es
+   el host interno: `redirect_uri_mismatch`. Sale de `x-forwarded-host`.
+5. **Los errores de Google se recortaban** antes de llegar a la causa. Ahora se
+   enseña `details[].errors[]` con su código.
+
+Y tres fallos del **mismo patrón de siempre** (diccionarios escritos a mano):
+la conexión no contaba como «lista» en Contratar, la pantalla de encargos de
+Marketing decía «sin plataformas», y el worker se tragaba en silencio una
+conexión que no podía descifrar. Los tres corregidos de raíz.
+
+**Configuración hecha hoy** (con la cuenta victor.sandoval@altotrafico.co):
+
+- Google Cloud: cliente OAuth «Strappy Google Ads» con retorno en strappy.io,
+  www.strappy.io, strappy.vercel.app y localhost. Claves en Vercel.
+- Cuenta de administrador de Google Ads «Strappy» (706-188-9364).
+- Supabase: Site URL `https://www.strappy.io` y redirecciones permitidas.
+  Antes iniciar sesión devolvía a strappy.vercel.app.
+- `strappy.vercel.app` redirige a `www.strappy.io` en producción.
+- Páginas legales públicas: strappy.io/policy y strappy.io/terms.
+
+**Producto**:
+
+- «Conectar» una plataforma de anuncios desde el asistente de contratación
+  abre el consentimiento y **vuelve al mismo paso** con el resultado.
+- Un agente contratado **se llama como su puesto**: ni al contratar ni en
+  Instrucciones se cambia el nombre. La cara, sí.
+
+**El worker se despliega solo** (`.github/workflows/desplegar-worker.yml`):
+cada commit en main que toque el worker o los paquetes aplica las migraciones
+por el pooler de Supabase (GitHub no tiene IPv6) y entra al VPS por SSH con
+una clave restringida a `apps/worker/scripts/desplegar.sh`, que trae main,
+instala, reinicia y **falla si el worker no arranca estable**. Antes era a
+mano, y así estuvo diez días desincronizado de la web sin que nadie lo viera.
+
 ## Pendiente, y depende de ti
 
 Por urgencia:
 
 | Qué | Quién | Plazo / nota |
 |---|---|---|
-| Nivel de acceso a la **API de Google Ads** | Victor | ya no hay developer token (Google los retiró el 9-sep-2026): el nivel lo tiene el proyecto de Cloud. Explorador solicitado el 22-sep; Básico exige la verificación de marca |
+| **Verificación de marca en Google** | Victor + Claude | desbloquea el nivel Básico de la API y quita el aviso de «app no verificada». Falta: TXT de Search Console en GoDaddy, y el vídeo del flujo (Claude lo monta; falta clave de ElevenLabs o voz local) |
+| **Dominio propio en Supabase** (`auth.strappy.io`) | Victor | la pantalla de Google enseña `witlvqvwbgixlewzdbfe.supabase.co` al iniciar sesión. Plan Pro + complemento, ~35 USD/mes |
+| **Correo de contacto y razón social** en las páginas legales | Victor | hoy `hola@strappy.io` y «Strappy» sin NIT |
+| **Acceso al VPS solo por clave SSH** | Victor | la contraseña se compartió por chat dos veces; conviene desactivar el acceso por contraseña |
 | Permiso de **Meta** para publicar por clientes | Victor | 2 a 4 semanas de revisión. Para anuncios hacen falta además `ads_read` y `ads_management` en la misma app |
 | App de **TikTok for Business** | Victor | permisos de Ads Management; va en `TIKTOK_APP_ID` y `TIKTOK_APP_SECRET` |
 | Clave de **PageSpeed** (`PAGESPEED_API_KEY` en el VPS) | Victor | gratis y en minutos; sin ella el Velocista no mide |
 | **Token de Alegra** (usuario propio para Strappy, no la contraseña) | Pedro | sin él, Administrativo y Reportes no tienen dónde mirar |
-| **Cuadrar las claves de cifrado** | Victor | la web cifra con `ENCRYPTION_KEY` y el worker descifra con `APP_ENCRYPTION_KEY`; si no valen lo mismo, los avisos por WhatsApp nunca salen |
+| **Cuadrar las claves de cifrado** | Victor | la `APP_ENCRYPTION_KEY` de Vercel y la del VPS (`/etc/strappy-worker.env`) tienen que ser idénticas. Desde hoy, si no lo son, el agente de Marketing lo dice con esas palabras en vez de «no hay plataformas». Pendiente de confirmar con el primer encargo real |
 | **Plantilla de WhatsApp en Meta** (categoría utilidad) | Victor | sin ella no se envía ningún aviso |
 | **Precios nuevos en Stripe** | Victor | la web ya dice 100, 500 y 1.500; el cobro sigue en los precios viejos |
 | **OpenRouter a cuenta de empresa** con recarga automática | Victor | hoy es una cuenta personal, con tope de 5 USD |
@@ -132,19 +186,18 @@ Por urgencia:
 
 ## Lo primero que hay que hacer mañana
 
-**Probar los seis agentes contra datos reales, antes de construir el séptimo.**
-Tres adaptadores nunca han hablado con su API de verdad: PageSpeed, Alegra y el
-de imágenes. Ahí es donde se espera la próxima sorpresa.
-
-Orden sugerido:
-
-1. **Larry → Instrucciones**: cambiarle la foto y pulsar **Mejorar con IA**. Es
-   lo único que nunca se ha ejecutado contra el modelo real.
-2. **Conectar Alegra** en Ajustes → Contabilidad, en **solo lectura**, y pedirle
-   a Reportes «cómo vamos». Ejercita la parte segura contra las 28 facturas
-   abiertas y los 42 millones por cobrar.
-3. **Velocista**: «mide mi web y dime qué la hace lenta», con la clave puesta.
-4. **Webmaster + Diseñador**: un artículo con portada, para ver la colaboración.
+1. **Marketing con datos reales**: «qué cuentas de ads hay» y «cómo van mis
+   campañas este mes». Es la última llamada del adaptador de Google (la
+   búsqueda de campañas) que no se ha estrenado. Si dice que no puede abrir
+   las credenciales, cuadrar `APP_ENCRYPTION_KEY` y reiniciar el worker.
+2. **Probar los otros agentes contra datos reales**, antes de construir el
+   séptimo. Google Ads enseñó la lección: cada adaptador sin estrenar trae
+   cuatro o cinco sorpresas. Faltan PageSpeed, Alegra y el de imágenes.
+   - **Larry → Instrucciones**: cambiarle la foto y pulsar **Mejorar con IA**.
+   - **Conectar Alegra** en solo lectura y pedirle a Reportes «cómo vamos».
+   - **Velocista**: «mide mi web y dime qué la hace lenta», con la clave puesta.
+   - **Webmaster + Diseñador**: un artículo con portada.
+3. **Vídeo de verificación de Google**, con el flujo ya funcionando.
 
 ---
 
@@ -165,7 +218,10 @@ Orden sugerido:
 ## Riesgos conocidos
 
 - **Adaptadores sin probar contra sus API reales**: PageSpeed, Alegra y el
-  generador de imágenes. El primer encargo real los estrena.
+  generador de imágenes. El primer encargo real los estrena. Google Ads se
+  estrenó el 22-sep y costó cinco despliegues: contar con lo mismo.
+- **Meta y TikTok Ads**: código listo, verificado solo contra dobles. Faltan
+  los permisos de las plataformas (ver pendientes).
 - **Emitir una factura en Colombia puede dispararla a la DIAN** según cómo esté
   configurada la cuenta. No se borra: se anula con nota crédito. Probarlo antes
   en una cuenta de pruebas.
@@ -178,11 +234,7 @@ Orden sugerido:
   operativa vive ahora en la ficha de instrucciones del agente.
 - **Sin pantalla global de trabajo programado**: se ve en la ficha de cada
   agente, no hay una lista del espacio.
-- **Dos fallos anotados durante el refactor, sin tocar** (son de antes, y
-  merecen su propio cambio):
-  1. Al delegar en un compañero, el slug no se normaliza: `"Velocista "` con un
-     espacio cae en el rechazo aunque sea un oficio real.
-  2. En la rama del administrativo, el respaldo `AGENTES[quien] ?? administrativo`
-     dejaría pasar cualquier slug que llegue ahí; hoy lo protege el enrutado.
-- **Lección de anoche**: no desplegar el worker antes de que sus migraciones
-  estén aplicadas, y comprobar que arranca **estable**, no solo que arrancó.
+- **Lección del 11-sep**, ahora en código: el flujo de despliegue aplica las
+  migraciones antes de tocar el worker y falla si no arranca **estable**.
+- **La contraseña del VPS se compartió por chat** (dos veces, el 22-sep).
+  Cambiarla y pasar a acceso solo por clave.
