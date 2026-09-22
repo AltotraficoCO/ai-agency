@@ -7,7 +7,7 @@ import { Strap } from "@strappy/ui";
  */
 export default function LayoutLegal({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh bg-page px-4 py-10 text-fg">
+    <div className="h-full overflow-y-auto bg-page px-4 py-10 text-fg">
       <div className="mx-auto w-full max-w-2xl">
         <header className="mb-10 flex items-center gap-3">
           <Strap pose="saludando" size={44} />
