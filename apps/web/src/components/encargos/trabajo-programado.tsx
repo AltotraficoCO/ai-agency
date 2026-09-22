@@ -16,7 +16,7 @@
 import * as React from "react";
 import { useActionState } from "react";
 import { CalendarClock, Pause, Play, Trash2 } from "lucide-react";
-import { Button, Input } from "@strappy/ui";
+import { Button, Input, cn } from "@strappy/ui";
 import type { Resultado } from "@/lib/negocio/acciones";
 import type { ProgramadoVista } from "@/lib/programados/programados";
 
@@ -42,6 +42,7 @@ const CLASE_CAMPO =
 export function TrabajoProgramado({
   nombreAgente,
   programados,
+  sinMarco = false,
   sugerencia,
   programar,
   cambiarEstado,
@@ -54,6 +55,8 @@ export function TrabajoProgramado({
   programar: (datos: FormData) => Promise<Resultado>;
   cambiarEstado: (id: string, activa: boolean) => Promise<Resultado>;
   quitar: (id: string) => Promise<Resultado>;
+  /** true dentro de un panel que ya pone marco y título. */
+  sinMarco?: boolean;
 }) {
   const [estado, enviar, pendiente] = useActionState<Resultado | null, FormData>(
     async (_previo, datos) => {
@@ -73,8 +76,13 @@ export function TrabajoProgramado({
   const [frecuencia, setFrecuencia] = React.useState("diaria");
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border border-[var(--border-subtle)] bg-surface p-5">
-      <header className="flex items-center gap-2">
+    <section
+      className={cn(
+        "flex flex-col gap-4",
+        !sinMarco && "rounded-2xl border border-[var(--border-subtle)] bg-surface p-5",
+      )}
+    >
+      <header className={cn("flex items-center gap-2", sinMarco && "sr-only")}>
         <CalendarClock size={18} strokeWidth={2} aria-hidden className="text-fg-secondary" />
         <h2 className="text-lg font-medium text-fg">Trabajo que hace solo</h2>
       </header>

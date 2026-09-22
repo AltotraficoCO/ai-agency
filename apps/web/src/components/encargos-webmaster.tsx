@@ -25,11 +25,12 @@ import {
   ExternalLink,
   Globe,
   MessageCircleQuestion,
+  CalendarClock,
   Send,
   ShieldAlert,
   Trash2,
 } from "lucide-react";
-import { Badge, Button, IndicadorEscribiendo, Input, Textarea, cn } from "@strappy/ui";
+import { Badge, Button, Drawer, DrawerContent, IndicadorEscribiendo, Input, Textarea, cn } from "@strappy/ui";
 import type { AprobacionVista, EncargoVista } from "@/lib/encargos/encargos";
 import type { Resultado } from "@/lib/negocio/acciones";
 import { PanelHistorial, type ItemHistorial, type TonoHistorial } from "@/components/conversacion/panel-historial";
@@ -154,10 +155,17 @@ export function EncargosWebmaster({
   responder,
   eliminar,
   vaciar,
+  programado,
 }: {
   nombreAgente: string;
   /** Lo que tiene conectado: el sitio del Webmaster, las cuentas de Marketing. */
   sitio: { nombre: string; url: string } | null;
+  /**
+   * El trabajo que el agente repite solo. Vive en un panel lateral que se abre
+   * desde la cabecera, no debajo del chat: ahí se perdía al final de la
+   * conversación y parecía parte de ella.
+   */
+  programado?: { nodo: React.ReactNode; cuantos: number };
   encargos: EncargoVista[];
   /** Qué agente por encargo es. Por defecto, el Webmaster. */
   oficio?: OficioEncargos;
@@ -171,6 +179,7 @@ export function EncargosWebmaster({
   const caja = React.useRef<HTMLTextAreaElement>(null);
   const final = React.useRef<HTMLDivElement>(null);
   const [texto, setTexto] = React.useState("");
+  const [programadoAbierto, setProgramadoAbierto] = React.useState(false);
   const [aviso, setAviso] = React.useState<Resultado | null>(null);
   const [vaciando, setVaciando] = React.useState(false);
   const [seleccionado, setSeleccionado] = React.useState<string | null>(null);
@@ -292,8 +301,31 @@ export function EncargosWebmaster({
                 Espera tu respuesta
               </Badge>
             ) : null}
+            {programado ? (
+              <Button size="sm" variant="secondary" onClick={() => setProgramadoAbierto(true)}>
+                <CalendarClock size={14} aria-hidden />
+                <span className="hidden sm:inline">Programado</span>
+                {programado.cuantos > 0 ? (
+                  <span className="rounded-full bg-primary-soft px-1.5 text-2xs font-semibold text-primary-fg tnum">
+                    {programado.cuantos}
+                  </span>
+                ) : null}
+              </Button>
+            ) : null}
           </div>
         </div>
+
+        {programado ? (
+          <Drawer open={programadoAbierto} onOpenChange={setProgramadoAbierto}>
+            <DrawerContent
+              title="Trabajo que hace solo"
+              description={`Lo que ${nombreAgente} repite sin que se lo pidas, y cuándo le toca.`}
+              width={520}
+            >
+              {programado.nodo}
+            </DrawerContent>
+          </Drawer>
+        ) : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-6 py-6">

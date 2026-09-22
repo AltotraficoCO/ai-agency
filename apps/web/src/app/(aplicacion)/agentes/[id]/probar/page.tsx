@@ -95,17 +95,21 @@ export default async function PaginaProbar({
           responder={accionResponderPregunta.bind(null, id)}
           eliminar={accionEliminarEncargo.bind(null, id)}
           vaciar={accionVaciarEncargos.bind(null, id)}
+          programado={{
+            cuantos: programados.length,
+            nodo: (
+              <TrabajoProgramado
+                nombreAgente={nombreAgente}
+                programados={programados}
+                sugerencia={SUGERENCIAS[porEncargo]}
+                programar={accionProgramar.bind(null, id)}
+                cambiarEstado={accionCambiarEstadoProgramado.bind(null, id)}
+                quitar={accionQuitarProgramado.bind(null, id)}
+                sinMarco
+              />
+            ),
+          }}
         />
-        <div className="px-4 pb-6 sm:px-6">
-          <TrabajoProgramado
-            nombreAgente={nombreAgente}
-            programados={programados}
-            sugerencia={SUGERENCIAS[porEncargo]}
-            programar={accionProgramar.bind(null, id)}
-            cambiarEstado={accionCambiarEstadoProgramado.bind(null, id)}
-            quitar={accionQuitarProgramado.bind(null, id)}
-          />
-        </div>
       </MarcoApp>
     );
   }
