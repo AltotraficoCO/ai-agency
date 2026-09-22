@@ -32,6 +32,7 @@ const PUBLICAS = [
   "/policy",
   "/terms",
   "/auth",
+  "/api/auth",
   "/api/webhooks",
   "/api/stripe/webhook",
 ];

@@ -1,45 +1,26 @@
-"use client";
-
 /**
  * Entrar con Google.
  *
  * Va arriba y separado del formulario a propósito: para la mayoría de la gente
  * es un clic contra tres campos, y esconderlo debajo del formulario convierte
  * la opción rápida en la que nadie ve.
+ *
+ * El permiso lo pide la app de Strappy (ver lib/acceso/google), no Supabase:
+ * así Google dice «strappy.io» y no el dominio técnico de Supabase. Formulario
+ * GET y no enlace: un <Link> precargaría la ruta y abriría Google sin que
+ * nadie lo pidiera.
  */
-import * as React from "react";
 import { Button } from "@strappy/ui";
-import { crearClienteNavegador } from "@/lib/supabase/navegador";
 
 export function BotonGoogle({ siguiente = "/" }: { siguiente?: string }) {
-  const [cargando, setCargando] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  async function entrar() {
-    setCargando(true);
-    setError(null);
-    const supabase = crearClienteNavegador();
-    const { error: fallo } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?siguiente=${encodeURIComponent(siguiente)}`,
-        queryParams: { access_type: "offline", prompt: "consent" },
-      },
-    });
-    if (fallo) {
-      setError(fallo.message);
-      setCargando(false);
-    }
-  }
-
   return (
-    <div className="flex flex-col gap-2">
-      <Button variant="secondary" className="w-full" onClick={entrar} loading={cargando}>
+    <form action="/api/auth/google/inicio" method="get">
+      <input type="hidden" name="siguiente" value={siguiente} />
+      <Button type="submit" variant="secondary" className="w-full">
         <LogoGoogle />
         Continuar con Google
       </Button>
-      {error && <p className="text-sm text-danger-fg">{error}</p>}
-    </div>
+    </form>
   );
 }
 
