@@ -169,12 +169,14 @@ export function crearHerramientaDeColaboracion(
       };
 
       // Un compañero que se queda esperando un botón no bloquea al que llamó:
-      // se le dice para que siga con el resto y lo cuente en su resumen.
+      // su trabajo pasa a un encargo propio, y aquí se sigue con el resto.
       if (resultado.estado === "esperando_aprobacion") {
         return {
           ok: true,
           ...salida,
-          nota: `${elegido.nombre} dejó algo esperando la aprobación del cliente. Sigue con lo que puedas y cuéntalo en el RESUMEN.`,
+          nota:
+            `${elegido.nombre} necesita la aprobación del cliente para seguir, y lo hará desde su propio encargo, en su bandeja. ` +
+            `Sigue con lo que puedas y dilo así en el RESUMEN: que ${elegido.nombre} le pedirá la aprobación desde su bandeja.`,
         };
       }
       return { ok: resultado.estado === "completada", ...salida };

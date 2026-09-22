@@ -75,6 +75,11 @@ export class ColaEnMemoria implements TaskQueuePort {
     });
   }
 
+  async traspasarEspera(): Promise<string | null> {
+    // En memoria no hay bandejas de otros agentes: el traspaso no existe.
+    return null;
+  }
+
   async suspender(input: {
     taskId: string;
     workerId: string;

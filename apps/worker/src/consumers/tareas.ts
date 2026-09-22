@@ -398,10 +398,43 @@ export class ConsumidorDeTareas implements Consumidor {
           cadena: [...e.cadena, quien],
           delegado: { titulo: input.titulo, detalle: input.detalle },
         });
-        e.extra.creditos += resultado.evidencia.creditos;
         e.decir(
           `${input.slug} terminó (${resultado.estado}) · ${resultado.evidencia.creditos} créditos`,
         );
+
+        if (resultado.estado === "esperando_aprobacion") {
+          // El compañero necesita un botón del cliente y el encargo de quien
+          // llamó no puede esperarlo: su trabajo pasa a un encargo propio del
+          // compañero, con sus mensajes y sus aprobaciones, y sus créditos se
+          // cobran allí (no aquí) para no cobrarlos dos veces.
+          const propio = await this.#o.puertos.cola.traspasarEspera({
+            workspaceId: e.tarea.workspaceId,
+            agente: input.slug,
+            titulo: input.titulo,
+            detalle: input.detalle,
+            resumen: resultado.resumen,
+            evidencia: resultado.evidencia,
+            creditos: resultado.evidencia.creditos,
+            mensajes: resultado.mensajes,
+            pasos: [],
+            aprobacionIds: resultado.evidencia.aprobacionesPendientes.map((a) => a.id),
+          });
+          if (propio) {
+            e.registro.anotar({
+              id: `colaboracion-${marca}-responde`,
+              herramienta: "colaboracion",
+              etiqueta: `Necesita tu aprobación: sigue en su propio encargo`,
+              detalle: resultado.resumen,
+              estado: "esperando",
+              en: new Date().toISOString(),
+              agente: { slug: input.slug, nombre: nombreCompanero },
+            });
+            e.decir(`${input.slug} sigue en su propio encargo ${propio}, a la espera de aprobación`);
+            return resultado;
+          }
+        }
+
+        e.extra.creditos += resultado.evidencia.creditos;
         e.registro.anotar({
           id: `colaboracion-${marca}-responde`,
           herramienta: "colaboracion",
