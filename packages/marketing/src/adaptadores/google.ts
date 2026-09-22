@@ -62,7 +62,10 @@ export type CredencialesGoogleAds = {
   readonly version?: string;
 };
 
-const VERSION_POR_DEFECTO = "v21";
+// Google retira cada versión unos 12 meses después de publicarla: si la API
+// contesta 404 en HTML a todo, es que esta versión ya no existe. En septiembre
+// de 2026 respondían de la v22 a la v26 (comprobado contra el servidor).
+const VERSION_POR_DEFECTO = "v26";
 const BASE = "https://googleads.googleapis.com";
 const URL_TOKEN = "https://oauth2.googleapis.com/token";
 
