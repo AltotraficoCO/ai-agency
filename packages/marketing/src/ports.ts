@@ -203,6 +203,13 @@ export type CuentasContext = {
    * el primer día en que le movemos el presupuesto.
    */
   readonly primerContacto?: boolean;
+  /**
+   * Plataformas que SÍ están conectadas pero cuyas credenciales este servidor
+   * no pudo descifrar (la clave del worker no es la que usó la web al
+   * guardarlas). Se distingue de «no hay nada conectado» porque la solución es
+   * otra: no es que el cliente conecte, es que alguien cuadre las claves.
+   */
+  readonly ilegibles?: readonly Plataforma[];
 };
 
 export function adsDe(cuentas: CuentasContext, plataforma: Plataforma, toolSlug: string): AdsPort {

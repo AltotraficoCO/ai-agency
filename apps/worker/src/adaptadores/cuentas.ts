@@ -83,6 +83,7 @@ export class CuentasPostgres implements CuentasPort {
     let agentName: string | undefined;
     let primerContacto = false;
     const yaConectadas = new Set<Plataforma>();
+    const ilegibles: Plataforma[] = [];
 
     for (const fila of conexiones.rows) {
       if (!esProveedorAds(fila.provider) || !fila.credentials_encrypted) continue;
@@ -94,8 +95,11 @@ export class CuentasPostgres implements CuentasPort {
       try {
         creds = decryptJson<Record<string, unknown>>(fila.credentials_encrypted, this.claveMaestra);
       } catch {
-        // Indescifrable con la clave de hoy. El agente trabaja con el resto y
-        // lo dice; tumbar el encargo aquí no le daría al cliente ninguna pista.
+        // Indescifrable con la clave de hoy: la web la guardó con otra
+        // APP_ENCRYPTION_KEY. El agente trabaja con el resto y lo dice con la
+        // causa; tumbar el encargo aquí no le daría al cliente ninguna pista.
+        console.error(`[cuentas] no se pudo descifrar la conexión ${fila.id} (${fila.provider}): APP_ENCRYPTION_KEY distinta de la de la web`);
+        if (!ilegibles.includes(fila.provider)) ilegibles.push(fila.provider);
         continue;
       }
 
@@ -122,6 +126,7 @@ export class CuentasPostgres implements CuentasPort {
       negocio,
       agentName: agentName ?? "Tu agente de marketing",
       ...(primerContacto ? { primerContacto: true } : {}),
+      ...(ilegibles.length > 0 ? { ilegibles } : {}),
       ...(secretos.length > 0 ? { secretos } : {}),
     };
   }

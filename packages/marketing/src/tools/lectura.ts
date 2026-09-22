@@ -37,6 +37,16 @@ export const adsListarCuentas = defineTool({
   kind: "http",
   async execute(ctx): Promise<Record<string, unknown>> {
     const { cuentas } = entorno(ctx, "ads_listar_cuentas");
+    if (cuentas.ads.length === 0 && (cuentas.ilegibles?.length ?? 0) > 0) {
+      const nombres = cuentas.ilegibles!.map((p) => NOMBRE_PLATAFORMA[p]).join(" y ");
+      return {
+        cuentas: [],
+        nota:
+          `${nombres} está conectado, pero este servidor no puede abrir sus credenciales: la clave de cifrado ` +
+          `del worker no coincide con la de la web. No es algo que el cliente pueda arreglar conectando de nuevo; ` +
+          `díselo tal cual y que avise a soporte de Strappy.`,
+      };
+    }
     if (cuentas.ads.length === 0) {
       return {
         cuentas: [],
