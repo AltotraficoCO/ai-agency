@@ -343,16 +343,26 @@ export async function ejecutarTareaDeAgente(input: EjecucionAgente): Promise<Res
   // añade aquí y no en el catálogo de cada paquete porque el puerto lleva el
   // espacio del cliente y la cadena de llamadas, y eso no puede viajar por un
   // catálogo compartido donde el modelo podría influir.
+  // Quien trabaja para otro agente no habla con el cliente: le responde a
+  // quien lo llamó. Si pudiera preguntar, el encargo del que llamó se quedaría
+  // esperando una respuesta que el cliente no sabe a qué viene.
+  const ayudando = (oficio.cadena?.length ?? 0) > 0;
+  const propias = ayudando
+    ? oficio.herramientas.filter((h) => h.slug !== "preguntar_al_cliente")
+    : oficio.herramientas;
   const herramientas = oficio.colaboracion
     ? [
-        ...oficio.herramientas,
+        ...propias,
         crearHerramientaDeColaboracion({
           puerto: oficio.colaboracion,
           slugPropio: oficio.slug,
           cadena: oficio.cadena ?? [],
         }) as (typeof oficio.herramientas)[number],
       ]
-    : oficio.herramientas;
+    : propias;
+  const sistema = ayudando
+    ? `${oficio.sistema}\n\nESTÁS AYUDANDO A UN COMPAÑERO (${oficio.cadena!.join(" → ")}): este encargo te lo pidió otro agente, no el cliente. No le preguntes nada al cliente ni le saludes: haz lo que te pidieron con lo que te dieron, y si te falta algo, termina con un RESUMEN que diga exactamente qué necesitas para que quien te llamó se lo pida al cliente.`
+    : oficio.sistema;
 
   const tools: ToolSet = conFrenoDeRepeticiones(
     conRegistroDePasos(toAiToolSet(herramientas, { onInvocation: anotar }), oficio, avisar),
@@ -427,7 +437,7 @@ export async function ejecutarTareaDeAgente(input: EjecucionAgente): Promise<Res
     for (let ronda = 0; ; ronda++) {
       const resultado = await generateText({
         model: input.model,
-        system: oficio.sistema,
+        system: sistema,
         messages: mensajes,
         tools,
         // El tope de acciones del catálogo. No es una sugerencia: es lo que

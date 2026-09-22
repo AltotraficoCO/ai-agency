@@ -24,9 +24,12 @@ import type { SqlExecutor } from "../ports.js";
  */
 const PARA_QUE: Record<string, string> = {
   webmaster: "cuida la web: contenido, plugins, copias de seguridad y que no se caiga",
+  velocista: "la velocidad de la web: mide, explica qué la frena y arregla la caché",
+  disenador: "imágenes: portadas, banners y piezas para redes con la identidad de la marca",
   marketing: "campañas de publicidad: qué funciona, qué se está desperdiciando y qué anunciar",
   administrativo:
     "las cuentas del negocio: cuánto le deben, qué facturas están vencidas y los recordatorios de cobro",
+  reportes: "el informe del negocio: cómo van las ventas y la cartera, con las cifras de la contabilidad",
 };
 
 export class NominaPostgres {

@@ -8,7 +8,7 @@ import { EnlaceBoton } from "@/components/enlace-boton";
 import { MarcoApp } from "@/components/marco-app";
 import { SimuladorChat } from "@/components/simulador-chat";
 import { datosDelMarco } from "@/lib/marco";
-import { leerAgente } from "@/lib/agentes";
+import { leerAgente, listarAgentes } from "@/lib/agentes";
 import {
   accionDecidirAprobacion,
   accionEliminarEncargo,
@@ -56,7 +56,7 @@ export default async function PaginaProbar({
   const porEncargo = await agenteDeEncargos(marco.actual.workspaceId, id);
   if (porEncargo) {
     const esWeb = porEncargo === "webmaster";
-    const [sitio, encargos, avisos, programados] = await Promise.all([
+    const [sitio, encargos, avisos, programados, agentes] = await Promise.all([
       // Cada oficio tiene «lo suyo conectado»: el WordPress, las plataformas
       // de anuncios o la contabilidad. Antes solo el Webmaster miraba algo y
       // los demás decían «sin conectar» con todo conectado.
@@ -67,7 +67,12 @@ export default async function PaginaProbar({
       esWeb ? avisosDelSitio(marco.actual.workspaceId) : Promise.resolve([]),
       // Lo que repite solo, sin que nadie se lo pida.
       programadosDelAgente(marco.actual.workspaceId, id),
+      // Cara y nombre de cada compañero, para cuando uno entra a ayudar.
+      listarAgentes(marco.actual.workspaceId),
     ]);
+    const equipo = Object.fromEntries(
+      agentes.filter((a) => a.catalogo).map((a) => [a.catalogo!, { nombre: a.nombre, avatar: a.avatar }]),
+    );
     return (
       <MarcoApp
         usuario={marco.usuario}
@@ -83,6 +88,7 @@ export default async function PaginaProbar({
           // dentro) las resuelve el componente en el navegador.
           oficio={porEncargo}
           foto={agente.avatar}
+          equipo={equipo}
           sitio={sitio && sitio.estado === "active" ? { nombre: sitio.nombre, url: sitio.url } : null}
           encargos={encargos}
           avisos={avisos.map((a) => ({

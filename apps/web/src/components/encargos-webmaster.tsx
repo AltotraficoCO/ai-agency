@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { Badge, Button, Drawer, DrawerContent, IndicadorEscribiendo, Input, Textarea, cn } from "@strappy/ui";
 import { TextoStrap } from "@/components/meta/texto-strap";
+import type { EquipoVista } from "@/components/conversacion/registro-trabajo";
 import type { AprobacionVista, EncargoVista } from "@/lib/encargos/encargos";
 import type { Resultado } from "@/lib/negocio/acciones";
 import { PanelHistorial, type ItemHistorial, type TonoHistorial } from "@/components/conversacion/panel-historial";
@@ -263,8 +264,11 @@ export function EncargosWebmaster({
   vaciar,
   programado,
   foto,
+  equipo,
 }: {
   nombreAgente: string;
+  /** Cara y nombre de cada agente contratado, por oficio: para el compañero que entra a ayudar. */
+  equipo?: EquipoVista;
   /** La cara del agente contratado. Si no viene, la del oficio. */
   foto?: string | null;
   /** Lo que tiene conectado: el sitio del Webmaster, las cuentas de Marketing. */
@@ -498,6 +502,7 @@ export function EncargosWebmaster({
                   decidir={decidir}
                   responder={responder}
                   eliminar={eliminar}
+                  equipo={equipo}
                 />
               ))}
             </ol>
@@ -628,6 +633,7 @@ function Encargo({
   nombreAgente,
   foto,
   resaltado,
+  equipo,
   decidir,
   responder,
   eliminar,
@@ -636,6 +642,7 @@ function Encargo({
   nombreAgente: string;
   foto: string;
   resaltado: boolean;
+  equipo?: EquipoVista;
 } & Acciones) {
   const router = useRouter();
   const [borrando, setBorrando] = React.useState(false);
@@ -701,6 +708,7 @@ function Encargo({
           {(enCurso || pasos.length > 0) && (
             <RegistroTrabajo
               pasos={pasos}
+              equipo={equipo}
               activo={enCurso}
               textoActivo={encargo.estado === "queued" ? "En cola, empiezo en un momento" : "Trabajando en tu web…"}
             />

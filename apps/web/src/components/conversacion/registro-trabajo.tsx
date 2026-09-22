@@ -10,6 +10,7 @@
  * abre o lo cierra a mano, manda su elección.
  */
 import * as React from "react";
+import Image from "next/image";
 import { Check, ChevronDown, CircleAlert, Clock, Loader2, Users, X } from "lucide-react";
 import { cn } from "@strappy/ui";
 import { duracionLegible, horaCorta } from "./tiempo";
@@ -25,7 +26,12 @@ export type PasoVista = {
   readonly en?: string | null;
   /** Quién dio el paso: el propio agente, o un compañero al que pidió ayuda. */
   readonly agente?: { readonly slug: string; readonly nombre: string } | null;
+  /** La herramienta que dio el paso; «colaboracion» es la petición o la respuesta entre agentes. */
+  readonly herramienta?: string;
 };
+
+/** Cómo se llama y qué cara tiene cada agente contratado, por su oficio. */
+export type EquipoVista = Readonly<Record<string, { readonly nombre: string; readonly avatar: string | null }>>;
 
 /**
  * Los pasos, en tramos por quién los dio. El primer agente que aparece es el
@@ -53,12 +59,15 @@ export function RegistroTrabajo({
   activo,
   textoActivo = "Trabajando…",
   className,
+  equipo = {},
 }: {
   pasos: readonly PasoVista[];
   /** El agente sigue trabajando: animación viva y abierto por defecto. */
   activo: boolean;
   textoActivo?: string;
   className?: string;
+  /** Para ponerle cara y nombre al compañero que entra a ayudar. */
+  equipo?: EquipoVista;
 }) {
   const [eleccion, setEleccion] = React.useState<boolean | null>(null);
   const idContenido = React.useId();
@@ -135,13 +144,32 @@ export function RegistroTrabajo({
             {tramosPorAgente(pasos).flatMap((tramo, t, tramos) => {
               const principal = tramos[0]?.agente?.slug ?? null;
               const deCompanero = tramo.agente != null && tramo.agente.slug !== principal;
+              const ficha = tramo.agente ? equipo[tramo.agente.slug] : undefined;
+              const nombre = ficha?.nombre ?? tramo.agente?.nombre ?? "Un compañero";
+              // El compañero entra como entra una persona a una conversación:
+              // con su cara y su nombre, no como una línea más de la lista.
               const cabecera = deCompanero ? (
                 <li
                   key={`tramo-${t}`}
-                  className="strappy-slide-up ml-[34px] mt-1 flex items-center gap-2 border-l-2 border-[color-mix(in_oklab,var(--brand),transparent_50%)] pl-3 text-2xs font-semibold uppercase tracking-wide text-primary-fg"
+                  className="strappy-slide-up ml-[34px] mt-2 flex items-center gap-2.5 rounded-lg border border-[color-mix(in_oklab,var(--brand),transparent_60%)] bg-primary-soft/40 px-3 py-2"
                 >
-                  <Users size={12} strokeWidth={2} aria-hidden />
-                  {tramo.agente?.nombre} entra a ayudar
+                  {ficha?.avatar ? (
+                    <Image
+                      src={ficha.avatar}
+                      alt=""
+                      width={28}
+                      height={28}
+                      className="size-7 shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary-soft text-primary-fg">
+                      <Users size={14} strokeWidth={2} aria-hidden />
+                    </span>
+                  )}
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-semibold text-fg">{nombre}</span>
+                    <span className="text-2xs text-fg-muted">entra a ayudar</span>
+                  </span>
                 </li>
               ) : null;
               return [cabecera, ...tramo.pasos.map((paso) => renderPaso(paso, deCompanero))].filter(Boolean);
@@ -187,7 +215,16 @@ export function RegistroTrabajo({
                     ) : null}
                   </div>
                   {paso.detalle ? (
-                    <p className="break-words text-2xs text-fg-muted">{paso.detalle}</p>
+                    <p
+                      className={cn(
+                        "break-words",
+                        // La petición y la respuesta entre agentes son lo que
+                        // el cliente quiere leer: van en tamaño de texto normal.
+                        paso.herramienta === "colaboracion" ? "mt-1 text-sm text-fg-secondary" : "text-2xs text-fg-muted",
+                      )}
+                    >
+                      {paso.detalle}
+                    </p>
                   ) : null}
                 </div>
               </li>
