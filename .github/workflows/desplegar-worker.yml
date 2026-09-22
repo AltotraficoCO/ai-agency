@@ -1,0 +1,55 @@
+# El worker se despliega solo, como la web en Vercel.
+#
+# Con cada commit en main que toque al worker o a los paquetes de los que
+# depende: primero las migraciones (idempotentes) contra la base de producción,
+# y solo si pasan, el VPS trae el código, instala y reinicia el servicio. El
+# script del VPS falla si el worker no arranca estable, y el fallo se ve aquí.
+#
+# Secretos: VPS_HOST, VPS_SSH_KEY (clave restringida al script de despliegue),
+# VPS_KNOWN_HOSTS y DATABASE_URL (la del pooler, la misma que usa el worker).
+name: Desplegar worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/worker/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - "package.json"
+      - ".github/workflows/desplegar-worker.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: desplegar-worker
+  cancel-in-progress: false
+
+jobs:
+  desplegar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Migraciones
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          sudo apt-get install -y -qq postgresql-client >/dev/null
+          ./packages/db/scripts/apply.sh "$DATABASE_URL"
+
+      - name: Clave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/despliegue && chmod 600 ~/.ssh/despliegue
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Desplegar en el VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        # La clave está restringida en el VPS a un solo comando: el script de
+        # despliegue. Da igual lo que se pida por aquí, eso es lo que corre.
+        run: ssh -i ~/.ssh/despliegue -o BatchMode=yes "root@$VPS_HOST" desplegar
