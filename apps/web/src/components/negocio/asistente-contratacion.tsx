@@ -307,7 +307,7 @@ export function AsistenteContratacion({ ficha, aviso }: { ficha: FichaCatalogo; 
           }
         >
           <div className="flex flex-col items-center gap-3 rounded-lg bg-inset py-6 text-center">
-            <RetratoAgente slug={ficha.slug} tamano={140} />
+            <RetratoAgente slug={ficha.slug} imagen={ficha.avatar} tamano={140} />
             <p className="inline-flex items-center gap-2 text-lg font-semibold text-fg">
               <PartyPopper size={18} strokeWidth={2} className="text-primary-fg" aria-hidden />
               {nombre} está listo para probar
