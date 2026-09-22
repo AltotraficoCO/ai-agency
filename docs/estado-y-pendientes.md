@@ -175,7 +175,6 @@ Por urgencia:
 | App de **TikTok for Business** | Victor | permisos de Ads Management; va en `TIKTOK_APP_ID` y `TIKTOK_APP_SECRET` |
 | Clave de **PageSpeed** (`PAGESPEED_API_KEY` en el VPS) | Victor | gratis y en minutos; sin ella el Velocista no mide |
 | **Token de Alegra** (usuario propio para Strappy, no la contraseña) | Pedro | sin él, Administrativo y Reportes no tienen dónde mirar |
-| **Cuadrar las claves de cifrado** | Victor | la `APP_ENCRYPTION_KEY` de Vercel y la del VPS (`/etc/strappy-worker.env`) tienen que ser idénticas. Desde hoy, si no lo son, el agente de Marketing lo dice con esas palabras en vez de «no hay plataformas». Pendiente de confirmar con el primer encargo real |
 | **Plantilla de WhatsApp en Meta** (categoría utilidad) | Victor | sin ella no se envía ningún aviso |
 | **Precios nuevos en Stripe** | Victor | la web ya dice 100, 500 y 1.500; el cobro sigue en los precios viejos |
 | **OpenRouter a cuenta de empresa** con recarga automática | Victor | hoy es una cuenta personal, con tope de 5 USD |
@@ -186,10 +185,10 @@ Por urgencia:
 
 ## Lo primero que hay que hacer mañana
 
-1. **Marketing con datos reales**: «qué cuentas de ads hay» y «cómo van mis
-   campañas este mes». Es la última llamada del adaptador de Google (la
-   búsqueda de campañas) que no se ha estrenado. Si dice que no puede abrir
-   las credenciales, cuadrar `APP_ENCRYPTION_KEY` y reiniciar el worker.
+1. **Marketing con datos reales**: «qué cuentas de ads hay» ya funcionó el
+   22-sep (listó las 37 cuentas de la agencia por la cuenta de administrador,
+   con su moneda: las claves de cifrado de Vercel y del VPS coinciden). Falta
+   «cómo van mis campañas este mes», la búsqueda con métricas.
 2. **Probar los otros agentes contra datos reales**, antes de construir el
    séptimo. Google Ads enseñó la lección: cada adaptador sin estrenar trae
    cuatro o cinco sorpresas. Faltan PageSpeed, Alegra y el de imágenes.
