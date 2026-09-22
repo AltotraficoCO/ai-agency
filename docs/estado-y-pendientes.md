@@ -153,6 +153,15 @@ conexión que no podía descifrar. Los tres corregidos de raíz.
   de Google Ads está autorizado en el proveedor Google de Supabase.
 - Ajustes → Canales: **Desconectar** una plataforma de anuncios y **Eliminar**
   un número de WhatsApp (conservando conversaciones).
+- **Clave de PageSpeed** creada en el proyecto de Google Cloud (restringida a
+  esa API) y puesta en el VPS: el Velocista ya puede medir.
+- **El Velocista y Reportes ya son agentes por encargo en la web** (sexto
+  fallo del patrón «lista escrita a mano»: la web los trataba como agentes de
+  conversación y los contestaba el chat sin herramientas). Cada oficio tiene
+  ahora sus textos y su «lo conectado» en la pantalla de encargos.
+- **El trabajo programado** vive en un panel lateral desde la cabecera del
+  agente, no bajo el chat. Las respuestas de los encargos se pintan con
+  formato (negritas, listas), no con asteriscos.
 - **Verificación de la app en Google enviada** con vídeo del flujo real
   (capturas de www.strappy.io con atencion@altotrafico.co, locución de
   ElevenLabs, voz Matilda). Las fuentes están en `.playwright-mcp/video/`
@@ -183,7 +192,6 @@ Por urgencia:
 | **Acceso al VPS solo por clave SSH** | Victor | la contraseña se compartió por chat dos veces; conviene desactivar el acceso por contraseña |
 | Permiso de **Meta** para publicar por clientes | Victor | 2 a 4 semanas de revisión. Para anuncios hacen falta además `ads_read` y `ads_management` en la misma app |
 | App de **TikTok for Business** | Victor | permisos de Ads Management; va en `TIKTOK_APP_ID` y `TIKTOK_APP_SECRET` |
-| Clave de **PageSpeed** (`PAGESPEED_API_KEY` en el VPS) | Victor | gratis y en minutos; sin ella el Velocista no mide |
 | **Token de Alegra** (usuario propio para Strappy, no la contraseña) | Pedro | sin él, Administrativo y Reportes no tienen dónde mirar |
 | **Plantilla de WhatsApp en Meta** (categoría utilidad) | Victor | sin ella no se envía ningún aviso |
 | **Precios nuevos en Stripe** | Victor | la web ya dice 100, 500 y 1.500; el cobro sigue en los precios viejos |
