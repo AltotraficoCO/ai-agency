@@ -3,13 +3,6 @@ import { notFound } from "next/navigation";
 import { EmptyState, rutas } from "@strappy/ui";
 import {
   EncargosWebmaster,
-  OFICIO_ADMINISTRATIVO,
-  OFICIO_DISENADOR,
-  OFICIO_MARKETING,
-  OFICIO_REPORTES,
-  OFICIO_VELOCISTA,
-  OFICIO_WEBMASTER,
-  type OficioEncargos,
 } from "@/components/encargos-webmaster";
 import { EnlaceBoton } from "@/components/enlace-boton";
 import { MarcoApp } from "@/components/marco-app";
@@ -63,10 +56,6 @@ export default async function PaginaProbar({
   const porEncargo = await agenteDeEncargos(marco.actual.workspaceId, id);
   if (porEncargo) {
     const esWeb = porEncargo === "webmaster";
-    const oficioBase = OFICIOS[porEncargo] ?? OFICIO_WEBMASTER;
-    // La cara es la del agente contratado; los oficios sin foto propia de
-    // plastilina usan la que el cliente le puso o la del catálogo.
-    const oficio: OficioEncargos = { ...oficioBase, foto: agente.avatar ?? oficioBase.foto };
     const [sitio, encargos, avisos, programados] = await Promise.all([
       // Cada oficio tiene «lo suyo conectado»: el WordPress, las plataformas
       // de anuncios o la contabilidad. Antes solo el Webmaster miraba algo y
@@ -90,7 +79,10 @@ export default async function PaginaProbar({
       >
         <EncargosWebmaster
           nombreAgente={nombreAgente}
-          oficio={oficio}
+          // Solo el nombre del oficio y la cara: las palabras (con funciones
+          // dentro) las resuelve el componente en el navegador.
+          oficio={porEncargo}
+          foto={agente.avatar}
           sitio={sitio && sitio.estado === "active" ? { nombre: sitio.nombre, url: sitio.url } : null}
           encargos={encargos}
           avisos={avisos.map((a) => ({
@@ -200,16 +192,6 @@ const SUGERENCIAS: Record<string, string> = {
   velocista: "Mide la velocidad de mi web y avísame si empeora.",
   reportes: "Cuéntame cómo va el negocio esta semana.",
   disenador: "Prepara una imagen para redes con la novedad de la semana.",
-};
-
-/** Las palabras de cada oficio en la pantalla de encargos. */
-const OFICIOS: Record<string, OficioEncargos> = {
-  webmaster: OFICIO_WEBMASTER,
-  velocista: OFICIO_VELOCISTA,
-  disenador: OFICIO_DISENADOR,
-  marketing: OFICIO_MARKETING,
-  administrativo: OFICIO_ADMINISTRATIVO,
-  reportes: OFICIO_REPORTES,
 };
 
 /**

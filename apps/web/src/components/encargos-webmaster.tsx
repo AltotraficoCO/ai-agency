@@ -179,6 +179,13 @@ export const OFICIO_REPORTES: OficioEncargos = {
   invitacion: "Solo lee. Te explica el negocio en una página, con las cifras de tu contabilidad.",
 };
 
+/**
+ * Las palabras de cada oficio, por su slug del catálogo. Se resuelve AQUÍ, en
+ * el navegador: un oficio lleva funciones dentro y del servidor solo puede
+ * viajar el nombre.
+ */
+export const OFICIOS: Record<string, OficioEncargos> = {};
+
 export const OFICIO_MARKETING: OficioEncargos = {
   foto: "/agentes/marketing-plastilina.webp",
   trabajando: "Revisando tus campañas…",
@@ -203,6 +210,15 @@ export const OFICIO_MARKETING: OficioEncargos = {
   invitacion:
     "Mira lo que gastas en anuncios, te dice qué está trayendo clientes y qué no, y te propone los cambios. Nunca mueve tu dinero sin que lo apruebes.",
 };
+
+Object.assign(OFICIOS, {
+  webmaster: OFICIO_WEBMASTER,
+  velocista: OFICIO_VELOCISTA,
+  disenador: OFICIO_DISENADOR,
+  marketing: OFICIO_MARKETING,
+  administrativo: OFICIO_ADMINISTRATIVO,
+  reportes: OFICIO_REPORTES,
+});
 
 const EN_CURSO = new Set<EncargoVista["estado"]>(["queued", "running"]);
 
@@ -239,15 +255,18 @@ export function EncargosWebmaster({
   sitio,
   encargos,
   avisos = [],
-  oficio = OFICIO_WEBMASTER,
+  oficio: oficioEntrada = OFICIO_WEBMASTER,
   encargar,
   decidir,
   responder,
   eliminar,
   vaciar,
   programado,
+  foto,
 }: {
   nombreAgente: string;
+  /** La cara del agente contratado. Si no viene, la del oficio. */
+  foto?: string | null;
   /** Lo que tiene conectado: el sitio del Webmaster, las cuentas de Marketing. */
   sitio: { nombre: string; url: string } | null;
   /**
@@ -258,7 +277,8 @@ export function EncargosWebmaster({
   programado?: { nodo: React.ReactNode; cuantos: number };
   encargos: EncargoVista[];
   /** Qué agente por encargo es. Por defecto, el Webmaster. */
-  oficio?: OficioEncargos;
+  /** El oficio por su slug del catálogo, o el objeto entero desde el propio cliente. */
+  oficio?: OficioEncargos | string;
   /** Lo que el Webmaster vio al vigilar el sitio, de lo más reciente a lo más viejo. */
   avisos?: AvisoDelSitio[];
   encargar: (datos: FormData) => Promise<Resultado>;
@@ -270,6 +290,8 @@ export function EncargosWebmaster({
   const final = React.useRef<HTMLDivElement>(null);
   const [texto, setTexto] = React.useState("");
   const [programadoAbierto, setProgramadoAbierto] = React.useState(false);
+  const oficioBase = typeof oficioEntrada === "string" ? (OFICIOS[oficioEntrada] ?? OFICIO_WEBMASTER) : oficioEntrada;
+  const oficio: OficioEncargos = foto ? { ...oficioBase, foto } : oficioBase;
   const [aviso, setAviso] = React.useState<Resultado | null>(null);
   const [vaciando, setVaciando] = React.useState(false);
   const [seleccionado, setSeleccionado] = React.useState<string | null>(null);
