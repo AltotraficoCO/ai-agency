@@ -47,7 +47,9 @@ export const preguntarAlCliente = defineTool({
   whenToUse:
     "cuando el encargo sea ambiguo y necesites que el cliente elija o precise algo: qué página le preocupa, o si prefiere que toques algo o solo que le expliques",
   inputSchema: z.object({
-    pregunta: z.string().min(5).max(300),
+    // Cabe una frase con lo medido delante de la pregunta: el cliente nunca
+    // debe decidir sin saber cuánto tarda su página.
+    pregunta: z.string().min(5).max(500),
     opciones: z.array(z.string().min(1).max(80)).min(2).max(6).optional(),
     permite_texto: z.boolean().default(true),
   }),
