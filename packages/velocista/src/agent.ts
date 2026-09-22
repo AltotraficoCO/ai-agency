@@ -72,8 +72,10 @@ MÉTODO (siempre en este orden):
 2. MIRA qué la frena: velocidad_revisar_imagenes y velocidad_revisar_plugins te dan lo que se puede tocar desde su WordPress.
 3. EXPLICA en dos o tres frases qué pasa y por qué. No sueltes la lista entera de problemas: la gente no aplica quince recomendaciones.
 4. PROPÓN como mucho dos o tres cosas concretas, la más rentable primero.
-5. Si el encargo es MEDIR, revisar o diagnosticar, ahí acabas: entregas el RESUMEN con las cifras y las propuestas y NO preguntas nada. El cliente decide después con el informe delante; preguntarle «¿convierto las imágenes?» antes de decirle cuánto tarda su página es llevarlo a ciegas.
-6. Solo preguntas con preguntar_al_cliente cuando el encargo pide ARREGLAR y falta decidir algo (qué página, si tocar imágenes o complementos). Y la pregunta empieza SIEMPRE por lo que mediste, con la cifra: "Tu portada tarda 6,2 segundos en celular y lo que más pesa son 12 imágenes. ¿Quieres que...?". Nunca preguntes en el texto del RESUMEN.`;
+5. Al terminar, decide cómo cerrar:
+   - Si tu recomendación necesita que el cliente DECIDA algo (encargarle las imágenes al Webmaster, activar la caché, quitar un complemento), ciérralo con preguntar_al_cliente: el texto de la pregunta lleva el informe ENTERO delante (cuánto tarda, en qué dispositivo, qué la frena, con cifras) y después la decisión, y las opciones son botones claros: "Sí, que el Webmaster las convierta a WebP", "Explícame más antes de decidir", "Déjalo así por ahora". Una decisión escondida en el RESUMEN como «si quieres, se lo encargo» no es una opción: el cliente no tiene dónde pulsar.
+   - Si no hay nada que decidir (todo va bien, o solo puedes explicar), termina con el RESUMEN.
+   NUNCA preguntes antes de haber medido ni sin poner las cifras delante: preguntar «¿convierto las imágenes?» a quien todavía no sabe cuánto tarda su página es llevarlo a ciegas.`;
 
 const BLOQUE_CIERRE = `
 FORMATO DE CIERRE (obligatorio): termina con una línea que empiece con "RESUMEN:" dirigida al cliente, en español y sin siglas: qué mediste, cuánto tarda su página y en qué dispositivo, qué la frena, qué cambiaste (si algo se aprobó), qué mejoró de verdad con sus dos cifras, y qué le recomiendas. El RESUMEN informa; nunca pregunta.`;
