@@ -141,6 +141,13 @@ export class GoogleAdsAdapter implements AdsPort {
 
   #token: { valor: string; expira: number } | null = null;
   #cuentas: readonly CuentaPublicitaria[] | null = null;
+  /**
+   * Por qué cuenta gestora se llegó a cada cuenta hija. Google exige mandar la
+   * gestora en `login-customer-id` al tocar una hija: sin eso contesta
+   * USER_PERMISSION_DENIED aunque el permiso sea correcto. Se aprende al
+   * listar las cuentas, que es el único momento en que se ve la jerarquía.
+   */
+  #gestoraDe = new Map<string, string>();
   /** `cuentaId:campanaId` → lo que hace falta para escribir. */
   readonly #internas = new Map<string, Interna>();
 
@@ -191,7 +198,11 @@ export class GoogleAdsAdapter implements AdsPort {
   }
 
   async #cabeceras(cuentaId?: string): Promise<Record<string, string>> {
-    const gestora = this.creds.loginCustomerId ? soloDigitos(this.creds.loginCustomerId) : undefined;
+    const gestora = this.creds.loginCustomerId
+      ? soloDigitos(this.creds.loginCustomerId)
+      : cuentaId
+        ? this.#gestoraDe.get(cuentaId)
+        : undefined;
     return {
       Authorization: `Bearer ${await this.#accessToken()}`,
       "content-type": "application/json",
@@ -269,6 +280,9 @@ export class GoogleAdsAdapter implements AdsPort {
         // Las gestoras no tienen campañas: listarlas solo confunde a quien elige.
         if (!hijaId || hija?.manager === true) continue;
         if (salida.some((c) => c.id === hijaId)) continue;
+        // Una hija que no es la propia cuenta accesible se alcanza a través de
+        // ella: esa es la gestora que hay que mandar al leerla o tocarla.
+        if (hijaId !== id && !this.#gestoraDe.has(hijaId)) this.#gestoraDe.set(hijaId, id);
         salida.push({
           id: hijaId,
           plataforma: this.plataforma,
@@ -286,6 +300,10 @@ export class GoogleAdsAdapter implements AdsPort {
 
   async campanas(input: { cuentaId: string; periodo: Periodo }): Promise<readonly Campana[]> {
     const cuentaId = soloDigitos(input.cuentaId);
+    // Si todavía no se listaron las cuentas, no se sabe por qué gestora se
+    // llega a esta: se aprende primero. Es una llamada, queda en caché, y si
+    // falla se sigue sin gestora: para una cuenta directa no hace falta.
+    if (!this.#cuentas) await this.cuentas().catch(() => undefined);
     const catalogo = soloCatalogo(input.periodo);
 
     // Sin métricas cuando solo se quiere saber cómo se llama y qué tiene puesto:

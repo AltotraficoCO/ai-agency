@@ -139,6 +139,25 @@ describe("Google Ads", () => {
     );
   });
 
+  it("al leer una cuenta hija manda la gestora por la que se llegó en login-customer-id", async () => {
+    // La cuenta accesible es la gestora 1234567890; la hija 2 cuelga de ella.
+    const { fetch, llamadas } = fetchFalso([
+      TOKEN_GOOGLE,
+      CUENTAS,
+      busqueda({
+        results: [
+          { customerClient: { id: "1234567890", descriptiveName: "Agencia", currencyCode: "COP", manager: true } },
+          { customerClient: { id: "2", descriptiveName: "Cliente", currencyCode: "COP", manager: false } },
+        ],
+      }),
+    ]);
+    const ads = crearAdsGoogle(credsGoogle(), { fetch });
+    await ads.campanas({ cuentaId: "2", periodo: PERIODO });
+    const lectura = llamadas.find((l) => l.url.includes("customers/2/googleAds:search"));
+    expect(lectura).toBeDefined();
+    expect((lectura!.init.headers as Record<string, string>)["login-customer-id"]).toBe("1234567890");
+  });
+
   it("escribe la moneda en mayúsculas aunque Google la mande en minúsculas", async () => {
     const { fetch } = fetchFalso([TOKEN_GOOGLE, CUENTAS, busqueda(FICHA)]);
     const cuentas = await crearAdsGoogle(credsGoogle(), { fetch }).cuentas();
