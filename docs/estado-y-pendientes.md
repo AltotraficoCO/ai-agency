@@ -185,18 +185,20 @@ Por urgencia:
 
 ## Lo primero que hay que hacer mañana
 
-1. **Marketing con datos reales**: «qué cuentas de ads hay» ya funcionó el
-   22-sep (listó las 37 cuentas de la agencia por la cuenta de administrador,
-   con su moneda: las claves de cifrado de Vercel y del VPS coinciden). Falta
-   «cómo van mis campañas este mes», la búsqueda con métricas.
-2. **Probar los otros agentes contra datos reales**, antes de construir el
-   séptimo. Google Ads enseñó la lección: cada adaptador sin estrenar trae
-   cuatro o cinco sorpresas. Faltan PageSpeed, Alegra y el de imágenes.
+1. **Probar los otros agentes contra datos reales**, antes de construir el
+   séptimo. Google Ads quedó probado entero el 22-sep (conexión, 37 cuentas
+   de la agencia, campañas con métricas de una cuenta hija) y costó seis
+   despliegues: cada adaptador sin estrenar trae cuatro o cinco sorpresas.
+   Faltan PageSpeed, Alegra y el de imágenes.
    - **Larry → Instrucciones**: cambiarle la foto y pulsar **Mejorar con IA**.
    - **Conectar Alegra** en solo lectura y pedirle a Reportes «cómo vamos».
    - **Velocista**: «mide mi web y dime qué la hace lenta», con la clave puesta.
    - **Webmaster + Diseñador**: un artículo con portada.
-3. **Vídeo de verificación de Google**, con el flujo ya funcionando.
+2. **Vídeo de verificación de Google**, con el flujo ya funcionando. Usar una
+   cuenta con campañas activas: las de Altotráfico están pausadas.
+3. **Dos detalles del agente de Marketing vistos el 22-sep**, sin tocar:
+   «este mes» lo leyó como «últimos 7 días», y al no tener Analytics lo dijo
+   bien pero gastó un paso en intentarlo.
 
 ---
 
