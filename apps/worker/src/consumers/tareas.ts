@@ -393,8 +393,12 @@ export class ConsumidorDeTareas implements Consumidor {
           en: new Date().toISOString(),
           agente: { slug: quien, nombre: nombreQuien },
         });
+        // El compañero empieza de cero: el historial y las aprobaciones son de
+        // quien llamó. Pasárselos hacía que el Webmaster «continuara» la
+        // conversación del Velocista y respondiera como si fuera él.
         const resultado = await this.#ejecutarAgente(input.slug, {
           ...e,
+          tarea: { ...e.tarea, mensajes: undefined, aprobaciones: undefined },
           cadena: [...e.cadena, quien],
           delegado: { titulo: input.titulo, detalle: input.detalle },
         });

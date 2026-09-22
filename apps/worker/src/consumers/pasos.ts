@@ -28,7 +28,12 @@ export class RegistroDePasos {
     log?: (mensaje: string) => void;
     intervaloMs?: number;
   }) {
-    this.#pasos = (o.previos ?? []).filter(esPasoTrabajo);
+    // Si se reanuda es porque alguien ya decidió: un paso que quedó
+    // «esperando» ya no espera, o el registro diría «esperando tu respuesta»
+    // para siempre después de que el cliente respondió.
+    this.#pasos = (o.previos ?? [])
+      .filter(esPasoTrabajo)
+      .map((p) => (p.estado === "esperando" ? { ...p, estado: "hecho" as const } : p));
     this.#guardar = o.guardar;
     this.#log = o.log ?? (() => {});
     this.#intervaloMs = o.intervaloMs ?? 1000;
