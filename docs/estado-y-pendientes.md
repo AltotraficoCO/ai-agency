@@ -162,6 +162,15 @@ conexión que no podía descifrar. Los tres corregidos de raíz.
 - **El trabajo programado** vive en un panel lateral desde la cabecera del
   agente, no bajo el chat. Las respuestas de los encargos se pintan con
   formato (negritas, listas), no con asteriscos.
+- **Velocista probado contra PageSpeed real**: primera medición real (portada
+  de vox.altotrafico-reseller.com, 10,7 s en celular, 10 imágenes pesadas).
+  Su guion: informe primero; si hay que decidir, la decisión son botones.
+- **Colaboración visible entre agentes**: cada paso lleva quién lo dio, el
+  compañero entra a la conversación con su cara y su nombre, no puede
+  preguntar al cliente (le responde a quien lo llamó) y, si necesita una
+  aprobación, su trabajo pasa a un encargo propio en su bandeja. Probado con
+  Velocista → Webmaster (conversión a WebP).
+- **«Continuar con Google» lo pide la app de Strappy**, no Supabase.
 - **Verificación de la app en Google enviada** con vídeo del flujo real
   (capturas de www.strappy.io con atencion@altotrafico.co, locución de
   ElevenLabs, voz Matilda). Las fuentes están en `.playwright-mcp/video/`
