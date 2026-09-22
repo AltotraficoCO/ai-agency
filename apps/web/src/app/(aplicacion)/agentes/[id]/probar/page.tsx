@@ -30,6 +30,7 @@ import { abrirSesion, leerHistorial, listarSesiones } from "@/lib/motor/simulado
 import { hayModeloReal } from "@/lib/motor/modelo";
 import { avisosDelSitio } from "@/lib/sitio/avisos-sitio";
 import { sitioDelEspacio } from "@/lib/sitio/sitio";
+import { conexionesDeAnuncios } from "@/lib/canales/anuncios";
 
 export const metadata = { title: "Probar el agente" };
 export const dynamic = "force-dynamic";
@@ -57,9 +58,10 @@ export default async function PaginaProbar({
   if (porEncargo) {
     const esWeb = porEncargo === "webmaster";
     const [sitio, encargos, avisos, programados] = await Promise.all([
-      // Marketing no trabaja sobre el WordPress: sus cuentas de anuncios se
-      // conectan aparte y todavía no hay adaptador de ninguna plataforma.
-      esWeb ? sitioDelEspacio(marco.actual.workspaceId) : Promise.resolve(null),
+      // Cada oficio tiene «lo suyo conectado»: el Webmaster, el WordPress;
+      // Marketing, sus plataformas de anuncios. Antes Marketing no miraba
+      // ninguna y decía «sin plataformas» con Google Ads conectado.
+      esWeb ? sitioDelEspacio(marco.actual.workspaceId) : plataformasConectadas(marco.actual.workspaceId),
       encargosDelAgente(marco.actual.workspaceId, id),
       // Lo que vio vigilando por su cuenta: se lee aquí porque es donde la
       // persona mira cuando piensa en su web.
@@ -188,4 +190,19 @@ function seccionDe(tipo: string) {
   return tipo === "conversational"
     ? { href: rutas.agentesWhatsapp, etiqueta: "Agentes de WhatsApp", ruta: rutas.agentesWhatsapp }
     : { href: rutas.agentes, etiqueta: "Tu equipo", ruta: rutas.agentes };
+}
+
+/**
+ * Las plataformas de anuncios activas, con la forma de «lo conectado» que
+ * entiende la pantalla de encargos: «Mira tus cuentas de Google Ads y Meta».
+ */
+async function plataformasConectadas(
+  workspaceId: string,
+): Promise<{ nombre: string; url: string; estado: string } | null> {
+  const activas = (await conexionesDeAnuncios(workspaceId)).filter((c) => c.estado === "active");
+  if (activas.length === 0) return null;
+  const nombres = activas.map((c) => c.nombre);
+  const nombre =
+    nombres.length === 1 ? nombres[0]! : `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
+  return { nombre, url: "/ajustes/canales", estado: "active" };
 }
