@@ -10,7 +10,7 @@
  * abre o lo cierra a mano, manda su elección.
  */
 import * as React from "react";
-import { Check, ChevronDown, CircleAlert, Clock, Loader2, X } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, Clock, Loader2, Users, X } from "lucide-react";
 import { cn } from "@strappy/ui";
 import { duracionLegible, horaCorta } from "./tiempo";
 
@@ -23,7 +23,30 @@ export type PasoVista = {
   readonly detalle?: string | null;
   /** ISO 8601. Sin fecha no se enseña hora ni duración. */
   readonly en?: string | null;
+  /** Quién dio el paso: el propio agente, o un compañero al que pidió ayuda. */
+  readonly agente?: { readonly slug: string; readonly nombre: string } | null;
 };
+
+/**
+ * Los pasos, en tramos por quién los dio. El primer agente que aparece es el
+ * dueño del encargo; cuando cambia, es que un compañero entró a ayudar, y ese
+ * tramo se pinta aparte con su nombre para que se vea la conversación entre
+ * los dos.
+ */
+type Tramo = { readonly agente: PasoVista["agente"]; readonly pasos: readonly PasoVista[] };
+
+function tramosPorAgente(pasos: readonly PasoVista[]): Tramo[] {
+  const salida: Tramo[] = [];
+  for (const paso of pasos) {
+    const ultimo = salida[salida.length - 1];
+    if (ultimo && (ultimo.agente?.slug ?? null) === (paso.agente?.slug ?? null)) {
+      salida[salida.length - 1] = { agente: ultimo.agente, pasos: [...ultimo.pasos, paso] };
+    } else {
+      salida.push({ agente: paso.agente ?? null, pasos: [paso] });
+    }
+  }
+  return salida;
+}
 
 export function RegistroTrabajo({
   pasos,
@@ -109,8 +132,36 @@ export function RegistroTrabajo({
                 Preparándome para empezar…
               </li>
             ) : null}
-            {pasos.map((paso, indice) => (
-              <li key={paso.id} className="strappy-slide-up relative flex gap-2.5">
+            {tramosPorAgente(pasos).flatMap((tramo, t, tramos) => {
+              const principal = tramos[0]?.agente?.slug ?? null;
+              const deCompanero = tramo.agente != null && tramo.agente.slug !== principal;
+              const cabecera = deCompanero ? (
+                <li
+                  key={`tramo-${t}`}
+                  className="strappy-slide-up ml-[34px] mt-1 flex items-center gap-2 border-l-2 border-[color-mix(in_oklab,var(--brand),transparent_50%)] pl-3 text-2xs font-semibold uppercase tracking-wide text-primary-fg"
+                >
+                  <Users size={12} strokeWidth={2} aria-hidden />
+                  {tramo.agente?.nombre} entra a ayudar
+                </li>
+              ) : null;
+              return [cabecera, ...tramo.pasos.map((paso) => renderPaso(paso, deCompanero))].filter(Boolean);
+            })}
+          </ol>
+        </div>
+      </div>
+    </div>
+  );
+
+  function renderPaso(paso: PasoVista, deCompanero: boolean) {
+    const indice = pasos.indexOf(paso);
+    return (
+              <li
+                key={paso.id}
+                className={cn(
+                  "strappy-slide-up relative flex gap-2.5",
+                  deCompanero && "ml-[34px] border-l-2 border-[color-mix(in_oklab,var(--brand),transparent_50%)] pl-3",
+                )}
+              >
                 {indice < total - 1 ? (
                   <span
                     aria-hidden
@@ -140,12 +191,8 @@ export function RegistroTrabajo({
                   ) : null}
                 </div>
               </li>
-            ))}
-          </ol>
-        </div>
-      </div>
-    </div>
-  );
+    );
+  }
 }
 
 /** El punto de la cabecera: late mientras trabaja; al acabar dice cómo acabó. */

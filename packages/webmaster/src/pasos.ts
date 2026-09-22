@@ -153,7 +153,12 @@ export function esPasoTrabajo(valor: unknown): valor is PasoTrabajo {
     typeof p["etiqueta"] === "string" &&
     (p["estado"] === "en_curso" || p["estado"] === "hecho" || p["estado"] === "error" || p["estado"] === "esperando") &&
     (p["detalle"] === null || typeof p["detalle"] === "string") &&
-    typeof p["en"] === "string"
+    typeof p["en"] === "string" &&
+    (p["agente"] === undefined ||
+      (typeof p["agente"] === "object" &&
+        p["agente"] !== null &&
+        typeof (p["agente"] as Record<string, unknown>)["slug"] === "string" &&
+        typeof (p["agente"] as Record<string, unknown>)["nombre"] === "string"))
   );
 }
 

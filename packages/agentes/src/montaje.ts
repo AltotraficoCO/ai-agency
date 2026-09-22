@@ -157,6 +157,7 @@ export function lanzarOficio(
     workspaceId: comun.workspaceId,
     tarea: comun.tarea,
     simulacion,
+    agentName: comun.agentName,
     ...(comun.mensajesPrevios ? { mensajesPrevios: comun.mensajesPrevios } : {}),
     ...(comun.aprobaciones ? { aprobaciones: comun.aprobaciones } : {}),
     ...(comun.abortSignal ? { abortSignal: comun.abortSignal } : {}),

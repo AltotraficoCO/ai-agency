@@ -140,6 +140,8 @@ export type EjecucionAgente = {
   readonly tarea: TareaEncargo;
   /** Primer contacto: el agente mira y propone, no cambia nada. */
   readonly simulacion: boolean;
+  /** Cómo se llama el agente en este espacio: firma cada paso del registro. */
+  readonly agentName?: string;
   /** Mensajes previos, si se está reanudando tras una aprobación. */
   readonly mensajesPrevios?: readonly ModelMessage[];
   /** Decisiones humanas que hay que inyectar antes de continuar. */
@@ -325,6 +327,7 @@ export async function ejecutarTareaDeAgente(input: EjecucionAgente): Promise<Res
         ...paso,
         detalle: paso.detalle ? oficio.limpiarSecretos(paso.detalle) : null,
         en: new Date().toISOString(),
+        agente: { slug: oficio.slug, nombre: input.agentName ?? oficio.slug },
       });
     } catch {
       // Quien escucha es el worker guardando en la base: si falla, el trabajo sigue.

@@ -128,4 +128,10 @@ export type PasoTrabajo = {
   readonly detalle: string | null;
   /** ISO 8601 del momento en que empezó el paso. */
   readonly en: string;
+  /**
+   * Quién dio el paso. Cuando un agente le pide ayuda a un compañero, los
+   * pasos del compañero van al mismo encargo: sin esto el cliente ve una
+   * lista en la que no se sabe quién hizo qué.
+   */
+  readonly agente?: { readonly slug: string; readonly nombre: string };
 };

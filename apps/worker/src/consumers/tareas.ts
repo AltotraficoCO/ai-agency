@@ -372,6 +372,23 @@ export class ConsumidorDeTareas implements Consumidor {
       companeros: () => nomina.companeros({ workspaceId: e.tarea.workspaceId, exceptoSlug: quien }),
       encargar: async (input: EncargoDelegado): Promise<ResultadoTarea> => {
         e.decir(`${quien} le pide ayuda a ${input.slug}: "${input.titulo}"`);
+        // La petición y la respuesta se anotan como pasos del encargo, con
+        // quién habla en cada uno: el cliente ve la conversación entre los
+        // dos, no una lista de pasos sueltos sin dueño.
+        const [nombreQuien, nombreCompanero] = await Promise.all([
+          this.#nombreDe(e, quien),
+          this.#nombreDe(e, input.slug),
+        ]);
+        const marca = Date.now();
+        e.registro.anotar({
+          id: `colaboracion-${marca}-pide`,
+          herramienta: "colaboracion",
+          etiqueta: `Le pide ayuda a ${nombreCompanero}`,
+          detalle: input.titulo,
+          estado: "hecho",
+          en: new Date().toISOString(),
+          agente: { slug: quien, nombre: nombreQuien },
+        });
         const resultado = await this.#ejecutarAgente(input.slug, {
           ...e,
           cadena: [...e.cadena, quien],
@@ -381,10 +398,33 @@ export class ConsumidorDeTareas implements Consumidor {
         e.decir(
           `${input.slug} terminó (${resultado.estado}) · ${resultado.evidencia.creditos} créditos`,
         );
+        e.registro.anotar({
+          id: `colaboracion-${marca}-responde`,
+          herramienta: "colaboracion",
+          etiqueta:
+            resultado.estado === "completada" ? `Le responde a ${nombreQuien}` : `No pudo terminar lo que pidió ${nombreQuien}`,
+          detalle:
+            resultado.estado === "fallida" ? resultado.error : resultado.resumen,
+          estado: resultado.estado === "completada" ? "hecho" : "error",
+          en: new Date().toISOString(),
+          agente: { slug: input.slug, nombre: nombreCompanero },
+        });
         return resultado;
       },
     };
     return puerto;
+  }
+
+  /** Cómo se llama en este espacio el agente de un oficio; el slug si no se sabe. */
+  async #nombreDe(e: Encargo, slug: string): Promise<string> {
+    const nomina = this.#o.puertos.nomina;
+    if (!nomina) return slug;
+    try {
+      const companeros = await nomina.companeros({ workspaceId: e.tarea.workspaceId, exceptoSlug: "" });
+      return companeros.find((c) => c.slug === slug)?.nombre ?? slug;
+    } catch {
+      return slug;
+    }
   }
 
   /** La nómina, ya resuelta, para ofrecérsela al modelo en su prompt. */
