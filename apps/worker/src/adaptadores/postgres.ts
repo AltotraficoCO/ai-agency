@@ -180,7 +180,7 @@ export class SitiosPostgres implements SitePort {
       tipo,
       url: f.metadata?.url ?? ("url" in credenciales ? credenciales.url : credenciales.baseUrl),
       credenciales,
-      agentName: f.metadata?.agent_name ?? "Max",
+      agentName: f.metadata?.agent_name ?? "Webmaster",
       // Solo simula si se pide expresamente: el Webmaster ejecuta desde el
       // primer encargo, con backup antes de cada cambio y aprobación en lo delicado.
       primerContacto: f.metadata?.primer_contacto === true,
