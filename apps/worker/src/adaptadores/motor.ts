@@ -19,11 +19,16 @@ import { cargarTablaDeModelos, cargarTarifas, crearCreditLedger } from "@strappy
 import type { MotorTarea, SqlPool, TareaReclamada } from "../ports.js";
 
 /**
- * Planes que incluyen el modo Max. Son las claves técnicas de
- * `subscriptions.plan`; el nombre comercial de cada una está en
- * `apps/web/src/lib/negocio/planes.ts` (Scale-Up es `growth`).
+ * Planes que pueden usar el modo Max: TODOS los de pago. Quién lo enciende y
+ * en qué agente lo decide el cliente (`agents.mode`), no el plan: Max gasta
+ * más créditos de los suyos, así que negarlo a quien paga es decidir por él.
+ * El gratuito no lo tiene: ahí los créditos los regalamos nosotros.
+ *
+ * Son las claves técnicas de `subscriptions.plan`; el nombre comercial de cada
+ * una está en `apps/web/src/lib/negocio/planes.ts` (Pro es `starter`,
+ * Scale-Up es `growth`, Prime es `business`).
  */
-const PLANES_CON_MAX = new Set(["growth", "business", "enterprise"]);
+const PLANES_CON_MAX = new Set(["starter", "growth", "business", "enterprise"]);
 
 export class MotorPorPlan {
   readonly #pool: SqlPool;
@@ -72,6 +77,8 @@ export class MotorPorPlan {
       [tarea.workspaceId, tarea.agentId ?? null],
     );
     const fila = rows[0];
+    // Sin fila de suscripción no hay plan de pago: lite. Con plan de pago, lo
+    // que diga el agente.
     return fila?.modo === "max" && PLANES_CON_MAX.has(fila.plan ?? "") ? "max" : "lite";
   }
 

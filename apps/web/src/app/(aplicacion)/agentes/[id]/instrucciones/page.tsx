@@ -5,8 +5,10 @@ import { EnlaceBoton } from "@/components/enlace-boton";
 import { MarcoApp } from "@/components/marco-app";
 import { ConstructorAgente } from "@/components/constructor-agente";
 import { SelectorFoto } from "@/components/agentes/selector-foto";
+import { InterruptorMax } from "@/components/agentes/interruptor-max";
 import { datosDelMarco } from "@/lib/marco";
 import { leerAgente } from "@/lib/agentes";
+import { conEspacio } from "@/lib/db/pool";
 
 export const metadata = { title: "Instrucciones del agente" };
 export const dynamic = "force-dynamic";
@@ -20,6 +22,15 @@ export default async function PaginaInstrucciones({
   const marco = await datosDelMarco();
   const agente = await leerAgente(marco.actual.workspaceId, id);
   if (!agente) notFound();
+  // El modo Max está en todos los planes de pago; lo enciende el cliente por
+  // agente. En el gratuito se enseña apagado y se dice por qué.
+  const planDePago = await conEspacio(marco.actual.workspaceId, async (scope) => {
+    const { rows } = await scope.query<{ plan: string }>(
+      `select plan from public.subscriptions where workspace_id = $1 limit 1`,
+      [scope.workspaceId],
+    );
+    return (rows[0]?.plan ?? "trial") !== "trial";
+  });
   const seccion = seccionDe(agente.tipo);
 
   return (
@@ -49,12 +60,15 @@ export default async function PaginaInstrucciones({
           // venga. Antes solo se ofrecia a los de WhatsApp, asi que a un agente
           // contratado no habia forma de cambiarsela desde su propia ficha: el
           // cliente lo busco justo aqui, que es donde tiene sentido buscarlo.
-          <SelectorFoto
-            agentId={id}
-            actual={agente.avatar}
-            nombre={agente.nombre}
-            variante={agente.tipo === "conversational" ? "whatsapp" : "catalogo"}
-          />
+          <div className="flex flex-col gap-3">
+            <SelectorFoto
+              agentId={id}
+              actual={agente.avatar}
+              nombre={agente.nombre}
+              variante={agente.tipo === "conversational" ? "whatsapp" : "catalogo"}
+            />
+            <InterruptorMax agentId={id} modo={agente.modo} planDePago={planDePago} />
+          </div>
         }
       />
     </MarcoApp>

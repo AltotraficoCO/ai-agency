@@ -189,3 +189,48 @@ export async function cambiarCaraAgente(agentId: string, cara: string): Promise<
     return { ok: false, error: mensaje(error) };
   }
 }
+
+/**
+ * Enciende o apaga el modo Max en UN agente.
+ *
+ * Max usa el modelo caro (Claude Sonnet 5 en vez de DeepSeek): acierta más a
+ * la primera en encargos largos y cuesta bastante más. Lo decide el cliente,
+ * agente por agente, y solo en los planes de pago: en el gratuito los créditos
+ * los ponemos nosotros. El worker vuelve a comprobarlo antes de cada tarea
+ * (`apps/worker/src/adaptadores/motor.ts`): esto es la interfaz, no la puerta.
+ */
+export async function cambiarModoAgente(agentId: string, max: boolean): Promise<ResultadoAccion> {
+  try {
+    const usuario = await exigirUsuarioActual();
+    if (usuario.rol !== "owner" && usuario.rol !== "admin") {
+      return { ok: false, error: "Solo el propietario o un administrador pueden cambiar el modo de un agente." };
+    }
+    const hecho = await conEspacio(usuario.workspaceId, async (scope) => {
+      if (max) {
+        const { rows } = await scope.query<{ plan: string }>(
+          `select plan from public.subscriptions where workspace_id = $1 limit 1`,
+          [scope.workspaceId],
+        );
+        const plan = rows[0]?.plan ?? "trial";
+        if (plan === "trial") return "sin_plan" as const;
+      }
+      const { rows } = await scope.query<{ id: string }>(
+        `update public.agents set mode = $3, updated_at = now()
+          where workspace_id = $1 and id = $2
+        returning id`,
+        [scope.workspaceId, agentId, max ? "max" : "lite"],
+      );
+      return rows[0] ? ("ok" as const) : ("no_existe" as const);
+    });
+    if (hecho === "sin_plan") {
+      return { ok: false, error: "El modo Max está en los planes de pago. Cambia de plan en Ajustes → Facturación." };
+    }
+    if (hecho === "no_existe") return { ok: false, error: "Ese agente ya no está en tu espacio." };
+
+    revalidatePath(`/agentes/${agentId}`);
+    revalidatePath(`/agentes/${agentId}/instrucciones`);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: mensaje(error) };
+  }
+}

@@ -63,6 +63,7 @@ export const PLANES: readonly Plan[] = [
     incluye: [
       "100.000 créditos al mes",
       "Agentes ilimitados",
+      "Modo max en los agentes que lo necesiten",
       "Analítica completa y exportable",
       "Recargas que no caducan",
     ],
