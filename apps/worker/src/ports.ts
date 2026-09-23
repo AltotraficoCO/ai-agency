@@ -105,8 +105,12 @@ export interface TaskQueuePort {
    * bloquearse entre ellos y sin que dos se lleven la misma tarea.
    */
   reclamar(input: { workerId: string; arrendamientoMs: number }): Promise<TareaReclamada | null>;
-  /** Renueva el arrendamiento de una tarea larga para que nadie la robe. */
-  latido(input: { taskId: string; workerId: string; arrendamientoMs: number }): Promise<void>;
+  /**
+   * Renueva el arrendamiento de una tarea larga para que nadie la robe, y
+   * dice si la tarea sigue siendo de este worker. `false` significa que hay
+   * que soltarla: o el cliente la paró, o se la llevó otro.
+   */
+  latido(input: { taskId: string; workerId: string; arrendamientoMs: number }): Promise<boolean>;
   completar(input: { taskId: string; workerId: string } & CierreTarea): Promise<void>;
   /** Queda suspendida hasta que alguien decida sobre las aprobaciones. */
   suspender(input: {

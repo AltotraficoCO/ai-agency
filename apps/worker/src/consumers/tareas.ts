@@ -109,6 +109,8 @@ type Encargo = {
   /** Agentes que ya intervinieron, del primero al actual. Vacío si lo pidió una persona. */
   readonly cadena: readonly string[];
   /** Lo que gastan los compañeros. Se acumula para cobrarlo todo junto una vez. */
+  /** Se dispara cuando el cliente para el encargo o lo reclama otro worker. */
+  readonly senal: AbortSignal;
   readonly extra: {
     creditos: number;
     /**
@@ -164,7 +166,10 @@ export class ConsumidorDeTareas implements Consumidor {
     this.#o = {
       ...o,
       arrendamientoMs: o.arrendamientoMs ?? 11 * 60 * 1000,
-      latidoMs: o.latidoMs ?? 30_000,
+      // Cada diez segundos y no cada treinta: este latido es también lo que
+      // detecta que el cliente pulsó «Detener», y esperar medio minuto viendo
+      // al agente seguir trabajando no es detenerlo.
+      latidoMs: o.latidoMs ?? 10_000,
     };
   }
 
@@ -205,9 +210,21 @@ export class ConsumidorDeTareas implements Consumidor {
       log: decir,
     });
 
+    // Parar un encargo desde la pantalla del cliente pasa por aquí: la web lo
+    // marca `cancelled`, el latido siguiente ya no lo encuentra `running`, y
+    // esto aborta lo que el agente esté haciendo. Sin esto no había forma de
+    // detener un encargo: había que esperar sus diez minutos viendo cómo
+    // gastaba créditos.
+    const cancelacion = new AbortController();
     const latido = setInterval(() => {
       void puertos.cola
         .latido({ taskId: tarea.id, workerId, arrendamientoMs: this.#o.arrendamientoMs })
+        .then((sigueSiendoNuestra) => {
+          if (!sigueSiendoNuestra && !cancelacion.signal.aborted) {
+            decir("el encargo se detuvo: lo paró el cliente o lo reclamó otro worker");
+            cancelacion.abort();
+          }
+        })
         .catch(() => {});
     }, this.#o.latidoMs);
 
@@ -229,6 +246,7 @@ export class ConsumidorDeTareas implements Consumidor {
         registro,
         decir,
         cadena: [],
+        senal: cancelacion.signal,
         extra,
       });
       await registro.cerrar(resultado.estado);
@@ -372,6 +390,7 @@ export class ConsumidorDeTareas implements Consumidor {
       ...(tarea.aprobaciones && !this.#esperaDeUnCompanero(tarea)
         ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] }
         : {}),
+      abortSignal: e.senal,
       onEvento: decir,
       alAvanzar: (paso) => registro.anotar(paso),
     };

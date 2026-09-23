@@ -6,7 +6,9 @@
 import type { CierreTarea, TareaReclamada, TaskQueuePort } from "../ports.js";
 
 export type TareaEnMemoria = { -readonly [K in keyof TareaReclamada]: TareaReclamada[K] } & {
-  estado: "queued" | "running" | "done" | "failed" | "esperando_aprobacion";
+  // `cancelled` es lo que escribe la web cuando el cliente para un encargo:
+  // el doble tiene que poder representarlo o no se puede probar la parada.
+  estado: "queued" | "running" | "done" | "failed" | "esperando_aprobacion" | "cancelled";
   workerId?: string;
   leaseHasta?: number;
   resumen?: string;
@@ -58,9 +60,11 @@ export class ColaEnMemoria implements TaskQueuePort {
     return { ...fila };
   }
 
-  async latido(input: { taskId: string; workerId: string; arrendamientoMs: number }): Promise<void> {
+  async latido(input: { taskId: string; workerId: string; arrendamientoMs: number }): Promise<boolean> {
     const t = this.buscar(input.taskId);
-    if (t && t.workerId === input.workerId) t.leaseHasta = this.#ahora() + input.arrendamientoMs;
+    if (!t || t.workerId !== input.workerId || t.estado !== "running") return false;
+    t.leaseHasta = this.#ahora() + input.arrendamientoMs;
+    return true;
   }
 
   async completar(input: { taskId: string; workerId: string } & CierreTarea): Promise<void> {

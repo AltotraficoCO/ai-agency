@@ -286,6 +286,18 @@ const MAX_RONDAS_DECIDIDAS = 3;
  */
 const PASOS_PARA_CERRAR = 8;
 
+/**
+ * Tope de tokens de SALIDA por llamada al modelo.
+ *
+ * Sin esto el proveedor reserva el máximo del modelo —131.072 tokens con los
+ * de contexto de un millón— y cobra la reserva por adelantado contra el saldo
+ * de la clave. El 22-sep eso tumbó los encargos con la clave a medias: «you
+ * requested up to 131072 tokens, but can only afford 35399». Y no hacía falta
+ * ninguno: un paso de agente es una llamada a herramienta o un RESUMEN, no un
+ * libro. Cuatro mil tokens son unas 3.000 palabras de una tirada.
+ */
+const MAX_TOKENS_DE_SALIDA = 4000;
+
 // ---------------------------------------------------------------------------
 // El bucle
 // ---------------------------------------------------------------------------
@@ -474,6 +486,7 @@ export async function ejecutarTareaDeAgente(input: EjecucionAgente): Promise<Res
         system: sistema,
         messages: mensajes,
         tools,
+        maxOutputTokens: MAX_TOKENS_DE_SALIDA,
         // El tope de acciones del catálogo. No es una sugerencia: es lo que
         // impide que una tarea mal entendida se coma el saldo del cliente. Y
         // tras una pregunta al cliente se para: la respuesta decide lo demás.
@@ -596,6 +609,7 @@ export async function ejecutarTareaDeAgente(input: EjecucionAgente): Promise<Res
         system: sistema,
         messages: mensajes,
         tools,
+        maxOutputTokens: MAX_TOKENS_DE_SALIDA,
         stopWhen: [stepCountIs(PASOS_PARA_CERRAR), () => freno !== null],
         experimental_context: oficio.contexto,
         abortSignal: señal,

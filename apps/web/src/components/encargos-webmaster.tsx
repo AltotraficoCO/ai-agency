@@ -28,6 +28,7 @@ import {
   CalendarClock,
   Send,
   ShieldAlert,
+  CircleStop,
   Trash2,
 } from "lucide-react";
 import { Badge, Button, Drawer, DrawerContent, IndicadorEscribiendo, Input, Textarea, cn } from "@strappy/ui";
@@ -216,6 +217,7 @@ type Acciones = {
   decidir: (aprobacionId: string, aprobada: boolean) => Promise<Resultado>;
   responder: (aprobacionId: string, respuesta: string) => Promise<Resultado>;
   eliminar: (taskId: string) => Promise<Resultado>;
+  parar: (taskId: string) => Promise<Resultado>;
 };
 
 /**
@@ -241,6 +243,7 @@ export function EncargosWebmaster({
   decidir,
   responder,
   eliminar,
+  parar,
   vaciar,
   programado,
   foto,
@@ -488,6 +491,7 @@ export function EncargosWebmaster({
                   decidir={decidir}
                   responder={responder}
                   eliminar={eliminar}
+                  parar={parar}
                   equipo={equipo}
                 />
               ))}
@@ -623,6 +627,7 @@ function Encargo({
   decidir,
   responder,
   eliminar,
+  parar,
 }: {
   encargo: EncargoVista;
   nombreAgente: string;
@@ -632,6 +637,7 @@ function Encargo({
 } & Acciones) {
   const router = useRouter();
   const [borrando, setBorrando] = React.useState(false);
+  const [parando, setParando] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const etiqueta = ETIQUETAS[encargo.estado];
   const enCurso = EN_CURSO.has(encargo.estado);
@@ -650,6 +656,23 @@ function Encargo({
     else setError(resultado.error);
   }
 
+  async function detener() {
+    if (
+      !window.confirm(
+        "¿Parar este encargo? Lo que el agente ya cambió en tu sitio se queda como está, " +
+          "y solo se te cobran los créditos gastados hasta ahora.",
+      )
+    ) {
+      return;
+    }
+    setParando(true);
+    setError(null);
+    const resultado = await parar(encargo.id);
+    setParando(false);
+    if (resultado.ok) router.refresh();
+    else setError(resultado.error);
+  }
+
   return (
     <li
       id={`encargo-${encargo.id}`}
@@ -660,6 +683,21 @@ function Encargo({
     >
       {/* Lo que pidió la persona */}
       <div className="flex items-start justify-end gap-2">
+        {/* Parar lo que está en marcha. Tarda unos segundos: el worker lo suelta
+            en su siguiente latido, y hasta entonces sigue siendo suyo. */}
+        {enCurso && (
+          <button
+            type="button"
+            onClick={detener}
+            disabled={parando}
+            aria-label="Parar este encargo"
+            title="Parar este encargo"
+            className="mt-1.5 flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-2xs text-fg-muted transition-colors hover:bg-danger-soft hover:text-danger-fg disabled:opacity-40"
+          >
+            <CircleStop size={13} strokeWidth={1.75} aria-hidden />
+            {parando ? "Parando…" : "Parar"}
+          </button>
+        )}
         {encargo.estado !== "running" && (
           <button
             type="button"

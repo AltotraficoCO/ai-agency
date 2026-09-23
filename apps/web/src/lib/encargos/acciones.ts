@@ -8,6 +8,7 @@ import {
   crearEncargo,
   decidirAprobacion,
   eliminarEncargo,
+  pararEncargo,
   responderPregunta,
   vaciarEncargos,
 } from "./encargos";
@@ -80,6 +81,20 @@ export async function accionResponderPregunta(
 
   revalidatePath(`/agentes/${agentId}/probar`);
   return { ok: true, mensaje: "Respuesta enviada. Sigo con el encargo." };
+}
+
+export async function accionPararEncargo(agentId: string, taskId: string): Promise<Resultado> {
+  const usuario = await exigirUsuarioActual();
+  if (!PAPELES_QUE_ENCARGAN.has(usuario.rol)) {
+    return { ok: false, error: "Tu papel en este espacio no permite parar encargos." };
+  }
+  const resultado = await pararEncargo({ workspaceId: usuario.workspaceId, agentId, taskId });
+  if (!resultado.ok) return resultado;
+  revalidatePath(`/agentes/${agentId}/probar`);
+  return {
+    ok: true,
+    mensaje: "Parando. El agente suelta el encargo en unos segundos; lo que ya cambió se queda.",
+  };
 }
 
 export async function accionEliminarEncargo(agentId: string, taskId: string): Promise<Resultado> {

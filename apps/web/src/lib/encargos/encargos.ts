@@ -479,6 +479,42 @@ export function respuestasDeAprobacion(
  * tiene tomado y seguiría tocando el sitio aunque la fila desapareciera. Sus
  * aprobaciones se van en cascada; los backups se conservan, sin la tarea.
  */
+/**
+ * Parar un encargo en marcha.
+ *
+ * No hay que matar ningún proceso: el worker renueva el arrendamiento de la
+ * tarea cada diez segundos y esa renovación solo funciona mientras la tarea
+ * siga `running`. Marcarla `cancelled` hace que la siguiente renovación falle,
+ * y el worker aborta lo que el agente esté haciendo. De ahí que el corte tarde
+ * unos segundos: es el tiempo hasta el próximo latido.
+ *
+ * Lo ya hecho en el sitio del cliente NO se deshace, porque deshacerlo a
+ * ciegas sería peor: cada cambio dejó su copia de seguridad y el agente sabe
+ * restaurarla si se lo pide. Los créditos gastados hasta el corte se cobran;
+ * los que no se llegaron a gastar, no.
+ */
+export async function pararEncargo(input: {
+  workspaceId: string;
+  agentId: string;
+  taskId: string;
+}): Promise<ResultadoEncargo> {
+  return conEspacio(input.workspaceId, async (scope) => {
+    const { rows } = await scope.query<{ estado: EstadoEncargo }>(
+      `update public.agent_tasks
+          set estado = 'cancelled', updated_at = now(), lease_until = null,
+              resumen = coalesce(nullif(resumen, ''), 'Lo paraste tú antes de que terminara.')
+        where workspace_id = $1 and agent_id = $2 and id = $3
+          and estado in ('queued', 'running', 'esperando_aprobacion')
+        returning estado`,
+      [input.workspaceId, input.agentId, input.taskId],
+    );
+    if (!rows[0]) {
+      return { ok: false, error: "Ese encargo ya no está en marcha." };
+    }
+    return { ok: true };
+  });
+}
+
 export async function eliminarEncargo(input: {
   workspaceId: string;
   agentId: string;

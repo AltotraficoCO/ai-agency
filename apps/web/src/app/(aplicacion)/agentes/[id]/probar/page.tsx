@@ -12,6 +12,7 @@ import { leerAgente, listarAgentes } from "@/lib/agentes";
 import {
   accionDecidirAprobacion,
   accionEliminarEncargo,
+  accionPararEncargo,
   accionEncargar,
   accionResponderPregunta,
   accionVaciarEncargos,
@@ -117,6 +118,7 @@ export default async function PaginaProbar({
           decidir={accionDecidirAprobacion.bind(null, id)}
           responder={accionResponderPregunta.bind(null, id)}
           eliminar={accionEliminarEncargo.bind(null, id)}
+          parar={accionPararEncargo.bind(null, id)}
           vaciar={accionVaciarEncargos.bind(null, id)}
           programado={{
             cuantos: programados.length,

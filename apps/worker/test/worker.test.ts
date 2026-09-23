@@ -403,3 +403,36 @@ describe("un consumidor que falla no puede tumbar al worker", () => {
     await new Promise((r) => setTimeout(r, 10));
   });
 });
+
+describe("parar un encargo en marcha", () => {
+  it("el latido deja de renovar en cuanto la tarea deja de estar en curso", async () => {
+    // Es el mecanismo entero: la web marca la tarea `cancelled`, el latido
+    // siguiente ya no la encuentra en curso y devuelve false, y el consumidor
+    // aborta al agente. Sin esto no había forma de parar un encargo: había que
+    // esperar sus diez minutos viendo cómo gastaba créditos.
+    const cola = new ColaEnMemoria();
+    cola.encolar({
+      id: "task_parar",
+      workspaceId: "ws_1",
+      siteId: "site_1",
+      agente: "webmaster",
+      titulo: "Arregla el blog",
+      detalle: null,
+    });
+
+    const tarea = await cola.reclamar({ workerId: "w1", arrendamientoMs: 60_000 });
+    expect(tarea?.id).toBe("task_parar");
+
+    // Mientras sigue siendo suya, el latido renueva.
+    expect(await cola.latido({ taskId: "task_parar", workerId: "w1", arrendamientoMs: 60_000 })).toBe(
+      true,
+    );
+
+    // El cliente la para desde su pantalla.
+    cola.buscar("task_parar")!.estado = "cancelled";
+
+    expect(await cola.latido({ taskId: "task_parar", workerId: "w1", arrendamientoMs: 60_000 })).toBe(
+      false,
+    );
+  });
+});

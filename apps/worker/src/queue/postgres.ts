@@ -123,13 +123,21 @@ export class ColaPostgres implements TaskQueuePort {
     taskId: string;
     workerId: string;
     arrendamientoMs: number;
-  }): Promise<void> {
-    await this.#pool.query(
+  }): Promise<boolean> {
+    // Devuelve si la tarea SIGUE siendo nuestra. Deja de serlo cuando el
+    // cliente la para desde su pantalla (pasa a `cancelled`) o cuando otro
+    // worker se la llevó. En los dos casos hay que soltarla: seguir escribiendo
+    // en el sitio de alguien que pulsó «Detener» es lo peor que puede pasar.
+    // `returning id` y no `rowCount`: el puerto de SQL del worker solo expone
+    // `rows`, que es lo mismo que necesita la web y menos superficie que atar.
+    const { rows } = await this.#pool.query<{ id: string }>(
       `update ${this.#tabla}
           set lease_until = now() + ($3::bigint * interval '1 millisecond'), updated_at = now()
-        where id = $1 and worker_id = $2 and estado = 'running'`,
+        where id = $1 and worker_id = $2 and estado = 'running'
+        returning id`,
       [input.taskId, input.workerId, input.arrendamientoMs],
     );
+    return rows.length > 0;
   }
 
   async completar(input: { taskId: string; workerId: string } & CierreTarea): Promise<void> {
@@ -138,11 +146,13 @@ export class ColaPostgres implements TaskQueuePort {
           set estado = 'done', resumen = $3, evidencia = $4::jsonb, creditos = $5,
               mensajes = null, aprobaciones = null,
               finished_at = now(), updated_at = now(), lease_until = null
-        where id = $1 and worker_id = $2`,
+        where id = $1 and worker_id = $2 and estado = 'running'`,
       [input.taskId, input.workerId, input.resumen, JSON.stringify(input.evidencia), input.creditos],
     );
   }
 
+  // `and estado = 'running'` en suspender y fallar: si el cliente paró el
+  // encargo mientras el agente terminaba, el resultado no puede resucitarlo.
   async suspender(input: {
     taskId: string;
     workerId: string;
@@ -158,7 +168,7 @@ export class ColaPostgres implements TaskQueuePort {
               creditos = coalesce(creditos, 0) + $5, mensajes = $6::jsonb,
               intentos = greatest(intentos - 1, 0),
               updated_at = now(), lease_until = null
-        where id = $1 and worker_id = $2`,
+        where id = $1 and worker_id = $2 and estado = 'running'`,
       [
         input.taskId,
         input.workerId,
@@ -184,7 +194,7 @@ export class ColaPostgres implements TaskQueuePort {
               error = $3, error_motivo = $7, evidencia = $4::jsonb,
               finished_at = case when $5 and intentos < $6 then null else now() end,
               updated_at = now(), lease_until = null
-        where id = $1 and worker_id = $2`,
+        where id = $1 and worker_id = $2 and estado = 'running'`,
       [
         input.taskId,
         input.workerId,
