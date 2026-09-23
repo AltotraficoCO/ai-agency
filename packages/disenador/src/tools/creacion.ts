@@ -53,9 +53,10 @@ export const imgGenerar = defineTool({
   sensitive: false,
   // Respaldo, no precio. El de verdad lo pone el bucle en `rates.tools` a
   // partir de la tarifa del generador que vaya a dibujar (Gemini en Lite,
-  // GPT Image 1 en Max, cinco veces más caro); ver la migración 0046. Este
-  // número solo se aplica si esa tarifa no se pudo leer.
-  creditCost: 100,
+  // GPT Image 1 en Max, cinco veces más caro); ver las migraciones 0046 y
+  // 0049. Este número solo se aplica si esa tarifa no se pudo leer, y es el
+  // del generador barato al 20% de margen.
+  creditCost: 47,
   scopes: [SCOPES.imagenCrear],
   effect: "write_external",
   kind: "http",
@@ -103,7 +104,7 @@ export const imgGenerar = defineTool({
       medida: `${medida.ancho}x${medida.alto}`,
       estilo_de_la_marca: diseno.estilo?.origen === "sitio",
       // Lo que se le cobrará de verdad: el mismo número que usa el bucle.
-      creditos: diseno.creditosPorImagen ?? 100,
+      creditos: diseno.creditosPorImagen ?? 47,
       te_quedan: restantes,
       nota:
         restantes === 0

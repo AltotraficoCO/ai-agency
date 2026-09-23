@@ -46,9 +46,11 @@ export type { PasoTrabajo } from "./pasos.js";
  * (`diseno.creditosPorImagen`) y sale de `credit_rates` según el generador que
  * vaya a dibujar: en Lite es Gemini y en Max GPT Image 1, que cuesta cinco
  * veces más. Este número solo se usa si la tarifa no se pudo leer, y está
- * puesto en lo que cuesta la barata para no cobrar de más por un fallo nuestro.
+ * puesto en lo que cuesta la barata para no cobrar de más por un fallo nuestro:
+ * Gemini son 0,039 USD, que con el 20% del negocio son 46,8, redondeado hacia
+ * arriba como todo lo que se cobra.
  */
-export const CREDITOS_POR_IMAGEN = 100;
+export const CREDITOS_POR_IMAGEN = 47;
 
 export function herramientasDe(agent: DisenadorAgentDef): readonly ToolDef<never, unknown>[] {
   return filtrarHerramientas(HERRAMIENTAS_DISENADOR, agent.allowedToolPatterns);

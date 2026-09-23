@@ -124,8 +124,9 @@ describe("encargo del Diseñador", () => {
     expect(evidencia.capturas[0]?.base64).toBe(PNG_MINIMO);
     expect(evidencia.capturas[0]?.mimeType).toBe("image/png");
 
-    // Dibujar cuesta: una imagen son 100 créditos más los tokens.
-    expect(tarea.creditos).toBeGreaterThanOrEqual(100);
+    // Dibujar cuesta: una imagen son 47 créditos (el generador de Lite al 20%
+    // de margen) más los tokens del encargo.
+    expect(tarea.creditos).toBeGreaterThanOrEqual(47);
     // Y no se subió nada al sitio, porque no se pidió.
     expect(m.medios.subidas).toHaveLength(0);
   });
