@@ -105,6 +105,7 @@ const ENTRADAS_WP: Record<string, unknown> = {
     plantilla_id: 78,
     cambio: { accion: "anadir_enlace", texto: "Strappy", url: "https://strappy.vercel.app/" },
   },
+  wp_cambios_recientes: { limite: 5 },
   wp_leer_diseno_pagina: { id: 2 },
   wp_editar_diseno_pagina: {
     id: 2,

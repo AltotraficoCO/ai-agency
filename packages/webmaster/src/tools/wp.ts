@@ -511,6 +511,62 @@ export const wpBorrarContenido = defineTool({
   },
 });
 
+/**
+ * Qué se puede deshacer.
+ *
+ * Cada cambio guarda una copia de lo anterior, pero su identificador se
+ * quedaba en el resumen del encargo que lo hizo: en un encargo NUEVO, «devuelve
+ * la portada a como estaba» era imposible, el agente no tenía dónde mirar.
+ * Esta lee las copias del sitio, de la más reciente a la más antigua, con qué
+ * tocó cada una y cuándo.
+ */
+export const wpCambiosRecientes = defineTool({
+  slug: "wp_cambios_recientes",
+  label: "Ver qué se puede deshacer",
+  description:
+    "Lista los cambios recientes del sitio que tienen copia de seguridad, del más nuevo al más viejo, con qué se tocó, cuándo y el backup_id para revertirlo.",
+  whenToUse:
+    "cuando el cliente pide deshacer, revertir o «dejarlo como estaba» y no tienes a mano el backup_id",
+  inputSchema: z.object({
+    limite: z.number().int().min(1).max(30).default(10).describe("Cuántos cambios traer."),
+  }),
+  sensitive: false,
+  creditCost: 1,
+  scopes: [SCOPES.wpRead],
+  effect: "read",
+  kind: "http",
+  async execute(ctx, input): Promise<Record<string, unknown>> {
+    const { sitio } = entorno(ctx, "wp_cambios_recientes");
+    if (!sitio.backups.listar) {
+      return { cambios: [], nota: "Esta instalación no sabe listar copias; usa el backup_id que dio el encargo que quieres deshacer." };
+    }
+    const copias = await sitio.backups.listar({
+      workspaceId: ctx.workspaceId,
+      siteId: sitio.siteId,
+      limite: input.limite,
+    });
+    const cambios = copias.map((c) => {
+      const snap = c.snapshot as { tipo?: unknown; id?: unknown; titulo?: unknown } | null;
+      return {
+        backup_id: c.id,
+        que_toco: c.alcance,
+        ...(snap?.tipo !== undefined ? { tipo: String(snap.tipo) } : {}),
+        ...(snap?.id !== undefined ? { id: Number(snap.id) } : {}),
+        ...(snap?.titulo !== undefined ? { titulo: String(snap.titulo) } : {}),
+        cuando: c.creadoEn,
+      };
+    });
+    return {
+      cambios,
+      ...(cambios.length === 0
+        ? { nota: "No hay copias guardadas de este sitio: no hay nada que deshacer desde aquí." }
+        : {
+            nota: "Para deshacer uno, wp_restaurar_contenido con su backup_id, su tipo y su id. Dile al cliente QUÉ vas a devolver y de cuándo es la copia antes de hacerlo.",
+          }),
+    };
+  },
+});
+
 export const wpRestaurarContenido = defineTool({
   slug: "wp_restaurar_contenido",
   label: "Restaurar contenido",
@@ -1388,6 +1444,7 @@ export const HERRAMIENTAS_WP: readonly ToolDef<never, unknown>[] = [
   wpEditarContenido,
   wpCrearContenido,
   wpBorrarContenido,
+  wpCambiosRecientes,
   wpRestaurarContenido,
   wpInstalarPlugin,
   wpCambiarPlugin,

@@ -41,6 +41,10 @@ export class BackupsEnMemoria implements BackupPort {
     return id;
   }
 
+  async listar(input: { limite?: number }): Promise<readonly BackupRecord[]> {
+    return [...this.guardados].reverse().slice(0, input.limite ?? 20);
+  }
+
   async read(input: { backupId: string }): Promise<BackupRecord | null> {
     return this.guardados.find((b) => b.id === input.backupId) ?? null;
   }

@@ -60,6 +60,23 @@ export class BackupsPostgres implements BackupPort {
     const f = rows[0];
     return f ? { id: f.id, alcance: f.alcance, snapshot: f.snapshot, creadoEn: f.created_at } : null;
   }
+
+  async listar(input: { workspaceId: string; siteId: string; limite?: number }): Promise<readonly BackupRecord[]> {
+    const { rows } = await this.sql.query<{
+      id: string;
+      alcance: string;
+      snapshot: unknown;
+      created_at: string;
+    }>(
+      `select id, alcance, snapshot, created_at
+         from public.site_backups
+        where workspace_id = $1 and site_id = $2
+        order by created_at desc
+        limit $3`,
+      [input.workspaceId, input.siteId, Math.min(input.limite ?? 20, 50)],
+    );
+    return rows.map((f) => ({ id: f.id, alcance: f.alcance, snapshot: f.snapshot, creadoEn: f.created_at }));
+  }
 }
 
 // ---------------------------------------------------------------------------

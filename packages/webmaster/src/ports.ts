@@ -32,6 +32,14 @@ export interface BackupPort {
   }): Promise<string>;
   /** Recupera un backup para revertir. */
   read(input: { workspaceId: string; backupId: string }): Promise<BackupRecord | null>;
+  /**
+   * Los cambios recientes del sitio que se pueden deshacer, del más nuevo al
+   * más viejo. Sin esto, una copia guardada en OTRO encargo era inalcanzable:
+   * su identificador se quedaba en el resumen de aquel encargo y el agente no
+   * tenía forma de encontrarlo cuando el cliente decía «devuélvelo a como
+   * estaba».
+   */
+  listar?(input: { workspaceId: string; siteId: string; limite?: number }): Promise<readonly BackupRecord[]>;
 }
 
 // ---------------------------------------------------------------------------
