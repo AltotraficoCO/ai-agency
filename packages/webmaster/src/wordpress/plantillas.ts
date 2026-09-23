@@ -397,6 +397,23 @@ export function aplicarCambio(
             `y de aspecto (title_color, text_color, typography_font_family, typography_font_size…).`,
         );
       }
+      // Un loop-grid no dibuja la tarjeta: la dibuja su plantilla loop-item.
+      // Aceptar aquí un `show_title` sería escribir un ajuste que Elementor
+      // ignora, y el agente se quedaría convencido de haberlo arreglado. Pasó
+      // el 22-sep con el blog de Vox: puso show_title y link_to en el
+      // loop-grid, no cambió nada, y cerró el encargo como hecho.
+      const tipo = hallado.nodo.widgetType ?? "";
+      if (/^loop-(grid|carousel)$/.test(tipo)) {
+        const deLaTarjeta = claves.filter((k) => /^show_/.test(k) || k === "link_to");
+        if (deLaTarjeta.length) {
+          throw new Error(
+            `Un widget «${tipo}» no decide qué lleva cada tarjeta: eso está en su plantilla de bucle ` +
+              `(loop-item), y ${deLaTarjeta.join(", ")} aquí no hace nada. Busca esa plantilla con ` +
+              `wp_listar_plantillas_elementor, léela y añade o ajusta ahí sus widgets ` +
+              `(theme-post-title para el título, theme-post-featured-image con link_to "post" para que la foto lleve al artículo).`,
+          );
+        }
+      }
       const s = (hallado.nodo.settings ??= {});
       for (const [clave, valor] of Object.entries(cambio.ajustes)) s[clave] = valor;
       return { data: copia, widgetId: cambio.widget_id };

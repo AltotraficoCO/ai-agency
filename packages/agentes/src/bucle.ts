@@ -278,6 +278,14 @@ function resumenDeFreno(freno: Freno, oficio: OficioDelAgente): string {
  */
 const MAX_RONDAS_DECIDIDAS = 3;
 
+/**
+ * Pasos que se le dan al agente para cerrar cuando se fue sin RESUMEN.
+ *
+ * Suficientes para rematar lo que dejó a medias, cortos para que una ronda de
+ * cortesía no se convierta en otro encargo entero a cuenta del cliente.
+ */
+const PASOS_PARA_CERRAR = 8;
+
 // ---------------------------------------------------------------------------
 // El bucle
 // ---------------------------------------------------------------------------
@@ -442,6 +450,21 @@ export async function ejecutarTareaDeAgente(input: EjecucionAgente): Promise<Res
     simulacion,
   });
 
+  /** Suma tokens, créditos y pasos de una tanda. Se llama desde dos sitios. */
+  const contabilizar = (lista: readonly { usage: unknown }[]): void => {
+    pasos += lista.length;
+    for (const paso of lista) {
+      const n = normalizeUsage(paso.usage as Parameters<typeof normalizeUsage>[0]);
+      uso = {
+        inputTokens: uso.inputTokens + n.inputTokens,
+        outputTokens: uso.outputTokens + n.outputTokens,
+        cacheReadTokens: uso.cacheReadTokens + (n.cacheReadTokens ?? 0),
+        cacheWriteTokens: uso.cacheWriteTokens + (n.cacheWriteTokens ?? 0),
+      };
+      creditos += creditsForUsage(input.rates, input.modelId, n).credits;
+    }
+  };
+
   try {
     let textoFinal = "";
 
@@ -461,17 +484,7 @@ export async function ejecutarTareaDeAgente(input: EjecucionAgente): Promise<Res
         timeout: oficio.timeoutMs,
       });
 
-      pasos += resultado.steps.length;
-      for (const paso of resultado.steps) {
-        const n = normalizeUsage(paso.usage);
-        uso = {
-          inputTokens: uso.inputTokens + n.inputTokens,
-          outputTokens: uso.outputTokens + n.outputTokens,
-          cacheReadTokens: uso.cacheReadTokens + (n.cacheReadTokens ?? 0),
-          cacheWriteTokens: uso.cacheWriteTokens + (n.cacheWriteTokens ?? 0),
-        };
-        creditos += creditsForUsage(input.rates, input.modelId, n).credits;
-      }
+      contabilizar(resultado.steps);
       mensajes.push(...resultado.response.messages);
       textoFinal = resultado.text;
       if (freno) break;
@@ -542,6 +555,53 @@ export async function ejecutarTareaDeAgente(input: EjecucionAgente): Promise<Res
         continue;
       }
       break;
+    }
+
+    /**
+     * Una ronda más si el agente se fue sin cerrar.
+     *
+     * El modelo termina la conversación cuando responde sin llamar a ninguna
+     * herramienta, y eso incluye responder pensando en voz alta: «voy a
+     * intentar hacer clic en el extracto…». Sin esta ronda ese pensamiento se
+     * guardaba como RESUMEN y el encargo se marcaba HECHO sin estarlo. Le pasó
+     * al Webmaster dos veces seguidas con el blog de Vox, y al cliente le
+     * llegó un encargo «terminado» que no había hecho lo que pidió.
+     *
+     * Se le devuelve el turno UNA vez, con sus herramientas: si le faltaba
+     * trabajo lo termina, y si ya estaba, lo cuenta. Si tampoco así cierra, el
+     * resumen lo dice en vez de disfrazar una divagación de conclusión.
+     */
+    // Si se acabó el tope de acciones NO se le dan más: ese tope existe justo
+    // para que una tarea mal entendida no se coma el saldo del cliente, y una
+    // ronda de cortesía por encima sería saltárselo.
+    if (
+      !freno &&
+      pendientes.length === 0 &&
+      pasos < oficio.maxAcciones &&
+      !textoFinal.includes("RESUMEN:")
+    ) {
+      mensajes.push({
+        role: "user",
+        content:
+          "No cerraste el encargo: tu último mensaje es un pensamiento en voz alta, no un RESUMEN. " +
+          "Si te quedaba trabajo, termínalo ahora con tus herramientas. Si lo que ibas a hacer era " +
+          "solo comprobar algo y no te deja, déjalo: una comprobación fallida no es la tarea. " +
+          "Cierra SIEMPRE con una línea que empiece por RESUMEN: y diga qué cambiaste de verdad y " +
+          "qué quedó sin hacer.",
+      });
+      const cierre = await generateText({
+        model: input.model,
+        system: sistema,
+        messages: mensajes,
+        tools,
+        stopWhen: [stepCountIs(PASOS_PARA_CERRAR), () => freno !== null],
+        experimental_context: oficio.contexto,
+        abortSignal: señal,
+        timeout: oficio.timeoutMs,
+      });
+      contabilizar(cierre.steps);
+      mensajes.push(...cierre.response.messages);
+      if (cierre.text.trim()) textoFinal = cierre.text;
     }
 
     // Las herramientas también se venden: su coste declarado se suma aparte

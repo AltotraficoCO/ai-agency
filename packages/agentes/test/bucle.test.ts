@@ -175,3 +175,61 @@ describe("huella de una aprobación", () => {
     expect(huellaAccion("t1", "ads_cambiar_presupuesto", { diario: 50_000 })).toBe(a);
   });
 });
+
+/** Un modelo que responde solo texto: una frase por llamada, sin herramientas. */
+function modeloQueHabla(frases: readonly string[]) {
+  let n = 0;
+  return new MockLanguageModelV3({
+    doGenerate: async (): Promise<LanguageModelV3GenerateResult> => {
+      const texto = frases[Math.min(n, frases.length - 1)] ?? "";
+      n += 1;
+      return {
+        content: [{ type: "text", text: texto }],
+        finishReason: { unified: "stop", raw: "stop" },
+        usage: USO,
+        warnings: [],
+      };
+    },
+  });
+}
+
+describe("un encargo no se cierra con un pensamiento en voz alta", () => {
+  it("le devuelve el turno una vez para que termine y cierre con RESUMEN", async () => {
+    // El modelo responde sin llamar a nadie y con una frase a medias: el AI SDK
+    // da la conversación por terminada. Antes eso se guardaba como resumen y el
+    // encargo salía HECHO. Le pasó al Webmaster con el blog de Vox.
+    const resultado = await ejecutarTareaDeAgente({
+      oficio: oficioDePrueba(),
+      model: modeloQueHabla([
+        "Voy a intentar hacer clic en el extracto directamente.",
+        "RESUMEN: cambié el listado y no pude comprobarlo en el navegador.",
+      ]),
+      modelId: "prueba/modelo",
+      rates: TARIFAS,
+      workspaceId: "ws_1",
+      tarea: { id: "task_1", titulo: "Arregla el blog", detalle: null },
+      simulacion: false,
+    });
+
+    expect(resultado.estado).toBe("completada");
+    if (resultado.estado !== "completada") return;
+    expect(resultado.resumen).toContain("cambié el listado");
+    expect(resultado.resumen).not.toContain("Voy a intentar");
+  });
+
+  it("si tampoco cierra a la segunda, no se le da una tercera", async () => {
+    const resultado = await ejecutarTareaDeAgente({
+      oficio: oficioDePrueba(),
+      model: modeloQueHabla(["Sigo pensando en cómo comprobarlo."]),
+      modelId: "prueba/modelo",
+      rates: TARIFAS,
+      workspaceId: "ws_1",
+      tarea: { id: "task_1", titulo: "Arregla el blog", detalle: null },
+      simulacion: false,
+    });
+
+    expect(resultado.estado).toBe("completada");
+    if (resultado.estado !== "completada") return;
+    expect(resultado.resumen).toBe("Sigo pensando en cómo comprobarlo.");
+  });
+});

@@ -123,14 +123,43 @@ describe("ajustes de un widget y widgets dinámicos", () => {
     },
   ];
 
-  it("enciende el título y el enlace de un listado de entradas", () => {
+  it("no deja poner el título en un loop-grid, porque ahí Elementor lo ignora", () => {
+    // Es el fallo que cerró un encargo en falso: el agente puso show_title en
+    // el loop-grid, la página siguió igual y él lo dio por arreglado.
+    expect(() =>
+      aplicarCambio(listado(), {
+        accion: "cambiar_ajustes",
+        widget_id: "w1",
+        ajustes: { show_title: "yes", link_to: "post" },
+      }),
+    ).toThrow(/loop-item/);
+  });
+
+  it("los ajustes que sí son del listado se escriben con normalidad", () => {
     const { data } = aplicarCambio(listado(), {
+      accion: "cambiar_ajustes",
+      widget_id: "w1",
+      ajustes: { columns: "2", posts_per_page: 6 },
+    });
+    expect(data[0]?.elements?.[0]?.settings).toMatchObject({ columns: "2", posts_per_page: 6 });
+  });
+
+  it("en un archive-posts, que sí manda sobre su tarjeta, el título se enciende aquí", () => {
+    const antiguo = [
+      {
+        id: "c1",
+        elType: "container",
+        elements: [
+          { id: "w1", elType: "widget", widgetType: "archive-posts", settings: {}, elements: [] },
+        ],
+      },
+    ];
+    const { data } = aplicarCambio(antiguo, {
       accion: "cambiar_ajustes",
       widget_id: "w1",
       ajustes: { show_title: "yes", link_to: "post" },
     });
-    const widget = data[0]?.elements?.[0];
-    expect(widget?.settings).toMatchObject({ show_title: "yes", link_to: "post", columns: "3" });
+    expect(data[0]?.elements?.[0]?.settings).toMatchObject({ show_title: "yes", link_to: "post" });
   });
 
   it("se niega a escribir un ajuste que no es de diseño", () => {
