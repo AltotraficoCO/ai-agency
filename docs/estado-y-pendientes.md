@@ -210,7 +210,24 @@ Por urgencia:
 
 ---
 
+## Decisión del 22-sep: un agente por oficio
+
+Un agente llama a otro solo cuando el trabajo es de **otro oficio** (otra
+herramienta u otra conexión): Webmaster → Diseñador para imágenes, Marketing →
+Webmaster para una página de aterrizaje, Reportes → Administrativo para
+cobrar. Una tarea del mismo oficio con las mismas herramientas es una
+**capacidad**, no un agente. Por eso **el Velocista se fusiona en el
+Webmaster**: medía y para todo lo demás llamaba al Webmaster. El catálogo queda
+en cinco puestos.
+
 ## Lo primero que hay que hacer mañana
+
+0. **Fusionar el Velocista en el Webmaster**: herramientas `velocidad_*` y su
+   bloque de guion al Webmaster (solo entra cuando el encargo habla de
+   velocidad), capacidad «Mide la velocidad y arregla lo que la frena» en la
+   ficha, trabajo programado de vigilancia, y migración que retira al
+   Velocista del catálogo y pasa sus contratos al Webmaster. El código del
+   paquete `velocista` se queda como módulo.
 
 1. **Probar los otros agentes contra datos reales**, antes de construir el
    séptimo. Google Ads quedó probado entero el 22-sep (conexión, 37 cuentas
