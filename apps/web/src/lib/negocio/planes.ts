@@ -153,3 +153,16 @@ export function recargaPorClave(clave: string | null | undefined): Recarga | nul
 export function creditosAUsd(creditos: number): number {
   return creditos * USD_POR_CREDITO;
 }
+
+/**
+ * Si un plan puede usar el modo Max: todos los de pago.
+ *
+ * Max gasta más créditos, pero son los del cliente: negárselo a quien paga es
+ * decidir por él. El gratuito no lo tiene porque ahí los créditos los ponemos
+ * nosotros. La misma regla vive en el worker
+ * (`apps/worker/src/adaptadores/motor.ts`), que es quien decide de verdad;
+ * esto es la interfaz.
+ */
+export function planIncluyeMax(plan: string | null | undefined): boolean {
+  return plan !== null && plan !== undefined && plan !== "trial" && plan !== "";
+}

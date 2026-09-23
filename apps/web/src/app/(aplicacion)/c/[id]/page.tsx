@@ -13,6 +13,7 @@ import type { UIMessage } from "ai";
 import { MarcoApp } from "@/components/marco-app";
 import { Hilo } from "@/components/meta/hilo";
 import { PanelHistorial, type ItemHistorial } from "@/components/conversacion/panel-historial";
+import { espacioConMax } from "@/lib/negocio/cartera";
 import { datosDelMarco } from "@/lib/marco";
 import { leerHilo, listarHilos } from "@/lib/meta/borradores";
 import { ETIQUETA_FASE } from "@strappy/core";
@@ -72,7 +73,7 @@ export default async function PaginaHilo({
             mensajesIniciales={hilo.mensajes as UIMessage[]}
             borradorInicial={hilo.borrador}
             modoInicial={modo}
-            maxDisponible={marco.actual.esDesarrollo}
+            maxDisponible={marco.actual.esDesarrollo || (await espacioConMax(marco.actual.workspaceId))}
             {...(abrir ? { mensajeDeApertura: abrir } : {})}
           />
         </div>

@@ -9,6 +9,7 @@ import { MarcoApp } from "@/components/marco-app";
 import { Inicio } from "@/components/meta/inicio";
 import { datosDelMarco } from "@/lib/marco";
 import { listarHilos } from "@/lib/meta/borradores";
+import { espacioConMax } from "@/lib/negocio/cartera";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +17,9 @@ export default async function PaginaInicio() {
   const marco = await datosDelMarco();
   const hilos = await listarHilos(marco.actual.workspaceId);
 
-  // Max se ofrece cuando el plan lo incluye. Hasta que exista la comprobación
-  // real contra `subscriptions`, la puerta se abre sola en desarrollo y queda
-  // con candado en cualquier despliegue: equivocarse hacia el candado es
-  // gratis, equivocarse hacia el modelo caro lo paga la casa.
-  const maxDisponible = marco.actual.esDesarrollo;
+  // Max se ofrece cuando el plan lo incluye: todos los de pago. En desarrollo
+  // también, que no hay suscripción que mirar.
+  const maxDisponible = marco.actual.esDesarrollo || (await espacioConMax(marco.actual.workspaceId));
 
   return (
     <MarcoApp

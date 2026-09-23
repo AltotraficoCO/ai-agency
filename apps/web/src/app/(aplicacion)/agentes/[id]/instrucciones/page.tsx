@@ -8,7 +8,7 @@ import { SelectorFoto } from "@/components/agentes/selector-foto";
 import { InterruptorMax } from "@/components/agentes/interruptor-max";
 import { datosDelMarco } from "@/lib/marco";
 import { leerAgente } from "@/lib/agentes";
-import { conEspacio } from "@/lib/db/pool";
+import { espacioConMax } from "@/lib/negocio/cartera";
 
 export const metadata = { title: "Instrucciones del agente" };
 export const dynamic = "force-dynamic";
@@ -24,13 +24,7 @@ export default async function PaginaInstrucciones({
   if (!agente) notFound();
   // El modo Max está en todos los planes de pago; lo enciende el cliente por
   // agente. En el gratuito se enseña apagado y se dice por qué.
-  const planDePago = await conEspacio(marco.actual.workspaceId, async (scope) => {
-    const { rows } = await scope.query<{ plan: string }>(
-      `select plan from public.subscriptions where workspace_id = $1 limit 1`,
-      [scope.workspaceId],
-    );
-    return (rows[0]?.plan ?? "trial") !== "trial";
-  });
+  const planDePago = marco.actual.esDesarrollo || (await espacioConMax(marco.actual.workspaceId));
   const seccion = seccionDe(agente.tipo);
 
   return (

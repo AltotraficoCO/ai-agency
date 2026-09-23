@@ -17,6 +17,7 @@ import {
   type EspecificacionAgente,
 } from "@strappy/db/spec";
 import { exigirUsuarioActual } from "./identidad";
+import { planIncluyeMax } from "./negocio/planes";
 import { conEspacio } from "./db/pool";
 import { esAvatarWhatsapp, esCaraDeAgente } from "./avatares";
 
@@ -211,8 +212,7 @@ export async function cambiarModoAgente(agentId: string, max: boolean): Promise<
           `select plan from public.subscriptions where workspace_id = $1 limit 1`,
           [scope.workspaceId],
         );
-        const plan = rows[0]?.plan ?? "trial";
-        if (plan === "trial") return "sin_plan" as const;
+        if (!planIncluyeMax(rows[0]?.plan)) return "sin_plan" as const;
       }
       const { rows } = await scope.query<{ id: string }>(
         `update public.agents set mode = $3, updated_at = now()

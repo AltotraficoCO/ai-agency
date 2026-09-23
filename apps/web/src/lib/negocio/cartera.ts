@@ -18,7 +18,7 @@ import "server-only";
 import { conEspacio } from "@/lib/db/pool";
 import { limitesDesdeAjustes, type LimitesGasto } from "./limites";
 import { combinarFactura, type ResumenFactura } from "./factura";
-import { planPorClave, creditosAUsd, type Plan } from "./planes";
+import { planPorClave, planIncluyeMax, creditosAUsd, type Plan } from "./planes";
 import { estadoDelSaldo, proyectarConsumo, type EstadoSaldo, type Proyeccion } from "./creditos";
 
 export type AgenteContratado = {
@@ -217,4 +217,18 @@ function inicioDeMes(ahora: Date): Date {
 
 function finDeMes(ahora: Date): Date {
   return new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() + 1, 1));
+}
+
+/**
+ * Si el espacio puede ofrecer el modo Max. Lo usan la portada de Strap y la
+ * ficha de cada agente; el worker lo vuelve a comprobar antes de cada tarea.
+ */
+export async function espacioConMax(workspaceId: string): Promise<boolean> {
+  return conEspacio(workspaceId, async (scope) => {
+    const { rows } = await scope.query<{ plan: string }>(
+      `select plan from public.subscriptions where workspace_id = $1 limit 1`,
+      [workspaceId],
+    );
+    return planIncluyeMax(rows[0]?.plan);
+  });
 }

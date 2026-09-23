@@ -13,6 +13,7 @@ import { z } from "zod";
 import type { UIMessage } from "ai";
 import { obtenerUsuarioActual } from "@/lib/identidad";
 import { responderTurnoDeStrap } from "@/lib/meta/strap";
+import { espacioConMax } from "@/lib/negocio/cartera";
 
 export const runtime = "nodejs";
 /** El auto-juego encadena varios turnos del motor; sesenta segundos se quedan cortos. */
@@ -42,11 +43,17 @@ export async function POST(peticion: Request): Promise<Response> {
     );
   }
 
+  // El modo llega del navegador: se comprueba aquí contra el plan. La
+  // interfaz esconde el botón de Max cuando no toca, pero esconder no es
+  // cerrar, y Max lo paga la casa si el espacio no tiene plan de pago.
+  const puedeMax = usuario.esDesarrollo || (await espacioConMax(usuario.workspaceId));
+  const modo = leido.data.modo === "max" && puedeMax ? "max" : "lite";
+
   try {
     return await responderTurnoDeStrap({
       usuario,
       hiloId: leido.data.hiloId,
-      modo: leido.data.modo,
+      modo,
       mensajes: leido.data.messages as UIMessage[],
       ...(leido.data.respuestas ? { respuestas: leido.data.respuestas } : {}),
     });
