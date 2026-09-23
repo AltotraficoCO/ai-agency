@@ -32,6 +32,7 @@ import {
 /** Entradas válidas para cada herramienta de WordPress y de navegador. */
 const ENTRADAS_WP: Record<string, unknown> = {
   sitio_salud: {},
+  wp_refrescar_cache: { id: 7, tipo: "page" },
   wp_listar_contenido: {},
   wp_leer_contenido: { tipo: "page", id: 7 },
   wp_listar_plugins: {},

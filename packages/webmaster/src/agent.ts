@@ -49,9 +49,28 @@ export type SkillAgentDef = {
 
 export const TIPO_TAREA_POR_ENCARGO = "tarea_por_encargo";
 
-/** Tope de acciones y de tiempo. Nueve minutos: la tarea dura minutos, no segundos. */
-export const MAX_ACCIONES = 25;
-export const TIMEOUT_MS = 9 * 60 * 1000;
+/**
+ * Tope de acciones y de tiempo.
+ *
+ * Eran 25 y se quedaban cortas. Un encargo real del cliente —«que las entradas
+ * se vean con su título, que lleven al artículo, que peguen con el diseño y
+ * que cada una tenga su portada»— son cuatro trabajos, y el Webmaster gastaba
+ * el presupuesto en el primero: llegaba al final sin haberle pedido nunca las
+ * portadas al Diseñador. Decisión del cliente el 22-sep-2026: «la idea es que
+ * pueda con cargas grandes».
+ *
+ * Lo que de verdad protege el saldo no es este número: es el monedero del
+ * espacio, que se mira antes de arrancar y corta si no hay créditos, y el
+ * freno de fallos repetidos, que para en seco lo que no va a funcionar. Este
+ * tope es la última red, y una red que salta antes de terminar el trabajo no
+ * está protegiendo a nadie.
+ *
+ * El tiempo sube en la misma proporción, pero se queda por debajo del
+ * arrendamiento de la tarea (11 minutos): si se pasara, otro worker podría
+ * reclamar el encargo mientras este sigue escribiendo en el sitio del cliente.
+ */
+export const MAX_ACCIONES = 60;
+export const TIMEOUT_MS = 10 * 60 * 1000;
 
 /** Las herramientas con las que el agente habla con el cliente. */
 const HERRAMIENTAS_DE_DIALOGO = ["pedir_aprobacion", "preguntar_al_cliente"] as const;
@@ -176,6 +195,7 @@ MÉTODO DE TRABAJO (siempre en este orden):
 3. DESHACER: si el cliente dice que algo quedó mal, que no le gusta, o pide «déjalo como estaba», «vuelve atrás» o «restaura», lo PRIMERO es wp_cambios_recientes para ver qué copias hay, y luego wp_restaurar_contenido con su backup_id. Nunca improvises un arreglo encima de lo que no gustó, ni digas que no se puede deshacer: cada cambio tuyo guardó una copia. Dile qué vas a devolver y de cuándo es la copia antes de hacerlo.
 4. ALCANCE: cambias SOLO lo que te pidieron. «Cambia el banner» es el banner, no la portada entera; «arregla el pie de página» es el pie, no el sitio. Si crees que conviene tocar más, lo propones en el RESUMEN o lo preguntas, pero no lo haces. Rehacer una página que el cliente no pidió rehacer es el error más caro que puedes cometer, aunque quede más bonita. Y la aprobación que pidas tiene que describir exactamente lo que vas a tocar, no algo más grande.
 5. PIEZAS VISUALES: un banner, una portada, una imagen de sección o un fondo nuevos son trabajo del diseñador. Si está contratado (mira tus COMPAÑEROS), pídele la pieza con pedir_ayuda_a_companero (medidas, dónde va, titular, tono del sitio) y tú la colocas; no la sustituyas por una foto reciclada de la biblioteca. Sin diseñador, usa lo que haya en la biblioteca y dilo.
+6. LO QUE DEPENDE DE OTRO, PRIMERO: si el encargo tiene una parte que hace un compañero (las portadas, por ejemplo) y otra que haces tú, PÍDESELA AL PRINCIPIO, en cuanto sepas qué hace falta, y sigue tú con lo tuyo mientras. Dejarlo para el final es cómo un encargo se queda sin esa parte: se te acaban las acciones afinando lo tuyo y el cliente se queda sin lo que más se ve.
 
 ENRUTAMIENTO DE HERRAMIENTAS (obligatorio, sin excepciones):
 - Header o footer GLOBAL (visible en todas las páginas): PRIMERO wp_listar_plantillas_elementor. Si ya existe una plantilla de tipo header o footer, léela con wp_leer_plantilla_elementor y cámbiala con wp_editar_plantilla_elementor: añadir un enlace, un texto o un botón, cambiar un texto o un enlace, o quitar un widget. Es un cambio pequeño sobre el diseño que el cliente ya tiene: no lo rehagas.
@@ -187,6 +207,7 @@ ENRUTAMIENTO DE HERRAMIENTAS (obligatorio, sin excepciones):
 - Si es "archive-posts" o "posts" (los antiguos), ahí sí mandan los ajustes del propio widget: show_title, link_to, show_excerpt. Cámbialos con wp_editar_diseno_pagina y la acción cambiar_ajustes.
 - Los colores y la tipografía que pongas salen de sitio_leer_diseno, nunca de tu gusto: integrarse con el sitio es usar SUS valores. Para tocar la tipografía de un widget, pon typography_typography en "custom" en el mismo cambio.
 - COMPROBAR NO ES TRABAJAR: si navegador_click o navegador_leer fallan dos veces buscando lo mismo, para. Ya cambiaste lo que había que cambiar o no lo cambiaste, y eso lo sabes por lo que devolvieron las herramientas de Elementor, no por conseguir pinchar un enlace. Cuenta en el RESUMEN qué cambiaste y que la comprobación visual no se pudo hacer.
+- LA CACHÉ NO ES UN FALLO TUYO: si la herramienta de Elementor te dijo que el cambio quedó guardado y al releer la plantilla lo ves puesto, ESTÁ HECHO. Que la página siga viéndose igual en el navegador significa que el sitio sirve una copia guardada, y muchos sitios la guardan durante días. Llama UNA vez a wp_refrescar_cache con el id de la página que no se actualiza y vuelve a mirarla. Si sigue igual, se acabó: NO deshagas lo que hiciste, no lo repitas de otra forma y no busques el fallo. Dilo en el RESUMEN nombrando el plugin de caché que te dijo la herramienta, y sigue con el resto del encargo. Borrar y volver a poner el mismo widget es la señal de que caíste en esto.
 - Los enlaces aceptan rutas del sitio (/contacto/) y direcciones externas completas (https://www.google.com): si el cliente escribe "www.google.com", úsalo como https://www.google.com.
 - TIPO DE CONTENIDO: "post", "entrada", "artículo" o "publicación del blog" → tipo "post". "Página" o "landing" → tipo "page". Un id creado con tipo "post" es una ENTRADA: nunca lo pases como página.
 - CAMBIAR UNA PARTE de una página que ya existe (el banner, un titular, un botón, una sección): wp_leer_diseno_pagina para ver sus widgets y wp_editar_diseno_pagina para tocar el que toca. NUNCA rehagas la página entera con wp_crear_pagina_elementor por un cambio de una parte: el cliente pidió cambiar el banner, no cambiar su portada. Si el banner necesita una imagen nueva, pídesela al diseñador y colócala; si de verdad hiciera falta rehacerla, propónselo en el RESUMEN y que lo pida él.

@@ -466,10 +466,13 @@ describe("límites duros", () => {
       { repetir: true },
     );
 
-    expect(webmaster.maxAcciones).toBe(25);
-    expect(resultado.evidencia.pasos).toBe(25);
-    expect(llamadas).toHaveLength(25);
-    expect(resultado.evidencia.acciones).toHaveLength(25);
+    // 60 y no 25: un encargo real del cliente son varios trabajos, y el tope
+    // saltaba antes de terminar el primero. Lo que protege el saldo es el
+    // monedero y el freno de fallos, no que la red salte pronto.
+    expect(webmaster.maxAcciones).toBe(60);
+    expect(resultado.evidencia.pasos).toBe(60);
+    expect(llamadas).toHaveLength(60);
+    expect(resultado.evidencia.acciones).toHaveLength(60);
     // Y no se le da una ronda de gracia: gastarse el tope y seguir sería no
     // tener tope. Lo que sí cambia es lo que lee el cliente, que ahora dice
     // que el encargo se quedó a medias en vez de darlo por hecho.
