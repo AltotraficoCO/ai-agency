@@ -29,6 +29,7 @@ import { hayModeloReal } from "@/lib/motor/modelo";
 import { avisosDelSitio } from "@/lib/sitio/avisos-sitio";
 import { sitioDelEspacio } from "@/lib/sitio/sitio";
 import { conexionesDeAnuncios } from "@/lib/canales/anuncios";
+import { espacioConMax } from "@/lib/negocio/cartera";
 import { contabilidadDelEspacio } from "@/lib/contabilidad/contabilidad";
 
 export const metadata = { title: "Probar el agente" };
@@ -98,6 +99,11 @@ export default async function PaginaProbar({
           oficio={porEncargo}
           foto={agente.avatar}
           equipo={equipo}
+          modo={{
+            agentId: id,
+            actual: agente.modo,
+            planDePago: marco.actual.esDesarrollo || (await espacioConMax(marco.actual.workspaceId)),
+          }}
           sitio={sitio && sitio.estado === "active" ? { nombre: sitio.nombre, url: sitio.url } : null}
           encargos={encargos}
           avisos={avisos.map((a) => ({

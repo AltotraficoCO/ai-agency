@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { Badge, Button, Drawer, DrawerContent, IndicadorEscribiendo, Input, Textarea, cn } from "@strappy/ui";
 import { TextoStrap } from "@/components/meta/texto-strap";
+import { BotonModo } from "@/components/agentes/boton-modo";
 import type { EquipoVista } from "@/components/conversacion/registro-trabajo";
 import type { AprobacionVista, EncargoVista } from "@/lib/encargos/encargos";
 import type { Resultado } from "@/lib/negocio/acciones";
@@ -244,7 +245,10 @@ export function EncargosWebmaster({
   programado,
   foto,
   equipo,
+  modo,
 }: {
+  /** Lite o Max, para cambiarlo sin salir de la conversación. */
+  modo?: { agentId: string; actual: "lite" | "max"; planDePago: boolean };
   nombreAgente: string;
   /** Cara y nombre de cada agente contratado, por oficio: para el compañero que entra a ayudar. */
   equipo?: EquipoVista;
@@ -395,6 +399,9 @@ export function EncargosWebmaster({
                 <CircleAlert aria-hidden />
                 Espera tu respuesta
               </Badge>
+            ) : null}
+            {modo ? (
+              <BotonModo agentId={modo.agentId} modo={modo.actual} planDePago={modo.planDePago} />
             ) : null}
             {programado ? (
               <Button size="sm" variant="secondary" onClick={() => setProgramadoAbierto(true)}>
