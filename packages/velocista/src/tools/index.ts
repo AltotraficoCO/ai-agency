@@ -16,6 +16,14 @@ export * from "./cambios.js";
 export * from "./confirmacion.js";
 export * from "./comun.js";
 
+export { HERRAMIENTAS_LECTURA, HERRAMIENTAS_CAMBIOS };
+
+/** Las de velocidad a secas, sin confirmación: el Webmaster ya tiene la suya. */
+export const HERRAMIENTAS_VELOCIDAD: readonly ToolDef<never, unknown>[] = [
+  ...HERRAMIENTAS_LECTURA,
+  ...HERRAMIENTAS_CAMBIOS,
+];
+
 export const HERRAMIENTAS_VELOCISTA: readonly ToolDef<never, unknown>[] = [
   ...HERRAMIENTAS_LECTURA,
   ...HERRAMIENTAS_CAMBIOS,

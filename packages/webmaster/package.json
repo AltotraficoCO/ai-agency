@@ -19,6 +19,7 @@
     "@strappy/agentes": "workspace:*",
     "@strappy/core": "workspace:*",
     "@strappy/tools": "workspace:*",
+    "@strappy/velocista": "workspace:*",
     "ai": "6.0.271",
     "playwright-core": "1.63.0",
     "zod": "^4.4.3"

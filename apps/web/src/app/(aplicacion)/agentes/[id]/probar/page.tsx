@@ -195,7 +195,6 @@ const SUGERENCIAS: Record<string, string> = {
   administrativo: "Revisa qué facturas vencen esta semana y dime lo más urgente.",
   webmaster: "Revisa que mi web esté bien y avísame si algo cambió o dejó de funcionar.",
   marketing: "Dime cómo van mis campañas y en qué estoy tirando el dinero.",
-  velocista: "Mide la velocidad de mi web y avísame si empeora.",
   reportes: "Cuéntame cómo va el negocio esta semana.",
   disenador: "Prepara una imagen para redes con la novedad de la semana.",
 };

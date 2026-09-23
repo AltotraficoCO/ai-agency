@@ -197,8 +197,7 @@ Por urgencia:
 | Qué | Quién | Plazo / nota |
 |---|---|---|
 | **Verificación de la app en Google** | Google | **enviada el 22-sep** con el vídeo https://youtu.be/LW8hYX47nJw (no listado). Primer correo en 3-5 días, revisión de 4-6 semanas. Al aprobarse: fuera el aviso de «app no verificada» y se puede pedir el nivel Básico de la API |
-| **Correo de contacto y razón social** en las páginas legales | Victor | hoy `hola@strappy.io` y «Strappy» sin NIT |
-| **Acceso al VPS solo por clave SSH** | Victor | la contraseña se compartió por chat dos veces; conviene desactivar el acceso por contraseña |
+| **Razón social y NIT** en la política de privacidad | Victor | el correo `hola@strappy.io` ya está confirmado; Victor pasa la razón social y el NIT más adelante |
 | Permiso de **Meta** para publicar por clientes | Victor | 2 a 4 semanas de revisión. Para anuncios hacen falta además `ads_read` y `ads_management` en la misma app |
 | App de **TikTok for Business** | Victor | permisos de Ads Management; va en `TIKTOK_APP_ID` y `TIKTOK_APP_SECRET` |
 | **Token de Alegra** (usuario propio para Strappy, no la contraseña) | Pedro | sin él, Administrativo y Reportes no tienen dónde mirar |
@@ -222,12 +221,14 @@ en cinco puestos.
 
 ## Lo primero que hay que hacer mañana
 
-0. **Fusionar el Velocista en el Webmaster**: herramientas `velocidad_*` y su
-   bloque de guion al Webmaster (solo entra cuando el encargo habla de
-   velocidad), capacidad «Mide la velocidad y arregla lo que la frena» en la
-   ficha, trabajo programado de vigilancia, y migración que retira al
-   Velocista del catálogo y pasa sus contratos al Webmaster. El código del
-   paquete `velocista` se queda como módulo.
+0. ~~Fusionar el Velocista en el Webmaster~~ **Hecho el 22-sep por la noche**:
+   el Webmaster lleva las herramientas `velocidad_*`, el guion de velocidad
+   entra en su prompt solo cuando el encargo habla de velocidad (si no, un
+   aviso de una línea), sus ajustes y campos de velocidad pasaron a la ficha
+   del Webmaster, y la migración 0041 retira al Velocista del catálogo, cancela
+   sus contratos, archiva sus agentes y pausa lo que tenía programado. Los
+   encargos viejos con oficio «velocista» los ejecuta el Webmaster. El paquete
+   `velocista` se queda como módulo del Webmaster. Cinco puestos en catálogo.
 
 1. **Probar los otros agentes contra datos reales**, antes de construir el
    séptimo. Google Ads quedó probado entero el 22-sep (conexión, 37 cuentas

@@ -82,26 +82,7 @@ const TRADUCTORES: Record<string, Record<string, Traductor>> = {
       return { hace: [`Cada informe mira los últimos ${dias} días.`], noHace: [] };
     },
   },
-  velocista: {
-    paginas_clave: (v) => {
-      const paginas = v
-        .split("\n")
-        .map((p) => enUnaLinea(p))
-        .filter((p) => p.length > 0);
-      if (paginas.length === 0) return null;
-      return {
-        hace: [`Además de la portada, mides estas páginas: ${paginas.join(", ")}.`],
-        noHace: [],
-      };
-    },
-    puede_instalar: (v) =>
-      v === "instalar"
-        ? { hace: ["Puedes instalar la caché cuando el cliente lo apruebe."], noHace: [] }
-        : {
-            hace: ["Mides, explicas qué frena el sitio y propones el arreglo."],
-            noHace: ["No instalas ni activas nada en la web: eso lo decide el cliente."],
-          },
-  },
+
   disenador: {
     estilo: (v) => {
       const estilo =
@@ -146,7 +127,24 @@ const TRADUCTORES: Record<string, Record<string, Traductor>> = {
     },
   },
   webmaster: {
-    frecuencia: (v) => {
+    paginas_clave: (v) => {
+      const paginas = v
+        .split("\n")
+        .map((p) => enUnaLinea(p))
+        .filter((p) => p.length > 0);
+      if (paginas.length === 0) return null;
+      return {
+        hace: [`Además de la portada, mides estas páginas: ${paginas.join(", ")}.`],
+        noHace: [],
+      };
+    },
+    puede_instalar: (v) =>
+      v === "instalar"
+        ? { hace: ["Puedes instalar la caché cuando el cliente lo apruebe."], noHace: [] }
+        : {
+            hace: ["Mides, explicas qué frena el sitio y propones el arreglo."],
+            noHace: ["No instalas ni activas nada en la web: eso lo decide el cliente."],
+          },    frecuencia: (v) => {
       const cada = v === "1h" ? "cada hora" : v === "6h" ? "cada 6 horas" : v === "24h" ? "una vez al día" : "";
       return cada ? { hace: [`Revisas que el sitio siga en pie ${cada}.`], noHace: [] } : null;
     },

@@ -132,6 +132,11 @@ export const CONTENIDO_POR_AGENTE: Readonly<Record<string, ContenidoDeAgente>> =
         detalle: "Le pides el cambio y lo hace él mismo en tu WordPress.",
       },
       {
+        icono: "velocidad",
+        titulo: "Mide cuánto tarda tu web y arregla lo que la frena",
+        detalle: "Mide con PageSpeed, te lo explica en dinero y en cristiano, y convierte imágenes o activa la caché con tu permiso.",
+      },
+      {
         icono: "plantilla",
         titulo: "Edita el encabezado y el pie de página",
         detalle: "Enlaces, botones y textos de tus plantillas de Elementor.",
@@ -148,6 +153,24 @@ export const CONTENIDO_POR_AGENTE: Readonly<Record<string, ContenidoDeAgente>> =
       },
     ],
     campos: [
+      {
+        clave: "paginas_clave",
+        etiqueta: "Qué páginas te importan más para la velocidad",
+        ayuda: "Además de la portada. Una por línea: una ficha de producto, la de contacto…",
+        tipo: "parrafo",
+        valorPorDefecto: "",
+      },
+      {
+        clave: "puede_instalar",
+        etiqueta: "Qué puede tocar para acelerar tu web",
+        ayuda: "Convertir imágenes o activar la caché siempre pasa por tu aprobación y con copia previa.",
+        tipo: "opcion",
+        opciones: [
+          { valor: "proponer", etiqueta: "Solo medir y proponer" },
+          { valor: "instalar", etiqueta: "Arreglar lo que apruebe" },
+        ],
+        valorPorDefecto: "proponer",
+      },
       {
         clave: "sitio",
         etiqueta: "Dirección del sitio",
@@ -177,54 +200,6 @@ export const CONTENIDO_POR_AGENTE: Readonly<Record<string, ContenidoDeAgente>> =
     ],
   },
 
-  // Velocista — Desarrollo
-  velocista: {
-    conexiones: [
-      {
-        clave: "sitio",
-        nombre: "Tu sitio web",
-        descripcion: "La página que va a medir y acelerar.",
-        ruta: "/ajustes/sitio",
-      },
-    ],
-    capacidades: [
-      {
-        icono: "velocidad",
-        titulo: "Mide cuánto tarda tu web en abrir",
-        detalle: "En celular y en computador, con la misma vara con la que la mide Google.",
-      },
-      {
-        icono: "medir",
-        titulo: "Te dice qué la está frenando",
-        detalle: "Imágenes pesadas, falta de caché o el servidor, dicho sin tecnicismos.",
-      },
-      {
-        icono: "copia",
-        titulo: "Arregla y te enseña el antes y el después",
-        detalle: "Activa la caché con tu permiso, hace copia y vuelve a medir.",
-      },
-    ],
-    campos: [
-      {
-        clave: "paginas_clave",
-        etiqueta: "Qué páginas te importan más",
-        ayuda: "Además de la portada. Una por línea: la de precios, la de contacto, la que más vende.",
-        tipo: "parrafo",
-        valorPorDefecto: "",
-      },
-      {
-        clave: "puede_instalar",
-        etiqueta: "Qué puede tocar en tu web",
-        ayuda: "Instalar la caché es lo que más acelera, y siempre te lo pedirá antes.",
-        tipo: "opcion",
-        opciones: [
-          { valor: "proponer", etiqueta: "Solo mirar y proponer" },
-          { valor: "instalar", etiqueta: "Instalar la caché si hace falta" },
-        ],
-        valorPorDefecto: "proponer",
-      },
-    ],
-  },
 
   // Disenador — Creativo
   disenador: {

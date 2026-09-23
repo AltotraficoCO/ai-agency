@@ -31,13 +31,13 @@ describe("los ajustes del cliente se vuelven instrucciones", () => {
     expect(r.noHace).toEqual([]);
   });
 
-  it("el velocista sin permiso para instalar lo tiene prohibido por escrito", () => {
-    const r = instruccionesDeAjustes("velocista", { puede_instalar: "proponer" });
+  it("el webmaster sin permiso para arreglar la velocidad lo tiene prohibido por escrito", () => {
+    const r = instruccionesDeAjustes("webmaster", { puede_instalar: "proponer" });
     expect(r.noHace.join(" ")).toContain("No instalas");
   });
 
-  it("las páginas del velocista llegan en una sola línea, aunque vengan en varias", () => {
-    const r = instruccionesDeAjustes("velocista", {
+  it("las páginas clave del webmaster llegan en una sola línea, aunque vengan en varias", () => {
+    const r = instruccionesDeAjustes("webmaster", {
       paginas_clave: "  /precios \n\n /contacto \n",
     });
     expect(r.hace).toEqual(["Además de la portada, mides estas páginas: /precios, /contacto."]);

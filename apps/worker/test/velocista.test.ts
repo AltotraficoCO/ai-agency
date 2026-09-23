@@ -27,9 +27,22 @@ const TARIFAS: RateTable = {
   fallback: { input: 10, output: 50 },
 };
 
-class SitiosVacios implements SitePort {
+/**
+ * Desde el 22-sep-2026 la velocidad es una capacidad del Webmaster: el
+ * encargo pasa por él, así que necesita su sitio conectado. Las herramientas
+ * de velocidad no tocan el WordPress: con las credenciales basta.
+ */
+class SitiosConectados implements SitePort {
   async cargar(): Promise<SitioConectado | null> {
-    return null;
+    return {
+      id: "conn_web",
+      workspaceId: "ws_1",
+      tipo: "wp",
+      url: "https://vox.example",
+      credenciales: { url: "https://vox.example", user: "nico", appPassword: "app-password-de-prueba" },
+      agentName: "Nico",
+      primerContacto: false,
+    };
   }
   async marcarTocado(): Promise<void> {}
 }
@@ -62,7 +75,7 @@ function montar(
   const consumidor = new ConsumidorDeTareas({
     puertos: {
       cola,
-      sitios: new SitiosVacios(),
+      sitios: new SitiosConectados(),
       backups,
       aprobaciones,
       velocidad,
@@ -91,7 +104,7 @@ function montar(
   return { cola, backups, aprobaciones, sitio, medidor, avisos, consumidor };
 }
 
-describe("encargo del Velocista", () => {
+describe("la velocidad dentro del Webmaster", () => {
   it("mide, mira el sitio y deja su registro de trabajo sin tocar nada", async () => {
     const m = montar([
       { llama: "velocidad_medir", con: { ruta: "/", dispositivo: "movil" } },
@@ -191,6 +204,6 @@ describe("encargo del Velocista", () => {
 
     const tarea = m.cola.buscar("task_1")!;
     expect(tarea.resumen).not.toContain("clave-de-pagespeed-secreta");
-    expect(tarea.resumen).toContain("***");
+    expect(tarea.resumen).toContain("«oculto»");
   });
 });

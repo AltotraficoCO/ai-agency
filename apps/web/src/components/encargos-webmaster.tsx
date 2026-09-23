@@ -85,33 +85,13 @@ export const OFICIO_WEBMASTER: OficioEncargos = {
     "Añade un enlace a Instagram en el pie de página",
     "Crea una página de contacto con un formulario",
     "Revisa si hay plugins sin actualizar",
+    "Mide la velocidad de mi web y dime qué la hace lenta",
   ],
   placeholder: (agente) => `¿Qué quieres que ${agente} cambie en tu sitio?`,
   invitacion:
     "Lo hace él mismo en tu sitio, guarda una copia antes y te pide permiso en lo delicado. Verás cada paso mientras trabaja.",
 };
 
-export const OFICIO_VELOCISTA: OficioEncargos = {
-  foto: "/agentes/strap.webp",
-  trabajando: "Midiendo tu web…",
-  conexion: {
-    conectado: (nombre) => `Mide ${nombre}`,
-    sinConectar: "Sin sitio conectado",
-    aviso: (agente) => `Conecta tu sitio para que ${agente} pueda medirlo y arreglar lo que lo frena.`,
-    ctaTexto: "Conectar mi sitio",
-    ctaHref: "/ajustes/sitio",
-    bloquea: true,
-  },
-  ejemplos: [
-    "Mide la velocidad de mi web y dime qué la hace lenta",
-    "¿Cuánto tarda en cargar en celular?",
-    "Arregla lo que puedas sin tocar el diseño",
-    "Compara la velocidad de hoy con la de la semana pasada",
-  ],
-  placeholder: (agente) => `¿Qué quieres que ${agente} mida o arregle?`,
-  invitacion:
-    "Mide con PageSpeed, explica en dinero y en cristiano qué frena tu web, y arregla lo que puede con tu permiso y copia previa.",
-};
 
 export const OFICIO_DISENADOR: OficioEncargos = {
   foto: "/agentes/strap.webp",
@@ -214,7 +194,6 @@ export const OFICIO_MARKETING: OficioEncargos = {
 
 Object.assign(OFICIOS, {
   webmaster: OFICIO_WEBMASTER,
-  velocista: OFICIO_VELOCISTA,
   disenador: OFICIO_DISENADOR,
   marketing: OFICIO_MARKETING,
   administrativo: OFICIO_ADMINISTRATIVO,

@@ -52,12 +52,7 @@ import {
   ejecutarTareaDisenador,
   type DisenoContext,
 } from "@strappy/disenador";
-import {
-  ejecutarTareaVelocista,
-  velocista,
-  type Medicion,
-  type VelocidadContext,
-} from "@strappy/velocista";
+import type { Medicion, VelocidadContext } from "@strappy/velocista";
 import type {
   CuentasDeMarketing,
   EstudioDeDiseno,
@@ -277,14 +272,16 @@ export class ConsumidorDeTareas implements Consumidor {
     // companero. El mensaje de rechazo conserva lo que escribio quien llamo,
     // para que se vea que nombro un oficio que no existe.
     switch (normalizarSlug(quien)) {
+      // El Velocista se fusionó en el Webmaster el 22-sep-2026: un encargo
+      // viejo con ese oficio lo hace el Webmaster con sus herramientas de
+      // velocidad, que son las mismas.
       case "webmaster":
+      case "velocista":
         return this.#ejecutarWebmaster(e);
       case "marketing":
         return this.#ejecutarMarketing(e);
       case "disenador":
         return this.#ejecutarDisenador(e);
-      case "velocista":
-        return this.#ejecutarVelocista(e);
       // Dos puestos, un mismo paquete: el Administrativo toca la contabilidad y
       // Reportes solo la mira. Comparten adaptador, así que comparten camino.
       case "administrativo":
@@ -509,6 +506,25 @@ export class ConsumidorDeTareas implements Consumidor {
         (sitio.primerContacto ? " (simulación)" : ""),
     );
 
+    // La velocidad va dentro del Webmaster: medidor de PageSpeed, historial
+    // de mediciones de ESTE encargo y lo necesario para activar la caché.
+    const velocidad: VelocidadDelSitio | null = puertos.velocidad
+      ? await puertos.velocidad.cargar({ workspaceId: tarea.workspaceId, conexionId: tarea.siteId })
+      : null;
+    const historial: Medicion[] = [];
+    const contextoVelocidad: VelocidadContext | null = velocidad
+      ? {
+          conexionId: velocidad.conexionId ?? "",
+          taskId: tarea.id,
+          ...(velocidad.sitio ? { sitio: velocidad.sitio } : {}),
+          ...(velocidad.rendimiento ? { rendimiento: velocidad.rendimiento } : {}),
+          approvals: puertos.aprobaciones,
+          ...(velocidad.conexionId ? { backups: puertos.backups } : {}),
+          ...(sitio.primerContacto ? { primerContacto: true } : {}),
+          historial,
+        }
+      : null;
+
     const navegador = await this.#abrirNavegador(sitio, decir);
     const contextoSitio: SitioContext = {
       siteId: sitio.id,
@@ -529,6 +545,8 @@ export class ConsumidorDeTareas implements Consumidor {
       ...(await this.#comun(e, "webmaster", sitio.agentName)),
       agent,
       sitio: contextoSitio,
+      ...(contextoVelocidad ? { velocidad: contextoVelocidad } : {}),
+      ...(velocidad?.secretos ? { secretos: velocidad.secretos } : {}),
     });
 
     // Con simulación no se tocó el sitio, así que sigue siendo primer
@@ -680,52 +698,7 @@ export class ConsumidorDeTareas implements Consumidor {
     });
   }
 
-  async #ejecutarVelocista(e: Encargo): Promise<ResultadoTarea> {
-    const { tarea, motor, decir } = e;
-    const { puertos } = this.#o;
-    const velocidad: VelocidadDelSitio = puertos.velocidad
-      ? await puertos.velocidad.cargar({
-          workspaceId: tarea.workspaceId,
-          conexionId: tarea.siteId,
-        })
-      : {
-          conexionId: tarea.siteId,
-          negocio: "tu negocio",
-          agentName: velocista.label,
-        };
 
-    decir(
-      `"${tarea.titulo}" → ${velocista.slug} · ` +
-        `${velocidad.sitio ? velocidad.sitio.url : "sin sitio conectado"} · ` +
-        `${velocidad.rendimiento?.disponible ? velocidad.rendimiento.fuente : "sin medidor"} · ` +
-        `${motor.modelId}${motor.modo ? ` (${motor.modo})` : ""}` +
-        (velocidad.primerContacto ? " (simulación)" : ""),
-    );
-
-    // El historial vive UNA sola vez por encargo: es lo que permite comparar el
-    // antes y el después dentro de la misma tarea.
-    const historial: Medicion[] = [];
-    const contexto: VelocidadContext = {
-      conexionId: velocidad.conexionId ?? "",
-      taskId: tarea.id,
-      ...(velocidad.sitio ? { sitio: velocidad.sitio } : {}),
-      ...(velocidad.rendimiento ? { rendimiento: velocidad.rendimiento } : {}),
-      approvals: puertos.aprobaciones,
-      // El backup solo tiene dónde colgarse si hay conexión: sin ella no hay
-      // nada que revertir todavía.
-      ...(velocidad.conexionId ? { backups: puertos.backups } : {}),
-      ...(velocidad.primerContacto ? { primerContacto: true } : {}),
-      historial,
-    };
-
-    return ejecutarTareaVelocista({
-      ...(await this.#comun(e, "velocista", velocidad.agentName)),
-      agent: velocista,
-      negocio: velocidad.negocio,
-      velocidad: contexto,
-      ...(velocidad.secretos ? { secretos: velocidad.secretos } : {}),
-    });
-  }
 
   // -------------------------------------------------------------------------
   // Cierre, igual para cualquier agente

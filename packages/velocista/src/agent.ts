@@ -88,6 +88,29 @@ PRIMER CONTACTO (obligatorio): hoy NO tocas nada en la web del cliente. Las herr
 `;
 }
 
+/**
+ * El guion de velocidad para el Webmaster, que desde el 22-sep-2026 lleva la
+ * velocidad dentro (regla de un agente por oficio: medir y arreglar la web es
+ * cuidar la web). Se pega a su prompt solo cuando el encargo habla de
+ * velocidad; el resto del tiempo basta con el aviso breve.
+ */
+export const BLOQUE_VELOCIDAD_PARA_WEBMASTER = `
+━━━━━━━━━━━━━━━━━━
+VELOCIDAD DE LA WEB (este encargo va de eso):
+${BLOQUE_MEDIR}
+${BLOQUE_ARREGLAR}
+${BLOQUE_DESPUES}
+${BLOQUE_LENGUAJE}
+MÉTODO PARA LA VELOCIDAD: mide primero con velocidad_medir (celular), mira qué la frena con velocidad_revisar_imagenes y velocidad_revisar_plugins, explica en dos o tres frases, propón como mucho dos o tres cosas. Las imágenes las puedes convertir tú mismo con tus herramientas del sitio (plugin de WebP con aprobación, o el diseñador si hay que rehacerlas). Si tu recomendación necesita que el cliente decida, ciérralo con preguntar_al_cliente llevando el informe entero delante y opciones claras; si no, con el RESUMEN.`;
+
+export const AVISO_VELOCIDAD_PARA_WEBMASTER = `
+- Si el cliente pregunta por la velocidad de su web o por qué va lenta, tienes velocidad_medir, velocidad_revisar_imagenes, velocidad_revisar_plugins, velocidad_comparar y velocidad_activar_cache. Nunca opines de velocidad sin medir.`;
+
+/** Si el encargo habla de velocidad: decide qué bloque entra en el prompt. */
+export function hablaDeVelocidad(texto: string): boolean {
+  return /velocid|lent[ao]|tarda|carg(a|ue)|r[aá]pid|pagespeed|optimi[sz]|pesad|cach[eé]/i.test(texto);
+}
+
 export const velocista: VelocistaAgentDef = {
   slug: "velocista",
   label: "Velocista",

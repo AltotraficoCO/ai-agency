@@ -23,8 +23,7 @@ import type { SqlExecutor } from "../ports.js";
  * bucle, se añade una línea y ya está.
  */
 const PARA_QUE: Record<string, string> = {
-  webmaster: "cuida la web: contenido, plugins, copias de seguridad y que no se caiga",
-  velocista: "la velocidad de la web: mide, explica qué la frena y arregla la caché",
+  webmaster: "cuida la web: contenido, plugins, copias de seguridad, que no se caiga y que cargue rápido",
   disenador: "imágenes: portadas, banners y piezas para redes con la identidad de la marca",
   marketing: "campañas de publicidad: qué funciona, qué se está desperdiciando y qué anunciar",
   administrativo:
