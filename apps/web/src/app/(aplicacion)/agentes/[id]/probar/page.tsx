@@ -83,6 +83,13 @@ export default async function PaginaProbar({
         contexto={<Link href={seccion.href}>{seccion.etiqueta}</Link>}
         rutaActiva={seccion.ruta}
         titulo={`Encargos · ${agente.nombre}`}
+        // Un agente contratado también se configura: sus instrucciones, su
+        // cara y su modo. Sin este botón no había forma de llegar ahí.
+        acciones={
+          <EnlaceBoton size="sm" variant="secondary" href={`/agentes/${id}/instrucciones`}>
+            Instrucciones
+          </EnlaceBoton>
+        }
       >
         <EncargosWebmaster
           nombreAgente={nombreAgente}
