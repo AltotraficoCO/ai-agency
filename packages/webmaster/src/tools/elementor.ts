@@ -191,8 +191,126 @@ export const wpEditarPlantillaElementor = defineTool({
   },
 });
 
+// ---------------------------------------------------------------------------
+// El diseño de una PÁGINA que ya existe
+// ---------------------------------------------------------------------------
+
+/**
+ * Las dos de arriba solo valen para plantillas (header, footer). Sin estas, un
+ * «cambia el banner de la portada» obligaba a REHACER la portada entera con
+ * wp_crear_pagina_elementor: el cliente pedía un cambio y recibía otra página.
+ */
+export const wpLeerDisenoPagina = defineTool({
+  slug: "wp_leer_diseno_pagina",
+  label: "Leer el diseño de una página",
+  description:
+    "Lee la estructura de Elementor de una página o entrada que ya existe: sus secciones y sus widgets, con el texto, el enlace y el id de cada uno.",
+  whenToUse:
+    "antes de cambiar una parte de una página hecha con Elementor (el banner, un botón, un texto), para saber qué widget tocar",
+  inputSchema: z.object({
+    id: z.number().int().positive(),
+    tipo: z.enum(["page", "post"]).optional().describe("Por defecto se prueban los dos."),
+  }),
+  sensitive: false,
+  creditCost: 1,
+  scopes: [SCOPES.wpRead],
+  effect: "read",
+  kind: "http",
+  async execute(ctx, input) {
+    const { sitio, opciones } = entorno(ctx, "wp_leer_diseno_pagina");
+    const creds = requireWp(sitio, "wp_leer_diseno_pagina");
+    const data = await wp.leerElementorData(creds, input.id, opciones, input.tipo);
+    if (!data) {
+      return {
+        id: input.id,
+        con_elementor: false,
+        nota: "Esta página no está hecha con Elementor (o el sitio no expone su diseño). Si hay que rediseñarla entera, usa wp_crear_pagina_elementor con pagina_id; si solo hay que cambiar texto, wp_actualizar_contenido.",
+      };
+    }
+    const { contenedores, widgets } = resumirPlantilla(data as NodoElementor[]);
+    return {
+      id: input.id,
+      con_elementor: true,
+      contenedores: contenedores.slice(0, 40),
+      widgets: widgets.slice(0, 60),
+      ...(widgets.length > 60 ? { nota: `La página tiene ${widgets.length} widgets; se muestran 60.` } : {}),
+    };
+  },
+});
+
+export const wpEditarDisenoPagina = defineTool({
+  slug: "wp_editar_diseno_pagina",
+  label: "Cambiar una parte de una página",
+  description:
+    "Hace UN cambio acotado en una página hecha con Elementor sin rehacerla: cambiar el texto o el enlace de un widget, añadir un texto, un enlace o un botón a una sección, o quitar un widget. Guarda copia del diseño anterior.",
+  whenToUse:
+    "cuando el cliente pide cambiar una PARTE de una página que ya existe (el banner, un titular, un botón), después de leerla con wp_leer_diseno_pagina",
+  inputSchema: z.object({
+    id: z.number().int().positive(),
+    tipo: z.enum(["page", "post"]).default("page"),
+    cambio,
+  }),
+  sensitive: false,
+  creditCost: 3,
+  scopes: [SCOPES.wpWrite],
+  effect: "write_external",
+  kind: "http",
+  async execute(ctx, input): Promise<Bloqueo | Record<string, unknown>> {
+    const { sitio, opciones } = entorno(ctx, "wp_editar_diseno_pagina");
+    const creds = requireWp(sitio, "wp_editar_diseno_pagina");
+    const antes = await wp.leerElementorData(creds, input.id, opciones, input.tipo);
+    if (!antes) {
+      throw new Error(
+        `La página ${input.id} no está hecha con Elementor, o el sitio no expone su diseño. Para cambiar su texto usa wp_actualizar_contenido; para rediseñarla, wp_crear_pagina_elementor con pagina_id.`,
+      );
+    }
+    const pedido = input.cambio as CambioPlantilla;
+    // Se aplica en memoria antes de pedir aprobación: un widget que no existe
+    // falla aquí, sin gastarle un clic a nadie.
+    const { data, widgetId: afectado } = aplicarCambio(antes as NodoElementor[], pedido);
+    const bloqueo = await puertaDeAprobacion(
+      ctx,
+      sitio,
+      "wp_editar_diseno_pagina",
+      input,
+      evaluarSensibilidad({
+        toolSlug: "wp_editar_diseno_pagina",
+        titulo: `página ${input.id}`,
+        contenido: textoDelCambio(pedido),
+      }),
+    );
+    if (bloqueo) return bloqueo;
+    const backupId = await hacerBackup(ctx, sitio, `elementor:${input.tipo}:${input.id}`, {
+      id: input.id,
+      tipo: input.tipo,
+      data: antes,
+    });
+    const { cache } = await wp.escribirElementorDeContenido(creds, input.tipo, input.id, data, opciones);
+    return {
+      ok: true,
+      id: input.id,
+      tipo: input.tipo,
+      accion: pedido.accion,
+      widget_id: afectado,
+      backup_id: backupId,
+      cache,
+      nota: "Verifica con navegador_ver_pagina que el cambio se ve en el sitio.",
+    };
+  },
+  simulate(_ctx, input) {
+    return {
+      simulado: true,
+      id: input.id,
+      accion: input.cambio.accion,
+      nota: "Simulación: la página no se tocó. Describe el cambio en el plan.",
+    };
+  },
+});
+
 export const HERRAMIENTAS_ELEMENTOR: readonly ToolDef<never, unknown>[] = [
   wpListarPlantillasElementor,
   wpLeerPlantillaElementor,
   wpEditarPlantillaElementor,
+  wpLeerDisenoPagina,
+  wpEditarDisenoPagina,
 ] as unknown as readonly ToolDef<never, unknown>[];

@@ -298,7 +298,13 @@ describe("sitio_leer_diseno", () => {
   it("sin navegador lee el CSS de Elementor de la portada", async () => {
     const { llamar } = montar({ archivos: ARCHIVOS_SITIO });
     const r = await llamar("sitio_leer_diseno", {});
-    expect(r).toMatchObject({ origen: "sitio", fuentes_datos: ["css"], colores: { primario: "#123A59" } });
+    // La portada del doble está hecha con Elementor, como la mayoría de los
+    // sitios reales: el lector usa su diseño además del CSS.
+    expect(r).toMatchObject({
+      origen: "sitio",
+      fuentes_datos: ["css", "elementor_data"],
+      colores: { primario: "#123A59" },
+    });
   });
 
   it("el registro de trabajo lo cuenta para personas", () => {

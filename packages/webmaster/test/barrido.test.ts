@@ -105,6 +105,12 @@ const ENTRADAS_WP: Record<string, unknown> = {
     plantilla_id: 78,
     cambio: { accion: "anadir_enlace", texto: "Strappy", url: "https://strappy.vercel.app/" },
   },
+  wp_leer_diseno_pagina: { id: 2 },
+  wp_editar_diseno_pagina: {
+    id: 2,
+    tipo: "page",
+    cambio: { accion: "cambiar_texto", widget_id: "w1", texto: "Tu tranquilidad jurídica" },
+  },
   verificar_http: { path: "/nuestra-historia", contiene: "1998" },
   navegador_ver_pagina: { path: "/", pagina_completa: false },
   navegador_click: { texto: "Inicio" },

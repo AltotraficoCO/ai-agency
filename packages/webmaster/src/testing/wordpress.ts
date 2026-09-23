@@ -94,7 +94,23 @@ export function estadoInicial(): EstadoWordPress {
         contenido: "<p>Pan de verdad, todos los días.</p>",
         slug: "inicio",
         status: "publish",
-        meta: {},
+        // La portada viene hecha con Elementor, como en la mayoría de los
+        // sitios reales: es lo que permite probar un cambio de una PARTE
+        // (el banner) sin rehacer la página entera.
+        meta: {
+          _elementor_edit_mode: "builder",
+          _elementor_data: JSON.stringify([
+            {
+              id: "c1",
+              elType: "container",
+              settings: {},
+              elements: [
+                { id: "w1", elType: "widget", widgetType: "heading", settings: { title: "Pan de verdad" }, elements: [] },
+                { id: "w2", elType: "widget", widgetType: "button", settings: { text: "Ver la carta", link: { url: "/carta/" } }, elements: [] },
+              ],
+            },
+          ]),
+        },
       },
       {
         id: 7,
