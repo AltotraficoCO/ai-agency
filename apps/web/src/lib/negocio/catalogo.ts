@@ -15,6 +15,7 @@ import "server-only";
  */
 import { desdePlantillaDeCatalogo, type EspecificacionAgente } from "@strappy/db/spec";
 import { conEspacio } from "@/lib/db/pool";
+import { cuentasDeCobroDelEspacio } from "@/lib/contabilidad/contabilidad";
 import { instruccionesDeAjustes } from "./ajustes-agente";
 import { creditosAUsd } from "./planes";
 import {
@@ -175,7 +176,36 @@ export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCata
 
 export async function fichaDelCatalogo(workspaceId: string, slug: string): Promise<FichaCatalogo | null> {
   const catalogo = await catalogoDelEspacio(workspaceId);
-  return catalogo.find((f) => f.slug === slug) ?? null;
+  const ficha = catalogo.find((f) => f.slug === slug);
+  if (!ficha) return null;
+  return { ...ficha, campos: await conOpcionesReales(workspaceId, ficha.campos) };
+}
+
+/**
+ * Los campos cuyas opciones las conoce una conexión se rellenan con datos
+ * reales: la cuenta de cobro sale de Alegra, con su nombre exacto, más la
+ * opción de que el agente pregunte cada vez. Sin conexión, el campo se queda
+ * como texto y no se rompe nada.
+ */
+async function conOpcionesReales(
+  workspaceId: string,
+  campos: readonly CampoPersonalizable[],
+): Promise<readonly CampoPersonalizable[]> {
+  if (!campos.some((c) => c.fuente === "cuentas_contabilidad")) return campos;
+  const cuentas = await cuentasDeCobroDelEspacio(workspaceId);
+  if (cuentas.length === 0) return campos;
+  return campos.map((c) =>
+    c.fuente === "cuentas_contabilidad"
+      ? {
+          ...c,
+          tipo: "opcion" as const,
+          opciones: [
+            { valor: "", etiqueta: "Que me pregunte cada vez" },
+            ...cuentas.map((cuenta) => ({ valor: cuenta.nombre, etiqueta: cuenta.nombre })),
+          ],
+        }
+      : c,
+  );
 }
 
 export type ResultadoContratacion =

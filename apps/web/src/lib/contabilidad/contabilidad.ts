@@ -16,7 +16,7 @@ import "server-only";
  * no la primera vez que alguien le pide una factura.
  */
 import { crearContabilidadAlegra } from "@strappy/administrativo/alegra";
-import { encryptJson, masterKeyFromEnv } from "@strappy/webmaster/crypto";
+import { decryptJson, encryptJson, masterKeyFromEnv } from "@strappy/webmaster/crypto";
 import { conEspacio } from "@/lib/db/pool";
 
 export type ContabilidadGuardada = {
@@ -66,6 +66,36 @@ export async function contabilidadDelEspacio(
 export type ResultadoContabilidad =
   | { ok: true; nombre: string; puedeEmitir: boolean }
   | { ok: false; error: string };
+
+/**
+ * Las cuentas de cobro reales del sistema de facturación conectado, para no
+ * pedirle al cliente que escriba a mano un nombre que Alegra ya sabe. Vacío si
+ * no hay conexión activa o si Alegra no contesta: el campo se queda en texto.
+ */
+export async function cuentasDeCobroDelEspacio(
+  workspaceId: string,
+): Promise<readonly { id: string; nombre: string }[]> {
+  try {
+    const fila = await conEspacio(workspaceId, async (scope) => {
+      const { rows } = await scope.query<{ credentials_encrypted: string | null }>(
+        `select credentials_encrypted from public.connections
+          where workspace_id = $1 and provider = 'alegra' and status = 'active'
+          order by updated_at desc limit 1`,
+        [workspaceId],
+      );
+      return rows[0] ?? null;
+    });
+    if (!fila?.credentials_encrypted) return [];
+    const credenciales = decryptJson<{ usuario: string; secreto: string }>(
+      fila.credentials_encrypted,
+      masterKeyFromEnv(),
+    );
+    const contabilidad = crearContabilidadAlegra(credenciales, { soloLectura: true });
+    return (await contabilidad.cuentasDeCobro?.()) ?? [];
+  } catch {
+    return [];
+  }
+}
 
 export async function probarYGuardarContabilidad(input: {
   workspaceId: string;

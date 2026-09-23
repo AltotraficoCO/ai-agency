@@ -84,6 +84,14 @@ export type CampoPersonalizable = {
   readonly tipo: "texto" | "parrafo" | "opcion";
   readonly opciones?: readonly { valor: string; etiqueta: string }[];
   readonly valorPorDefecto: string;
+  /**
+   * De dónde salen las opciones cuando hay una conexión que las conoce. Con
+   * `cuentas_contabilidad`, si la contabilidad está conectada el campo pasa a
+   * ser una lista con las cuentas reales; si no, se queda como texto. Pedir
+   * a mano el nombre de una cuenta que el sistema ya sabe es pedir que lo
+   * escriban mal.
+   */
+  readonly fuente?: "cuentas_contabilidad";
 };
 
 /**
@@ -425,9 +433,10 @@ export const CONTENIDO_POR_AGENTE: Readonly<Record<string, ContenidoDeAgente>> =
       {
         clave: "cuenta_cobro",
         etiqueta: "Dónde anota los pagos que entran",
-        ayuda: "El nombre de la cuenta, como la tienes en tu facturación. Si lo dejas vacío, te preguntará.",
+        ayuda: "La cuenta o caja de tu facturación en la que registra un pago recibido. Si lo dejas vacío, te preguntará cada vez.",
         tipo: "texto",
         valorPorDefecto: "",
+        fuente: "cuentas_contabilidad",
       },
     ],
   },

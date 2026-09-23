@@ -248,6 +248,14 @@ export function crearContabilidadAlegra(
     puedeEscribir: !opciones.soloLectura,
     monedaBase,
 
+    async cuentasDeCobro() {
+      const filas = await pedir<readonly { id?: unknown; name?: unknown; status?: unknown }[]>("/bank-accounts");
+      return (Array.isArray(filas) ? filas : [])
+        .filter((c) => c.status === undefined || c.status === "active")
+        .map((c) => ({ id: String(c.id ?? ""), nombre: String(c.name ?? "").trim() }))
+        .filter((c) => c.id && c.nombre);
+    },
+
     async facturas(input) {
       const base = await monedaBase();
       const parametros = new URLSearchParams({

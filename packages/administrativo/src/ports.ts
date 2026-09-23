@@ -134,6 +134,12 @@ export interface ContabilidadPort {
   readonly puedeEscribir: boolean;
   /** Moneda en la que el negocio lleva sus cuentas. */
   monedaBase(): Promise<Moneda>;
+  /**
+   * Las cuentas (bancos, cajas) donde se puede anotar un pago recibido, con el
+   * nombre exacto que tienen en el sistema. Opcional: no todos los sistemas la
+   * exponen, y sin ella el agente pregunta cada vez.
+   */
+  cuentasDeCobro?(): Promise<readonly { id: string; nombre: string }[]>;
   /** Facturas de venta. `estado` filtra; sin filtro, todas las que el sistema devuelva. */
   facturas(input: { estado?: EstadoFactura; limite?: number }): Promise<readonly Factura[]>;
   /** Cobros recibidos, del más reciente al más antiguo. */
