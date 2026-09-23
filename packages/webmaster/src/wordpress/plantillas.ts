@@ -36,6 +36,16 @@ export type WidgetResumido = {
    * lo único que podrá escribir después.
    */
   readonly ajustes?: Readonly<Record<string, unknown>>;
+  /**
+   * Para un widget de bucle: el id de la plantilla que dibuja CADA tarjeta.
+   *
+   * Es el dato que le faltaba al agente. Sin él sabía que la tarjeta se
+   * decide en otra plantilla, pero no en cuál, y se iba a rastrearlo por el
+   * navegador. Elementor lo guarda en `template_id` del propio widget, así
+   * que se lee de ahí y se le da masticado. No se puede escribir: cambiarlo
+   * repuntaría el listado entero a otro diseño.
+   */
+  readonly plantilla_del_bucle?: number;
 };
 
 export type ContenedorResumido = {
@@ -103,6 +113,7 @@ export function resumirPlantilla(data: readonly NodoElementor[]): {
         const ajustes = Object.fromEntries(
           Object.entries(s).filter(([k, v]) => ajustePermitido(k) && v !== "" && v != null),
         );
+        const plantillaDelBucle = Number(s.template_id);
         widgets.push({
           id: n.id,
           tipo: n.widgetType ?? "widget",
@@ -110,6 +121,9 @@ export function resumirPlantilla(data: readonly NodoElementor[]): {
           ...(texto ? { texto } : {}),
           ...(enlaces.length ? { enlaces } : {}),
           ...(Object.keys(ajustes).length ? { ajustes } : {}),
+          ...(Number.isFinite(plantillaDelBucle) && plantillaDelBucle > 0
+            ? { plantilla_del_bucle: plantillaDelBucle }
+            : {}),
         });
       } else {
         contenedores.push({
@@ -406,11 +420,17 @@ export function aplicarCambio(
       if (/^loop-(grid|carousel)$/.test(tipo)) {
         const deLaTarjeta = claves.filter((k) => /^show_/.test(k) || k === "link_to");
         if (deLaTarjeta.length) {
+          const plantilla = Number(hallado.nodo.settings?.template_id);
+          const cual =
+            Number.isFinite(plantilla) && plantilla > 0
+              ? `la plantilla ${plantilla}`
+              : `su plantilla de bucle (la verás como loop-item en wp_listar_plantillas_elementor)`;
           throw new Error(
-            `Un widget «${tipo}» no decide qué lleva cada tarjeta: eso está en su plantilla de bucle ` +
-              `(loop-item), y ${deLaTarjeta.join(", ")} aquí no hace nada. Busca esa plantilla con ` +
-              `wp_listar_plantillas_elementor, léela y añade o ajusta ahí sus widgets ` +
-              `(theme-post-title para el título, theme-post-featured-image con link_to "post" para que la foto lleve al artículo).`,
+            `Un widget «${tipo}» no decide qué lleva cada tarjeta: eso está en ${cual}, y ` +
+              `${deLaTarjeta.join(", ")} aquí no hace nada. Ve allí con wp_leer_plantilla_elementor y ` +
+              `arréglalo con wp_editar_plantilla_elementor: si no tiene theme-post-title, añádelo con ` +
+              `anadir_widget; si la foto abre la imagen en vez de llevar al artículo, pon link_to en "post" ` +
+              `en su theme-post-featured-image.`,
           );
         }
       }

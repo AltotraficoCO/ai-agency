@@ -120,8 +120,9 @@ export const wpListarPlantillasElementor = defineTool({
   slug: "wp_listar_plantillas_elementor",
   label: "Listar plantillas de Elementor",
   description:
-    "Lista las plantillas de Elementor del sitio (header, footer, popups, secciones globales) con su id y su tipo.",
-  whenToUse: "siempre antes de tocar un header, un footer o cualquier bloque que se vea en todo el sitio",
+    "Lista las plantillas de Elementor del sitio con su id y su tipo: header, footer, popups, secciones globales y las plantillas de bucle (loop-item), que son las que dibujan la tarjeta de cada entrada en un listado de blog.",
+  whenToUse:
+    "antes de tocar un header, un footer o cualquier bloque que se vea en todo el sitio, y también cuando lo que hay que arreglar es cómo se ve cada entrada en un listado",
   inputSchema: z.object({}),
   sensitive: false,
   creditCost: 1,

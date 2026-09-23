@@ -149,6 +149,36 @@ export async function crearNavegadorPlaywright(o: OpcionesNavegador): Promise<Br
    * sitio, la repite UNA vez sobre un Chrome nuevo. Una sola vez: si el
    * segundo también muere, el problema no es la sesión y hay que decirlo.
    */
+  /**
+   * Comprobaciones visuales fallidas en este encargo.
+   *
+   * Mirar la página no es hacer el trabajo, pero cuando el agente no entiende
+   * por qué un cambio no se ve, se pone a buscar el elemento con un selector
+   * tras otro: cada intento son diez segundos de espera y una acción de su
+   * presupuesto. Con el blog de Vox se le fue así medio encargo y acabó sin
+   * poder contar lo que sí había cambiado. El freno de repeticiones del bucle
+   * no lo coge porque cada intento usa un selector distinto.
+   */
+  let fallosDeComprobacion = 0;
+  const TOPE_COMPROBACIONES = 3;
+
+  const comprobar = async <T>(accion: () => Promise<T>): Promise<T> => {
+    if (fallosDeComprobacion >= TOPE_COMPROBACIONES) {
+      throw new Error(
+        `Ya fallaron ${TOPE_COMPROBACIONES} comprobaciones visuales en este encargo y no voy a hacer más: ` +
+          "cada intento gasta una acción tuya y diez segundos. Lo que cambiaste ya te lo dijeron las " +
+          "herramientas de WordPress. Termina por ahí y cuenta en el RESUMEN qué cambiaste y que la " +
+          "comprobación visual no se pudo hacer.",
+      );
+    }
+    try {
+      return await accion();
+    } catch (error) {
+      fallosDeComprobacion += 1;
+      throw error;
+    }
+  };
+
   const conSesion = async <T>(accion: () => Promise<T>): Promise<T> => {
     if (!vivo()) await lanzar();
     try {
@@ -241,38 +271,44 @@ export async function crearNavegadorPlaywright(o: OpcionesNavegador): Promise<Br
     },
 
     click(objetivo) {
-      return conSesion(async () => {
-        const loc = objetivo.selector
-          ? page.locator(objetivo.selector).first()
-          : page.getByText(objetivo.texto ?? "", { exact: false }).first();
-        await loc.click({ timeout: 10_000 });
-        await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
-        const nota = await contener();
-        return { ...(await capturar()), ...(nota ? { nota } : {}) };
-      });
+      return comprobar(() =>
+        conSesion(async () => {
+          const loc = objetivo.selector
+            ? page.locator(objetivo.selector).first()
+            : page.getByText(objetivo.texto ?? "", { exact: false }).first();
+          await loc.click({ timeout: 10_000 });
+          await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+          const nota = await contener();
+          return { ...(await capturar()), ...(nota ? { nota } : {}) };
+        }),
+      );
     },
 
     escribir({ selector, texto, enviar }) {
-      return conSesion(async () => {
-        const campo = page.locator(selector).first();
-        await campo.fill(texto, { timeout: 10_000 });
-        if (enviar) {
-          await campo.press("Enter");
-          await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
-        }
-        const nota = await contener();
-        return { ...(await capturar()), ...(nota ? { nota } : {}) };
-      });
+      return comprobar(() =>
+        conSesion(async () => {
+          const campo = page.locator(selector).first();
+          await campo.fill(texto, { timeout: 10_000 });
+          if (enviar) {
+            await campo.press("Enter");
+            await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+          }
+          const nota = await contener();
+          return { ...(await capturar()), ...(nota ? { nota } : {}) };
+        }),
+      );
     },
 
     leer(selector) {
-      return conSesion(async () => {
-        const loc = selector ? page.locator(selector).first() : page.locator("body");
-        return {
-          url: String(page.url()),
-          texto: String(await loc.innerText({ timeout: 10_000 })),
-        };
-      });
+      return comprobar(() =>
+        conSesion(async () => {
+          const loc = selector ? page.locator(selector).first() : page.locator("body");
+          return {
+            url: String(page.url()),
+            texto: String(await loc.innerText({ timeout: 10_000 })),
+          };
+        }),
+      );
     },
 
     async consola() {

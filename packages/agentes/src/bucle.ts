@@ -571,9 +571,11 @@ export async function ejecutarTareaDeAgente(input: EjecucionAgente): Promise<Res
      * trabajo lo termina, y si ya estaba, lo cuenta. Si tampoco así cierra, el
      * resumen lo dice en vez de disfrazar una divagación de conclusión.
      */
-    // Si se acabó el tope de acciones NO se le dan más: ese tope existe justo
-    // para que una tarea mal entendida no se coma el saldo del cliente, y una
-    // ronda de cortesía por encima sería saltárselo.
+    // Si aún le queda presupuesto de acciones se le devuelve el turno para que
+    // termine. Si se lo gastó, NO: ese tope existe para que una tarea mal
+    // entendida no se coma el saldo del cliente, y una ronda de cortesía por
+    // encima sería saltárselo. Ese caso se cierra más abajo, sin modelo y sin
+    // coste, diciendo la verdad.
     if (
       !freno &&
       pendientes.length === 0 &&
@@ -622,9 +624,19 @@ export async function ejecutarTareaDeAgente(input: EjecucionAgente): Promise<Res
 
     const texto = oficio.limpiarSecretos(quitarRazonamiento(textoFinal));
     const esperando = pendientes.length > 0;
-    const resumen =
-      esperando && !texto.includes("RESUMEN:")
-        ? "Necesito tu aprobación para continuar. Revisa la propuesta y pulsa Aprobar o Rechazar."
+    // Se gastó todas las acciones sin cerrar: no se le pide otra ronda, que
+    // sería saltarse su propio tope, pero tampoco se le pasa por resumen la
+    // última frase suelta que dijera. El cliente tiene derecho a leer que el
+    // encargo se quedó a medias, con sus palabras debajo por si sirven.
+    const agotadoSinCerrar =
+      !esperando && pasos >= oficio.maxAcciones && !texto.includes("RESUMEN:");
+    const resumen = esperando && !texto.includes("RESUMEN:")
+      ? "Necesito tu aprobación para continuar. Revisa la propuesta y pulsa Aprobar o Rechazar."
+      : agotadoSinCerrar
+        ? `Me quedé sin acciones para este encargo antes de terminarlo, así que no puedo darte ` +
+          `el resultado completo. Mira el registro de pasos para ver qué llegué a cambiar. ` +
+          `Vuelve a pedírmelo, a ser posible en partes más pequeñas.` +
+          (texto.trim() ? `\n\nEn lo que estaba cuando me paré: ${recortar(texto.trim(), 200)}` : "")
         : extraerResumen(texto, simulacion);
 
     if (esperando) {

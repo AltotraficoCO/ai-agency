@@ -470,6 +470,11 @@ describe("límites duros", () => {
     expect(resultado.evidencia.pasos).toBe(25);
     expect(llamadas).toHaveLength(25);
     expect(resultado.evidencia.acciones).toHaveLength(25);
+    // Y no se le da una ronda de gracia: gastarse el tope y seguir sería no
+    // tener tope. Lo que sí cambia es lo que lee el cliente, que ahora dice
+    // que el encargo se quedó a medias en vez de darlo por hecho.
+    if (resultado.estado !== "completada") throw new Error("debería cerrar como completada");
+    expect(resultado.resumen).toContain("Me quedé sin acciones");
   });
 
   it("el timeout duro corta la tarea y lo reporta como tal", async () => {

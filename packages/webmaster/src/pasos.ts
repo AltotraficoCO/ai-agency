@@ -52,9 +52,12 @@ const ETIQUETAS: Readonly<Record<string, string>> = {
   wp_subir_media: "Subiendo un archivo",
   wp_listar_medios: "Revisando la biblioteca de imágenes",
   wp_crear_header_global: "Creando el encabezado y el pie de página",
-  wp_listar_plantillas_elementor: "Buscando el encabezado y el pie de página",
-  wp_leer_plantilla_elementor: "Leyendo el encabezado o el pie de página",
-  wp_editar_plantilla_elementor: "Editando el encabezado o el pie de página",
+  // «Plantilla» y no «encabezado o pie»: las mismas herramientas sirven para la
+  // plantilla que dibuja cada entrada de un listado, y llamarlas por el header
+  // hacía que ni el cliente ni el agente pensaran en ellas para el blog.
+  wp_listar_plantillas_elementor: "Buscando las plantillas del sitio",
+  wp_leer_plantilla_elementor: "Leyendo una plantilla del sitio",
+  wp_editar_plantilla_elementor: "Editando una plantilla del sitio",
 
   conector_listar_paginas: "Revisando las páginas",
   conector_leer_pagina: "Leyendo una página",
