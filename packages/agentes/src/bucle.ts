@@ -300,12 +300,23 @@ export async function ejecutarTareaDeAgente(input: EjecucionAgente): Promise<Res
     const backupId = typeof salida?.backup_id === "string" ? salida.backup_id : undefined;
     if (backupId) backups.push(backupId);
     if (l.slug === "preguntar_al_cliente" && salida?.requiere_aprobacion === true) hayPregunta = true;
-    if (salida?.requiere_aprobacion === true && typeof salida.solicitud_id === "string") {
-      pendientes.push({
-        id: salida.solicitud_id,
-        herramienta: l.slug,
-        motivo: String(salida.motivo ?? ""),
-      });
+    if (salida?.requiere_aprobacion === true) {
+      // Una herramienta normal deja UNA solicitud. La de pedir ayuda a un
+      // compañero puede traer varias de golpe, porque el compañero hizo varias
+      // cosas que piden botón: van en `solicitudes` y todas tienen que quedar
+      // colgadas de este encargo, o el cliente aprobaría una y el resto se
+      // quedaría esperando para siempre.
+      const varias = Array.isArray(salida.solicitudes)
+        ? salida.solicitudes.filter((v): v is string => typeof v === "string")
+        : [];
+      const ids = varias.length
+        ? varias
+        : typeof salida.solicitud_id === "string"
+          ? [salida.solicitud_id]
+          : [];
+      for (const id of ids) {
+        pendientes.push({ id, herramienta: l.slug, motivo: String(salida.motivo ?? "") });
+      }
     }
     acciones.push({
       herramienta: l.slug,

@@ -34,6 +34,7 @@ type FilaTarea = {
   mensajes: unknown;
   aprobaciones: unknown;
   pasos: unknown;
+  evidencia: unknown;
 };
 
 export type OpcionesColaPostgres = {
@@ -83,7 +84,7 @@ export class ColaPostgres implements TaskQueuePort {
              limit 1
           )
         returning t.id, t.workspace_id, t.site_id, t.agent_id, t.titulo,
-                  t.detalle, t.intentos, t.mensajes, t.aprobaciones,
+                  t.detalle, t.intentos, t.mensajes, t.aprobaciones, t.evidencia,
                   -- Por fila entera: si la migración 0018 aún no está aplicada, sale null en vez de romper.
                   to_jsonb(t)->'pasos' as pasos,
                   -- Igual con 0029: sin la columna agente sale null, y el
@@ -108,6 +109,7 @@ export class ColaPostgres implements TaskQueuePort {
           ? { aprobaciones: fila.aprobaciones as TareaReclamada["aprobaciones"] }
           : {}),
         ...(Array.isArray(fila.pasos) ? { pasos: fila.pasos } : {}),
+        ...(fila.evidencia != null ? { evidencia: fila.evidencia } : {}),
       };
     } catch (e) {
       await conn.query("rollback").catch(() => {});
@@ -139,67 +141,6 @@ export class ColaPostgres implements TaskQueuePort {
         where id = $1 and worker_id = $2`,
       [input.taskId, input.workerId, input.resumen, JSON.stringify(input.evidencia), input.creditos],
     );
-  }
-
-  async traspasarEspera(input: {
-    workspaceId: string;
-    agente: string;
-    titulo: string;
-    detalle: string;
-    resumen: string;
-    evidencia: unknown;
-    creditos: number;
-    mensajes: readonly unknown[];
-    pasos: readonly unknown[];
-    aprobacionIds: readonly string[];
-  }): Promise<string | null> {
-    const conn = await this.#pool.connect();
-    try {
-      await conn.query("begin");
-      const creado = await conn.query<{ id: string }>(
-        `insert into ${this.#tabla}
-           (workspace_id, agent_id, site_id, titulo, detalle, agente, estado,
-            resumen, evidencia, creditos, mensajes, pasos)
-         select $1,
-                (select s.agent_id from public.agent_subscriptions s
-                  where s.workspace_id = $1 and s.catalog_slug = $2 and s.status = 'active'
-                  order by s.started_at desc limit 1),
-                (select c.id from public.connections c
-                  where c.workspace_id = $1 and c.provider = any($3::text[]) and c.status = 'active'
-                  order by c.updated_at desc limit 1),
-                $4, $5, $2, 'esperando_aprobacion', $6, $7::jsonb, $8, $9::jsonb, $10::jsonb
-          where exists (select 1 from public.connections c
-                         where c.workspace_id = $1 and c.provider = any($3::text[]) and c.status = 'active')
-         returning id`,
-        [
-          input.workspaceId,
-          input.agente,
-          proveedoresDe(input.agente),
-          input.titulo,
-          input.detalle,
-          input.resumen,
-          JSON.stringify(input.evidencia),
-          input.creditos,
-          JSON.stringify(input.mensajes),
-          JSON.stringify(input.pasos),
-        ],
-      );
-      const id = creado.rows[0]?.id ?? null;
-      if (id && input.aprobacionIds.length > 0) {
-        await conn.query(
-          `update public.task_approvals set task_id = $2, updated_at = now()
-            where workspace_id = $1 and id = any($3::uuid[])`,
-          [input.workspaceId, id, [...input.aprobacionIds]],
-        );
-      }
-      await conn.query("commit");
-      return id;
-    } catch (error) {
-      await conn.query("rollback").catch(() => undefined);
-      throw error;
-    } finally {
-      conn.release();
-    }
   }
 
   async suspender(input: {
@@ -266,11 +207,4 @@ export class ColaPostgres implements TaskQueuePort {
       [input.taskId, input.workerId, JSON.stringify(input.pasos)],
     );
   }
-}
-
-/** Sobre qué conexión trabaja cada oficio; la misma tabla que usa el programador. */
-function proveedoresDe(agente: string): string[] {
-  if (agente === "marketing") return ["google_ads", "meta_ads", "tiktok_ads"];
-  if (agente === "administrativo" || agente === "reportes") return ["alegra"];
-  return ["wordpress"];
 }

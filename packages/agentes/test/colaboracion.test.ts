@@ -150,11 +150,20 @@ describe("pedir ayuda a un compañero", () => {
     expect(String(salida.motivo)).not.toMatch(/contrata a|contrátalo|que contrate/i);
   });
 
-  it("un compañero que se queda esperando aprobación no bloquea a quien pidió ayuda", async () => {
+  it("un compañero que espera aprobación deja el encargo entero en espera, con TODAS sus solicitudes", async () => {
+    // El cliente aprueba donde está mirando. Antes el trabajo del compañero se
+    // mudaba a otro encargo, quien llamó cerraba como si hubiera terminado, y
+    // al cliente le tocaba irse a otra conversación a dar el clic.
     const puerto = puertoDoble([MARKETING], {
       estado: "esperando_aprobacion",
       resumen: "Necesito tu aprobación para subir el presupuesto.",
-      evidencia: EVIDENCIA,
+      evidencia: {
+        ...EVIDENCIA,
+        aprobacionesPendientes: [
+          { id: "ap_1", herramienta: "ads_presupuesto", motivo: "sube el gasto" },
+          { id: "ap_2", herramienta: "ads_presupuesto", motivo: "sube el gasto" },
+        ],
+      },
       mensajes: [],
     });
     const salida = await pedir(
@@ -162,8 +171,12 @@ describe("pedir ayuda a un compañero", () => {
       "marketing",
     );
 
-    expect(salida.ok).toBe(true);
-    expect(String(salida.nota)).toContain("aprobación");
+    // La forma de un bloqueo: es lo que el bucle reconoce para no cerrar.
+    expect(salida.requiere_aprobacion).toBe(true);
+    expect(salida.solicitud_id).toBe("ap_1");
+    expect(salida.solicitudes).toEqual(["ap_1", "ap_2"]);
+    // Y se le dice al que llamó que no cierre ni lo haga por su cuenta.
+    expect(String(salida.nota)).toContain("No cierres con RESUMEN");
   });
 
   it("si el compañero falla, lo cuenta en vez de romper el encargo", async () => {

@@ -150,11 +150,18 @@ const AJUSTES_PERMITIDOS: readonly (string | RegExp)[] = [
   "title_tag",
   "header_size",
   "html_tag",
-  // Cómo se reparte.
+  // Cómo se reparte. Aquí entra `posts_per_page`, que es cuántas entradas
+  // enseña el listado: es una decisión del cliente sobre su blog, no una
+  // consulta que pueda dejar la página pintando cualquier cosa.
   /^columns(_tablet|_mobile)?$/,
   /^(row|column)_gap$/,
   "item_gap",
+  "posts_per_page",
   "image_size",
+  "thumbnail_size",
+  "aspect_ratio",
+  "item_ratio",
+  "image_ratio",
   "align",
   "text_align",
   "alignment",

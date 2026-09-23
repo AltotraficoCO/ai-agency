@@ -168,15 +168,30 @@ export function crearHerramientaDeColaboracion(
         acciones: resultado.evidencia.acciones.length,
       };
 
-      // Un compañero que se queda esperando un botón no bloquea al que llamó:
-      // su trabajo pasa a un encargo propio, y aquí se sigue con el resto.
+      // Un compañero que necesita un botón lo pide en ESTE encargo, no en uno
+      // aparte.
+      //
+      // Antes su trabajo se mudaba a un encargo propio y quien llamó seguía sin
+      // él: el cliente se encontraba el encargo «terminado» sin estar hecho y
+      // tenía que irse a otra conversación a aprobar. Ahora la petición sube
+      // tal cual, el encargo entero queda esperando el mismo clic, y cuando el
+      // cliente lo da el compañero CONTINÚA donde lo dejó en vez de rehacerlo.
+      // Por eso esto devuelve la forma de un bloqueo y no un resultado: es lo
+      // que el bucle reconoce para dejar la tarea en espera.
       if (resultado.estado === "esperando_aprobacion") {
+        const pendientes = resultado.evidencia.aprobacionesPendientes;
         return {
-          ok: true,
+          requiere_aprobacion: true,
+          ...(pendientes[0] ? { solicitud_id: pendientes[0].id } : {}),
+          solicitudes: pendientes.map((a) => a.id),
+          motivo: `${elegido.nombre} necesita el visto bueno del cliente para terminar su parte`,
+          mensaje: resultado.resumen,
           ...salida,
           nota:
-            `${elegido.nombre} necesita la aprobación del cliente para seguir, y lo hará desde su propio encargo, en su bandeja. ` +
-            `Sigue con lo que puedas y dilo así en el RESUMEN: que ${elegido.nombre} le pedirá la aprobación desde su bandeja.`,
+            `${elegido.nombre} dejó su parte a un clic de terminar y el cliente lo verá en ESTE encargo. ` +
+            `No cierres con RESUMEN como si estuviera hecho y no busques otra forma de hacerlo tú: ` +
+            `cuando el cliente apruebe, este encargo se reanuda y tú vuelves a llamarlo con el mismo ` +
+            `compañero y el mismo encargo; él continuará donde lo dejó y te dará lo que le pediste.`,
         };
       }
       return { ok: resultado.estado === "completada", ...salida };

@@ -109,7 +109,20 @@ type Encargo = {
   /** Agentes que ya intervinieron, del primero al actual. Vacío si lo pidió una persona. */
   readonly cadena: readonly string[];
   /** Lo que gastan los compañeros. Se acumula para cobrarlo todo junto una vez. */
-  readonly extra: { creditos: number };
+  readonly extra: {
+    creditos: number;
+    /**
+     * El compañero que se quedó a un clic de terminar, con su conversación.
+     * Se guarda en la evidencia del encargo para poder RETOMARLO cuando el
+     * cliente apruebe, en vez de que empiece de cero.
+     */
+    colaboracionPendiente?: {
+      slug: string;
+      titulo: string;
+      detalle: string;
+      mensajes: readonly unknown[];
+    };
+  };
   /** El trabajo que le encarga un compañero, cuando no es el encargo del cliente. */
   readonly delegado?: { titulo: string; detalle: string };
 };
@@ -232,7 +245,7 @@ export class ConsumidorDeTareas implements Consumidor {
           .catch((e) => decir(`no se pudo cobrar: ${e instanceof Error ? e.message : String(e)}`));
       }
 
-      await this.#cerrarTarea(tarea, resultado, decir);
+      await this.#cerrarTarea(tarea, resultado, decir, extra);
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : String(error);
       await registro.cerrar("fallida");
@@ -352,7 +365,13 @@ export class ConsumidorDeTareas implements Consumidor {
         ? { companeros, colaboracion, cadena: e.cadena }
         : {}),
       ...(tarea.mensajes ? { mensajesPrevios: tarea.mensajes as ModelMessage[] } : {}),
-      ...(tarea.aprobaciones ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] } : {}),
+      // Si lo que quedó esperando fue la parte de un COMPAÑERO, las decisiones
+      // no son de este agente: sus huellas apuntan a herramientas que él no
+      // tiene. Se las lleva el compañero cuando se le vuelva a pedir ayuda, y
+      // aquí se entra con el aviso de reanudación en su lugar.
+      ...(tarea.aprobaciones && !this.#esperaDeUnCompanero(tarea)
+        ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] }
+        : {}),
       onEvento: decir,
       alAvanzar: (paso) => registro.anotar(paso),
     };
@@ -393,9 +412,18 @@ export class ConsumidorDeTareas implements Consumidor {
         // El compañero empieza de cero: el historial y las aprobaciones son de
         // quien llamó. Pasárselos hacía que el Webmaster «continuara» la
         // conversación del Velocista y respondiera como si fuera él.
+        //
+        // La excepción es retomarlo: si este mismo compañero dejó una parte a
+        // un clic en el intento anterior, vuelve con SU conversación y con las
+        // decisiones que el cliente acaba de dar. Esas decisiones son suyas y
+        // no de quien llamó: sus huellas apuntan a las herramientas del
+        // compañero, así que inyectarlas arriba no valdría de nada.
+        const retomar = this.#colaboracionAMedias(e, input.slug);
         const resultado = await this.#ejecutarAgente(input.slug, {
           ...e,
-          tarea: { ...e.tarea, mensajes: undefined, aprobaciones: undefined },
+          tarea: retomar
+            ? { ...e.tarea, mensajes: retomar.mensajes, ...(e.tarea.aprobaciones ? { aprobaciones: e.tarea.aprobaciones } : {}) }
+            : { ...e.tarea, mensajes: undefined, aprobaciones: undefined },
           cadena: [...e.cadena, quien],
           delegado: { titulo: input.titulo, detalle: input.detalle },
         });
@@ -404,35 +432,29 @@ export class ConsumidorDeTareas implements Consumidor {
         );
 
         if (resultado.estado === "esperando_aprobacion") {
-          // El compañero necesita un botón del cliente y el encargo de quien
-          // llamó no puede esperarlo: su trabajo pasa a un encargo propio del
-          // compañero, con sus mensajes y sus aprobaciones, y sus créditos se
-          // cobran allí (no aquí) para no cobrarlos dos veces.
-          const propio = await this.#o.puertos.cola.traspasarEspera({
-            workspaceId: e.tarea.workspaceId,
-            agente: input.slug,
+          // El clic se pide en ESTE encargo, que es donde está el cliente
+          // mirando. Se guarda por dónde iba el compañero para retomarlo, y
+          // sus créditos se suman aquí porque su trabajo ya no vive aparte.
+          e.extra.creditos += resultado.evidencia.creditos;
+          e.extra.colaboracionPendiente = {
+            slug: input.slug,
             titulo: input.titulo,
             detalle: input.detalle,
-            resumen: resultado.resumen,
-            evidencia: resultado.evidencia,
-            creditos: resultado.evidencia.creditos,
             mensajes: resultado.mensajes,
-            pasos: [],
-            aprobacionIds: resultado.evidencia.aprobacionesPendientes.map((a) => a.id),
+          };
+          e.registro.anotar({
+            id: `colaboracion-${marca}-responde`,
+            herramienta: "colaboracion",
+            etiqueta: `Necesita tu aprobación para terminar`,
+            detalle: resultado.resumen,
+            estado: "esperando",
+            en: new Date().toISOString(),
+            agente: { slug: input.slug, nombre: nombreCompanero },
           });
-          if (propio) {
-            e.registro.anotar({
-              id: `colaboracion-${marca}-responde`,
-              herramienta: "colaboracion",
-              etiqueta: `Necesita tu aprobación: sigue en su propio encargo`,
-              detalle: resultado.resumen,
-              estado: "esperando",
-              en: new Date().toISOString(),
-              agente: { slug: input.slug, nombre: nombreCompanero },
-            });
-            e.decir(`${input.slug} sigue en su propio encargo ${propio}, a la espera de aprobación`);
-            return resultado;
-          }
+          e.decir(
+            `${input.slug} espera ${resultado.evidencia.aprobacionesPendientes.length} aprobaciones en este mismo encargo`,
+          );
+          return resultado;
         }
 
         e.extra.creditos += resultado.evidencia.creditos;
@@ -451,6 +473,33 @@ export class ConsumidorDeTareas implements Consumidor {
       },
     };
     return puerto;
+  }
+
+  /**
+   * La colaboración que quedó a un clic en el intento anterior, si es de este
+   * mismo compañero.
+   *
+   * Vive en la evidencia del encargo suspendido. Se compara el slug a
+   * propósito: si el agente decide pedirle ayuda a OTRO compañero al
+   * reanudarse, ese empieza de cero, que es lo correcto.
+   */
+  /** ¿Lo que dejó esperando este encargo fue la parte de un compañero? */
+  #esperaDeUnCompanero(tarea: TareaReclamada): boolean {
+    const ev = tarea.evidencia as { colaboracionPendiente?: unknown } | null | undefined;
+    return Boolean(ev?.colaboracionPendiente);
+  }
+
+  #colaboracionAMedias(
+    e: Encargo,
+    slug: string,
+  ): { mensajes: readonly unknown[] } | null {
+    const ev = e.tarea.evidencia as
+      | { colaboracionPendiente?: { slug?: unknown; mensajes?: unknown } }
+      | null
+      | undefined;
+    const p = ev?.colaboracionPendiente;
+    if (!p || p.slug !== slug || !Array.isArray(p.mensajes) || p.mensajes.length === 0) return null;
+    return { mensajes: p.mensajes };
   }
 
   /** Cómo se llama en este espacio el agente de un oficio; el slug si no se sabe. */
@@ -711,6 +760,7 @@ export class ConsumidorDeTareas implements Consumidor {
     tarea: TareaReclamada,
     resultado: ResultadoTarea,
     decir: (m: string) => void,
+    extra?: Encargo["extra"],
   ): Promise<void> {
     const { puertos, workerId } = this.#o;
     switch (resultado.estado) {
@@ -738,8 +788,13 @@ export class ConsumidorDeTareas implements Consumidor {
           taskId: tarea.id,
           workerId,
           resumen: resultado.resumen,
-          evidencia: resultado.evidencia,
-          creditos: resultado.evidencia.creditos,
+          // La colaboración a medias viaja DENTRO de la evidencia: es lo único
+          // que se guarda entre un intento y el siguiente, y sin ella el
+          // compañero volvería a empezar cuando el cliente apruebe.
+          evidencia: extra?.colaboracionPendiente
+            ? { ...(resultado.evidencia as object), colaboracionPendiente: extra.colaboracionPendiente }
+            : resultado.evidencia,
+          creditos: resultado.evidencia.creditos + (extra?.creditos ?? 0),
           mensajes: resultado.mensajes,
         });
         await puertos.notificaciones?.avisar({

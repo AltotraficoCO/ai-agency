@@ -82,6 +82,14 @@ export type TareaReclamada = {
   readonly aprobaciones?: readonly ToolApprovalResponse[];
   /** Registro de trabajo de intentos anteriores: al reanudar se sigue añadiendo. */
   readonly pasos?: readonly unknown[];
+  /**
+   * La evidencia del intento anterior. Al reanudar lleva dentro, si la hubo,
+   * la colaboración que quedó a medias: qué compañero era y por dónde iba su
+   * conversación. Sin esto el compañero volvería a empezar de cero, redibujaría
+   * lo que ya dibujó y pediría otra vez las aprobaciones que el cliente acaba
+   * de dar.
+   */
+  readonly evidencia?: unknown;
 };
 
 export type CierreTarea = {
@@ -122,26 +130,6 @@ export interface TaskQueuePort {
    * enseñe en vivo. Sobrescribe la lista entera: quien llama ya fusionó.
    */
   registrarPasos(input: { taskId: string; workerId: string; pasos: readonly unknown[] }): Promise<void>;
-  /**
-   * Un compañero al que se le pidió ayuda se quedó esperando la aprobación
-   * del cliente. Su trabajo pasa a un encargo PROPIO, suyo, con sus mensajes
-   * (para reanudar cuando aprueben) y sus aprobaciones re-apuntadas: el
-   * encargo de quien llamó termina y el cliente decide en la bandeja del
-   * compañero. Devuelve el id del encargo nuevo, o null si el compañero no
-   * tiene agente o conexión en el espacio.
-   */
-  traspasarEspera(input: {
-    workspaceId: string;
-    agente: string;
-    titulo: string;
-    detalle: string;
-    resumen: string;
-    evidencia: unknown;
-    creditos: number;
-    mensajes: readonly unknown[];
-    pasos: readonly unknown[];
-    aprobacionIds: readonly string[];
-  }): Promise<string | null>;
 }
 
 // ---------------------------------------------------------------------------
