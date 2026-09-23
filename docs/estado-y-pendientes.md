@@ -209,6 +209,28 @@ Por urgencia:
 
 ---
 
+## El modelo de los agentes: Lite y Max (22-sep, noche)
+
+**Max estaba roto y nadie lo sabía.** La 0024 pasó los agentes a DeepSeek V4
+Flash por coste, pero su `where task = 'negocio'` alcanzó a las DOS filas, la
+de `lite` y la de `max`: encender Max cambiaba el modo y no el modelo. La 0043
+lo arregla. Hoy:
+
+- **Lite**: DeepSeek V4 Flash, con Sonnet 5 y GLM-4.7-flash de respaldo.
+- **Max**: Claude Sonnet 5, con DeepSeek de respaldo.
+
+**Max está en TODOS los planes de pago** (no solo Scale-Up y Prime) y lo
+enciende el cliente agente por agente, con el mismo selector que Strap, en
+Inicio, en la pantalla de encargos y en la ficha. El gratuito no lo tiene.
+
+**Primera comparación real (22-sep)**: con DeepSeek, el Webmaster se pasó de
+alcance (rehizo la portada entera cuando se le pidió el banner), recicló una
+foto de la biblioteca en vez de pedirle la portada al Diseñador y delegó «toma
+el relevo» sin tarea concreta. Con **Sonnet razonó mucho mejor y restauró la
+copia a la primera**. Falta el dato de coste: comparar créditos por encargo
+equivalente antes de decidir el modo por defecto. Sonnet cuesta ~15x por
+token, así que solo sale a cuenta si evita reintentos.
+
 ## Decisión del 22-sep: un agente por oficio
 
 Un agente llama a otro solo cuando el trabajo es de **otro oficio** (otra
@@ -263,6 +285,9 @@ en cinco puestos.
 
 ## Riesgos conocidos
 
+- **Deshacer**: cada cambio del Webmaster guarda copia, y desde el 22-sep el
+  agente sabe listarlas (`wp_cambios_recientes`) y restaurar, incluido el
+  diseño de Elementor. Probado: restauró la portada de Vox.
 - **Adaptadores sin probar contra sus API reales**: PageSpeed, Alegra y el
   generador de imágenes. El primer encargo real los estrena. Google Ads se
   estrenó el 22-sep y costó cinco despliegues: contar con lo mismo.
