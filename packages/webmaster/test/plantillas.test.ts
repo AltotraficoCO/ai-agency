@@ -98,3 +98,68 @@ describe("wp_editar_plantilla_elementor contra el doble", () => {
     expect(wp.estado.plantillas.find((p) => p.id === 78)!.data).toContain("https://strappy.vercel.app/");
   });
 });
+
+/**
+ * El caso de Vox (22-sep): su /blog/ pinta las entradas con un widget de
+ * bucle cuya plantilla NO lleva el título y no enlaza al artículo. El
+ * Webmaster no podía arreglarlo porque solo sabía cambiar TEXTO, y el texto de
+ * un listado no existe: lo pone cada entrada. Lo que faltaba era poder tocar
+ * los AJUSTES del widget y poder añadir un widget dinámico.
+ */
+describe("ajustes de un widget y widgets dinámicos", () => {
+  const listado = (): NodoElementor[] => [
+    {
+      id: "c1",
+      elType: "container",
+      elements: [
+        {
+          id: "w1",
+          elType: "widget",
+          widgetType: "loop-grid",
+          settings: { show_title: "", columns: "3" },
+          elements: [],
+        },
+      ],
+    },
+  ];
+
+  it("enciende el título y el enlace de un listado de entradas", () => {
+    const { data } = aplicarCambio(listado(), {
+      accion: "cambiar_ajustes",
+      widget_id: "w1",
+      ajustes: { show_title: "yes", link_to: "post" },
+    });
+    const widget = data[0]?.elements?.[0];
+    expect(widget?.settings).toMatchObject({ show_title: "yes", link_to: "post", columns: "3" });
+  });
+
+  it("se niega a escribir un ajuste que no es de diseño", () => {
+    expect(() =>
+      aplicarCambio(listado(), {
+        accion: "cambiar_ajustes",
+        widget_id: "w1",
+        ajustes: { query_post_type: "product" },
+      }),
+    ).toThrow(/query_post_type/);
+  });
+
+  it("añade el título de la entrada dentro del contenedor que se le diga", () => {
+    const { data, widgetId } = aplicarCambio(listado(), {
+      accion: "anadir_widget",
+      tipo: "theme-post-title",
+      contenedor_id: "c1",
+      posicion: "inicio",
+      ajustes: { link_to: "post", title_color: "#123A59" },
+    });
+    const primero = data[0]?.elements?.[0];
+    expect(primero?.widgetType).toBe("theme-post-title");
+    expect(primero?.id).toBe(widgetId);
+    expect(primero?.settings).toMatchObject({ link_to: "post", title_color: "#123A59" });
+  });
+
+  it("el resumen enseña los ajustes que se pueden cambiar, para no tocar a ciegas", () => {
+    const { widgets } = resumirPlantilla(listado());
+    // `show_title` está vacío, así que no se enseña: lo que se ve es lo puesto.
+    expect(widgets[0]?.ajustes).toEqual({ columns: "3" });
+  });
+});

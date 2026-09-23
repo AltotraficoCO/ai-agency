@@ -21,6 +21,7 @@ import {
   aplicarCambio,
   PATRON_ENLACE,
   resumirPlantilla,
+  WIDGETS_DINAMICOS,
   type CambioPlantilla,
   type NodoElementor,
 } from "../wordpress/plantillas.js";
@@ -39,6 +40,32 @@ const contenedorId = z
 const alineacion = z.enum(["left", "center", "right"]).optional();
 const posicion = z.enum(["inicio", "final"]).optional().describe("Dónde dentro del contenedor; por defecto al final.");
 const widgetId = z.string().min(1).max(20).describe("Id del widget según wp_leer_plantilla_elementor.");
+
+/**
+ * Lo que vale como valor de un ajuste: un primitivo, o una de las dos cajas
+ * con las que Elementor guarda medidas (un tamaño y una caja de cuatro lados).
+ * Cerrarlo así evita que el modelo meta un objeto arbitrario en el JSON.
+ */
+const valorAjuste = z.union([
+  z.string().max(120),
+  z.number(),
+  z.boolean(),
+  z.object({ unit: z.string().max(8), size: z.number() }),
+  z.object({
+    unit: z.string().max(8),
+    top: z.string().max(8),
+    right: z.string().max(8),
+    bottom: z.string().max(8),
+    left: z.string().max(8),
+    isLinked: z.boolean().optional(),
+  }),
+]);
+
+const ajustes = z
+  .record(z.string().max(60), valorAjuste)
+  .describe(
+    "Ajustes del widget, tal cual los nombra Elementor. Los que se ven: show_title, show_excerpt, show_read_more, link_to, excerpt_length. Los de reparto: columns, image_size, align. Los de aspecto: title_color, text_color, typography_typography (ponlo en «custom» antes de tocar la tipografía), typography_font_family, typography_font_size, typography_font_weight.",
+  );
 
 const cambio = z.discriminatedUnion("accion", [
   z.object({
@@ -65,10 +92,27 @@ const cambio = z.discriminatedUnion("accion", [
   }),
   z.object({ accion: z.literal("cambiar_texto"), widget_id: widgetId, texto: z.string().min(1).max(500) }),
   z.object({ accion: z.literal("cambiar_enlace"), widget_id: widgetId, url: enlace }),
+  z.object({
+    accion: z.literal("cambiar_ajustes"),
+    widget_id: widgetId,
+    ajustes,
+  }),
+  z.object({
+    accion: z.literal("anadir_widget"),
+    tipo: z.enum(WIDGETS_DINAMICOS),
+    contenedor_id: contenedorId,
+    posicion,
+    ajustes: ajustes.optional(),
+  }),
   z.object({ accion: z.literal("eliminar_widget"), widget_id: widgetId }),
 ]);
 
 function textoDelCambio(c: CambioPlantilla): string {
+  // Los ajustes y los widgets dinámicos no llevan texto del cliente, así que
+  // se describen con lo que se toca: quien aprueba tiene que leer «show_title»
+  // y no una línea vacía.
+  if (c.accion === "cambiar_ajustes") return Object.keys(c.ajustes).join(", ");
+  if (c.accion === "anadir_widget") return c.tipo;
   return ["texto" in c ? c.texto : "", "url" in c ? c.url : "", "html" in c ? c.html : ""].join(" ").trim();
 }
 

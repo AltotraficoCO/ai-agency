@@ -91,22 +91,75 @@ export async function crearNavegadorPlaywright(o: OpcionesNavegador): Promise<Br
     );
   }
 
-  const browser: Cualquiera = await chromium.launch({
-    headless: true,
-    ...(o.chromePath ? { executablePath: o.chromePath } : { channel: "chrome" }),
-  });
-  const page: Cualquiera = await browser.newPage({
-    viewport: o.viewport ?? { width: 1280, height: 900 },
-  });
-
   const consola: string[] = [];
-  page.on("pageerror", (e: Cualquiera) => consola.push(`[error] ${String(e.message).slice(0, 160)}`));
-  page.on("console", (m: Cualquiera) => {
-    const tipo = m.type();
-    if (tipo === "error" || tipo === "warning") {
-      consola.push(`[${tipo}] ${String(m.text()).slice(0, 160)}`);
+
+  let browser: Cualquiera = null;
+  let page: Cualquiera = null;
+
+  /**
+   * Abre un Chrome nuevo con su página. Se puede llamar más de una vez: es lo
+   * que permite resucitar la sesión si el navegador se muere a mitad.
+   */
+  const lanzar = async (): Promise<void> => {
+    browser = await chromium.launch({
+      headless: true,
+      ...(o.chromePath ? { executablePath: o.chromePath } : { channel: "chrome" }),
+    });
+    page = await browser.newPage({
+      viewport: o.viewport ?? { width: 1280, height: 900 },
+    });
+    page.on("pageerror", (e: Cualquiera) => consola.push(`[error] ${String(e.message).slice(0, 160)}`));
+    page.on("console", (m: Cualquiera) => {
+      const tipo = m.type();
+      if (tipo === "error" || tipo === "warning") {
+        consola.push(`[${tipo}] ${String(m.text()).slice(0, 160)}`);
+      }
+    });
+  };
+
+  await lanzar();
+
+  /**
+   * Que la sesión esté viva antes de cada acción, y si no, otra.
+   *
+   * Un encargo del Webmaster dura minutos y usa el MISMO Chrome de principio a
+   * fin. Si ese Chrome se muere por lo que sea —un despliegue que reescribe
+   * node_modules debajo, una pestaña que se lleva la memoria, el proceso que
+   * se cae— todas las llamadas siguientes fallaban igual con «Target page,
+   * context or browser has been closed», el modelo las repetía y el freno de
+   * repeticiones daba el encargo por perdido. Pasó de verdad el 22-sep con el
+   * blog de Vox. Abrir otro Chrome cuesta un segundo; perder el encargo cuesta
+   * el encargo.
+   */
+  const vivo = (): boolean => {
+    try {
+      return Boolean(browser?.isConnected()) && !page?.isClosed();
+    } catch {
+      return false;
     }
-  });
+  };
+
+  const esSesionMuerta = (e: unknown): boolean =>
+    /(target|browser|context|page).{0,30}(closed|crash)|session closed|disconnected/i.test(
+      e instanceof Error ? e.message : String(e),
+    );
+
+  /**
+   * Corre una acción del navegador y, si lo que falló fue la sesión y no el
+   * sitio, la repite UNA vez sobre un Chrome nuevo. Una sola vez: si el
+   * segundo también muere, el problema no es la sesión y hay que decirlo.
+   */
+  const conSesion = async <T>(accion: () => Promise<T>): Promise<T> => {
+    if (!vivo()) await lanzar();
+    try {
+      return await accion();
+    } catch (error) {
+      if (!esSesionMuerta(error)) throw error;
+      await browser?.close().catch(() => {});
+      await lanzar();
+      return await accion();
+    }
+  };
 
   const host = new URL(o.baseUrl).host;
 
@@ -115,7 +168,10 @@ export async function crearNavegadorPlaywright(o: OpcionesNavegador): Promise<Br
     try {
       if (new URL(page.url()).host !== host) {
         const fuera = String(page.url());
-        await page.goto(o.baseUrl, { waitUntil: "domcontentloaded", timeout: 20_000 });
+        await page.goto(o.baseUrl, {
+          waitUntil: "domcontentloaded",
+          timeout: 20_000,
+        });
         return `la acción intentó salir del sitio (${fuera.slice(0, 80)}); volví al dominio del cliente`;
       }
     } catch {
@@ -125,7 +181,11 @@ export async function crearNavegadorPlaywright(o: OpcionesNavegador): Promise<Br
   };
 
   const capturar = async (completa = false): Promise<CapturaPantalla> => {
-    const shot: Buffer = await page.screenshot({ type: "jpeg", quality: 55, fullPage: completa });
+    const shot: Buffer = await page.screenshot({
+      type: "jpeg",
+      quality: 55,
+      fullPage: completa,
+    });
     return {
       base64: shot.toString("base64"),
       mimeType: "image/jpeg",
@@ -148,11 +208,17 @@ export async function crearNavegadorPlaywright(o: OpcionesNavegador): Promise<Br
   const abrir = async (path: string): Promise<Cualquiera> => {
     const url = `${o.baseUrl}${path}`;
     try {
-      return await page.goto(url, { waitUntil: "networkidle", timeout: 30_000 });
+      return await page.goto(url, {
+        waitUntil: "networkidle",
+        timeout: 30_000,
+      });
     } catch (error) {
       const motivo = error instanceof Error ? error.message : String(error);
       try {
-        return await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20_000 });
+        return await page.goto(url, {
+          waitUntil: "domcontentloaded",
+          timeout: 20_000,
+        });
       } catch {
         throw new Error(
           `No pude abrir ${url} en el navegador (${motivo.split("\n")[0]?.slice(0, 120)}). ` +
@@ -164,50 +230,69 @@ export async function crearNavegadorPlaywright(o: OpcionesNavegador): Promise<Br
   };
 
   return {
-    async ir(path, paginaCompleta) {
-      const res = await abrir(path);
-      return { ...(await capturar(paginaCompleta)), status: res?.status() ?? null };
+    ir(path, paginaCompleta) {
+      return conSesion(async () => {
+        const res = await abrir(path);
+        return {
+          ...(await capturar(paginaCompleta)),
+          status: res?.status() ?? null,
+        };
+      });
     },
 
-    async click(objetivo) {
-      const loc = objetivo.selector
-        ? page.locator(objetivo.selector).first()
-        : page.getByText(objetivo.texto ?? "", { exact: false }).first();
-      await loc.click({ timeout: 10_000 });
-      await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
-      const nota = await contener();
-      return { ...(await capturar()), ...(nota ? { nota } : {}) };
-    },
-
-    async escribir({ selector, texto, enviar }) {
-      const campo = page.locator(selector).first();
-      await campo.fill(texto, { timeout: 10_000 });
-      if (enviar) {
-        await campo.press("Enter");
+    click(objetivo) {
+      return conSesion(async () => {
+        const loc = objetivo.selector
+          ? page.locator(objetivo.selector).first()
+          : page.getByText(objetivo.texto ?? "", { exact: false }).first();
+        await loc.click({ timeout: 10_000 });
         await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
-      }
-      const nota = await contener();
-      return { ...(await capturar()), ...(nota ? { nota } : {}) };
+        const nota = await contener();
+        return { ...(await capturar()), ...(nota ? { nota } : {}) };
+      });
     },
 
-    async leer(selector) {
-      const loc = selector ? page.locator(selector).first() : page.locator("body");
-      return { url: String(page.url()), texto: String(await loc.innerText({ timeout: 10_000 })) };
+    escribir({ selector, texto, enviar }) {
+      return conSesion(async () => {
+        const campo = page.locator(selector).first();
+        await campo.fill(texto, { timeout: 10_000 });
+        if (enviar) {
+          await campo.press("Enter");
+          await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+        }
+        const nota = await contener();
+        return { ...(await capturar()), ...(nota ? { nota } : {}) };
+      });
+    },
+
+    leer(selector) {
+      return conSesion(async () => {
+        const loc = selector ? page.locator(selector).first() : page.locator("body");
+        return {
+          url: String(page.url()),
+          texto: String(await loc.innerText({ timeout: 10_000 })),
+        };
+      });
     },
 
     async consola() {
-      return { url: String(page.url()), consola: consola.slice(-40) };
+      return {
+        url: vivo() ? String(page.url()) : o.baseUrl,
+        consola: consola.slice(-40),
+      };
     },
 
-    async muestrearDiseno(path) {
-      await abrir(path);
-      await contener();
-      // Bajar y volver: las secciones con animación o carga diferida no tienen
-      // estilo final hasta que entran en pantalla.
-      await page.evaluate("window.scrollTo(0, document.body.scrollHeight)").catch(() => {});
-      await page.waitForTimeout(700);
-      await page.evaluate("window.scrollTo(0, 0)").catch(() => {});
-      return (await page.evaluate(SCRIPT_MUESTREO)) as MuestrasDiseno;
+    muestrearDiseno(path) {
+      return conSesion(async () => {
+        await abrir(path);
+        await contener();
+        // Bajar y volver: las secciones con animación o carga diferida no tienen
+        // estilo final hasta que entran en pantalla.
+        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)").catch(() => {});
+        await page.waitForTimeout(700);
+        await page.evaluate("window.scrollTo(0, 0)").catch(() => {});
+        return (await page.evaluate(SCRIPT_MUESTREO)) as MuestrasDiseno;
+      });
     },
 
     async cerrar() {

@@ -29,6 +29,13 @@ export type WidgetResumido = {
   readonly contenedor: string;
   readonly texto?: string;
   readonly enlaces?: readonly string[];
+  /**
+   * Los ajustes que se pueden cambiar y que este widget ya tiene puestos. Sin
+   * esto el modelo cambiaría a ciegas: no sabría si el título está oculto o si
+   * es que el widget no está. Solo van los de la lista blanca, que además es
+   * lo único que podrá escribir después.
+   */
+  readonly ajustes?: Readonly<Record<string, unknown>>;
 };
 
 export type ContenedorResumido = {
@@ -93,12 +100,16 @@ export function resumirPlantilla(data: readonly NodoElementor[]): {
           .join(" · ")
           .slice(0, 160);
         const enlaces = enlacesDe(s);
+        const ajustes = Object.fromEntries(
+          Object.entries(s).filter(([k, v]) => ajustePermitido(k) && v !== "" && v != null),
+        );
         widgets.push({
           id: n.id,
           tipo: n.widgetType ?? "widget",
           contenedor: padre,
           ...(texto ? { texto } : {}),
           ...(enlaces.length ? { enlaces } : {}),
+          ...(Object.keys(ajustes).length ? { ajustes } : {}),
         });
       } else {
         contenedores.push({
@@ -114,6 +125,76 @@ export function resumirPlantilla(data: readonly NodoElementor[]): {
   recorrer(data, "", 0);
   return { contenedores, widgets };
 }
+
+/**
+ * Los ajustes de un widget que se pueden tocar, por nombre o por patrón.
+ *
+ * Es lista BLANCA y no lista negra a propósito. El `_elementor_data` lleva
+ * dentro cosas que no son diseño —condiciones de visualización, consultas,
+ * identificadores internos— y dejar escribir cualquier clave es la forma de
+ * romper una portada entera cambiando un título. Aquí solo entran las tres
+ * familias que un cliente pide con palabras:
+ *
+ *  · **Qué se ve** (`show_*`, `link_to`, `excerpt_length`…): es lo que faltaba
+ *    para que un listado de entradas enseñe el título y lleve al artículo.
+ *  · **Cómo se reparte** (`columns`, `item_gap`, `image_size`, alineación).
+ *  · **Con qué pinta** (color y tipografía): lo que hace que un bloque se
+ *    integre con el resto del sitio en vez de parecer pegado encima.
+ */
+const AJUSTES_PERMITIDOS: readonly (string | RegExp)[] = [
+  // Qué se muestra y a dónde lleva.
+  /^show_[a-z0-9_]+$/,
+  "link_to",
+  "open_new_tab",
+  "excerpt_length",
+  "title_tag",
+  "header_size",
+  "html_tag",
+  // Cómo se reparte.
+  /^columns(_tablet|_mobile)?$/,
+  /^(row|column)_gap$/,
+  "item_gap",
+  "image_size",
+  "align",
+  "text_align",
+  "alignment",
+  // Con qué pinta.
+  /^(title|text|heading|excerpt|meta|link)_color$/,
+  "color",
+  "background_color",
+  /^typography_(typography|font_family|font_size|font_weight|line_height|letter_spacing|text_transform)$/,
+  "border_radius",
+];
+
+export function ajustePermitido(clave: string): boolean {
+  return AJUSTES_PERMITIDOS.some((p) => (typeof p === "string" ? p === clave : p.test(clave)));
+}
+
+/**
+ * Widgets que se pueden AÑADIR a una plantilla, además de los de texto.
+ *
+ * Son los dinámicos del tema: no llevan contenido propio, lo sacan de la
+ * entrada que se esté pintando. Por eso son los que arreglan un listado al que
+ * le falta el título, y por eso la lista es corta: un widget que no exista en
+ * el sitio deja un hueco roto en todas las entradas a la vez.
+ */
+export const WIDGETS_DINAMICOS = [
+  "theme-post-title",
+  "theme-post-excerpt",
+  "theme-post-featured-image",
+  "theme-post-content",
+  "post-info",
+] as const;
+
+export type WidgetDinamico = (typeof WIDGETS_DINAMICOS)[number];
+
+/** Valores que aceptan los ajustes: primitivos y las dos cajas de Elementor. */
+export type ValorAjuste =
+  | string
+  | number
+  | boolean
+  | { unit: string; size: number }
+  | { unit: string; top: string; right: string; bottom: string; left: string; isLinked?: boolean };
 
 type Alineacion = "left" | "center" | "right";
 type Posicion = "inicio" | "final";
@@ -143,6 +224,14 @@ export type CambioPlantilla =
     }
   | { accion: "cambiar_texto"; widget_id: string; texto: string }
   | { accion: "cambiar_enlace"; widget_id: string; url: string }
+  | { accion: "cambiar_ajustes"; widget_id: string; ajustes: Record<string, ValorAjuste> }
+  | {
+      accion: "anadir_widget";
+      tipo: WidgetDinamico;
+      contenedor_id?: string | undefined;
+      posicion?: Posicion | undefined;
+      ajustes?: Record<string, ValorAjuste> | undefined;
+    }
   | { accion: "eliminar_widget"; widget_id: string };
 
 function buscar(
@@ -287,6 +376,43 @@ export function aplicarCambio(
         throw new Error(`El widget «${hallado.nodo.widgetType}» no tiene un enlace que se pueda cambiar así.`);
       }
       return { data: copia, widgetId: cambio.widget_id };
+    }
+    case "cambiar_ajustes": {
+      const hallado = buscar(copia, (n) => n.id === cambio.widget_id && n.elType === "widget");
+      if (!hallado) throw new Error(`No existe el widget ${cambio.widget_id} en la plantilla.`);
+      const claves = Object.keys(cambio.ajustes);
+      if (claves.length === 0) throw new Error("No dijiste qué ajuste cambiar.");
+      const prohibidas = claves.filter((k) => !ajustePermitido(k));
+      if (prohibidas.length) {
+        throw new Error(
+          `No puedo tocar ${prohibidas.join(", ")} de un widget. Se pueden cambiar los ajustes de qué se ve ` +
+            `(show_title, show_excerpt, link_to, excerpt_length…), de reparto (columns, image_size, align) ` +
+            `y de aspecto (title_color, text_color, typography_font_family, typography_font_size…).`,
+        );
+      }
+      const s = (hallado.nodo.settings ??= {});
+      for (const [clave, valor] of Object.entries(cambio.ajustes)) s[clave] = valor;
+      return { data: copia, widgetId: cambio.widget_id };
+    }
+    case "anadir_widget": {
+      if (!WIDGETS_DINAMICOS.includes(cambio.tipo)) {
+        throw new Error(`No sé añadir un widget «${cambio.tipo}». Puedo con: ${WIDGETS_DINAMICOS.join(", ")}.`);
+      }
+      const prohibidas = Object.keys(cambio.ajustes ?? {}).filter((k) => !ajustePermitido(k));
+      if (prohibidas.length) throw new Error(`No puedo poner ${prohibidas.join(", ")} en un widget nuevo.`);
+      const id = nuevoId();
+      insertar(
+        destino(copia, cambio.contenedor_id),
+        {
+          id,
+          elType: "widget",
+          widgetType: cambio.tipo,
+          settings: { ...(cambio.ajustes ?? {}) },
+          elements: [],
+        },
+        cambio.posicion,
+      );
+      return { data: copia, widgetId: id };
     }
     case "eliminar_widget": {
       const hallado = buscar(copia, (n) => n.id === cambio.widget_id && n.elType === "widget");
