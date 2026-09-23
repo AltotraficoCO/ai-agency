@@ -39,7 +39,15 @@ import { HERRAMIENTAS_DISENADOR } from "./tools/index.js";
 
 export type { PasoTrabajo } from "./pasos.js";
 
-/** Lo que cuesta una imagen, para poder decírselo al cliente y al modelo. */
+/**
+ * Lo que cuesta una imagen cuando nadie dice otra cosa.
+ *
+ * Es un RESPALDO, no el precio. El precio real viaja en el contexto
+ * (`diseno.creditosPorImagen`) y sale de `credit_rates` según el generador que
+ * vaya a dibujar: en Lite es Gemini y en Max GPT Image 1, que cuesta cinco
+ * veces más. Este número solo se usa si la tarifa no se pudo leer, y está
+ * puesto en lo que cuesta la barata para no cobrar de más por un fallo nuestro.
+ */
 export const CREDITOS_POR_IMAGEN = 100;
 
 export function herramientasDe(agent: DisenadorAgentDef): readonly ToolDef<never, unknown>[] {
@@ -67,17 +75,30 @@ export async function ejecutarTareaDisenador(
   const borradores = new Map<string, ImagenGenerada>();
   const contador = { generadas: 0 };
 
+  const creditosPorImagen = input.diseno.creditosPorImagen ?? CREDITOS_POR_IMAGEN;
+
+  // El precio que el agente le anuncia al cliente y el que el bucle le cobra
+  // son el MISMO número, y por eso se escribe una sola vez: anunciar 100 y
+  // cobrar 250 es la clase de diferencia que se descubre en la factura.
+  const comun: EjecucionDisenador = {
+    ...input,
+    rates: {
+      ...input.rates,
+      tools: { ...input.rates.tools, img_generar: creditosPorImagen },
+    },
+  };
+
   const diseno: DisenoContext = {
     ...input.diseno,
     capturas: { push: (c) => capturas.push(c) },
     borradores,
     contador,
     maxImagenes: input.diseno.maxImagenes ?? MAX_IMAGENES_POR_ENCARGO,
-    creditosPorImagen: input.diseno.creditosPorImagen ?? CREDITOS_POR_IMAGEN,
+    creditosPorImagen,
   };
 
   const contexto: DisenadorContext = {
-    ...contextoComun(input, agent, simulacion),
+    ...contextoComun(comun, agent, simulacion),
     diseno,
   };
 
@@ -89,14 +110,14 @@ export async function ejecutarTareaDisenador(
         agentName: input.agentName,
         negocio: input.negocio,
         maxImagenes: diseno.maxImagenes ?? MAX_IMAGENES_POR_ENCARGO,
-        creditosPorImagen: diseno.creditosPorImagen ?? CREDITOS_POR_IMAGEN,
+        creditosPorImagen,
         estiloMedido: diseno.estilo?.origen === "sitio",
         modoSimulacion: simulacion,
       }),
       contexto,
       etiquetaDePaso,
       detalleDePaso,
-      comun: input,
+      comun,
     }),
     // Las credenciales del sitio viven dentro del adaptador de medios y la
     // clave de la cartera dentro del de imágenes: no hay nada que tapar aquí.
@@ -111,7 +132,7 @@ export async function ejecutarTareaDisenador(
     capturas: () => capturas,
   };
 
-  return lanzarOficio(input, oficio, simulacion);
+  return lanzarOficio(comun, oficio, simulacion);
 }
 
 /**

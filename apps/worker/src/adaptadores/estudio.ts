@@ -22,7 +22,7 @@
 import { crearImagenesOpenRouter } from "@strappy/disenador/openrouter";
 import type { EstiloDeMarca, ImagenesPort, MedioBreve, MediosPort } from "@strappy/disenador";
 import { resolveModel, type ModelMode } from "@strappy/core";
-import { cargarTablaDeModelos } from "@strappy/db/adapters";
+import { cargarTablaDeModelos, cargarTarifaDeImagen } from "@strappy/db/adapters";
 import {
   leerDisenoDelSitio,
   wordpress,
@@ -126,7 +126,10 @@ export class EstudioPostgres implements EstudioPort {
       conexionId: input.siteId,
       negocio: "tu negocio",
       agentName: "Tu diseñador",
-      ...(imagenes ? { imagenes } : {}),
+      ...(imagenes ? { imagenes: imagenes.puerto } : {}),
+      ...(imagenes?.creditosPorImagen != null
+        ? { creditosPorImagen: imagenes.creditosPorImagen }
+        : {}),
     };
 
     if (!sitio || sitio.tipo !== "wp") return base;
@@ -147,20 +150,40 @@ export class EstudioPostgres implements EstudioPort {
     };
   }
 
-  /** El generador. Sin clave de la cartera no hay estudio, y el agente lo dice. */
-  async #imagenes(workspaceId: string, modo: ModelMode): Promise<ImagenesPort | undefined> {
+  /**
+   * El generador y lo que cuesta cada imagen que dibuje.
+   *
+   * Las dos cosas salen juntas porque son la misma decisión: en Lite dibuja
+   * Gemini y en Max GPT Image 1, que cuesta cinco veces más. El precio se lee
+   * de `credit_rates` por identificador de modelo, así que cambiar de
+   * generador es cambiar una fila de `model_tiers` y el cobro se ajusta solo.
+   *
+   * Sin clave de la cartera no hay estudio, y el agente lo dice.
+   */
+  async #imagenes(
+    workspaceId: string,
+    modo: ModelMode,
+  ): Promise<{ puerto: ImagenesPort; creditosPorImagen: number | null } | undefined> {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) return undefined;
     try {
-      const tabla = await cargarTablaDeModelos(this.#ambito(workspaceId));
+      const ambito = this.#ambito(workspaceId);
+      const tabla = await cargarTablaDeModelos(ambito);
       const eleccion = resolveModel(tabla, { mode: modo, task: "image" });
-      return crearImagenesOpenRouter({
+      const puerto = crearImagenesOpenRouter({
         modelo: eleccion.primary,
         apiKey,
         referer: "https://strappy.ai",
         titulo: "Strappy",
         ...(this.o.fetchImagenes ? { fetch: this.o.fetchImagenes } : {}),
       });
+      // Si la tarifa no se puede leer NO se deja de dibujar: el bucle del
+      // Diseñador tiene su constante de respaldo. Quedarse sin portada por no
+      // poder consultar un precio sería el peor de los dos fallos.
+      const creditosPorImagen = await cargarTarifaDeImagen(ambito, eleccion.primary).catch(
+        () => null,
+      );
+      return { puerto, creditosPorImagen };
     } catch {
       // Sin fila para la tarea `imagen` el agente trabaja sin poder dibujar y
       // lo explica. Tumbar el encargo por esto no le diría nada al cliente.

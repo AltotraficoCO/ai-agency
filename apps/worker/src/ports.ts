@@ -272,6 +272,12 @@ export type EstudioDeDiseno = {
   /** Conexión del encargo, si la hay: sobre ella cuelgan las aprobaciones. */
   readonly conexionId: string | null;
   readonly imagenes?: ImagenesPort;
+  /**
+   * Lo que se cobra por cada imagen con ESTE generador. Sale de `credit_rates`
+   * y no del código, porque en Max dibuja un modelo cinco veces más caro que
+   * en Lite. Sin valor, el bucle del Diseñador usa su respaldo.
+   */
+  readonly creditosPorImagen?: number;
   readonly medios?: MediosPort;
   /** Colores y tipografías medidos del sitio real, si se pudieron leer. */
   readonly estilo?: EstiloDeMarca;

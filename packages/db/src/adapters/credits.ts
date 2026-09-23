@@ -185,3 +185,36 @@ export async function cargarTarifas(scope: TenantScope): Promise<RateTable> {
     fallback: { input: 6, output: 30, cacheRead: 0.6 },
   };
 }
+
+/**
+ * Lo que se cobra por UNA imagen, según el generador que la dibuja.
+ *
+ * El precio de una imagen no es fijo: en Lite la dibuja Gemini y en Max
+ * GPT Image 1, que cuesta cinco veces más. Cobrar lo mismo por las dos era
+ * regalar las de Max. Así que la tarifa sale de `credit_rates` (kind
+ * `model_image`) por identificador de modelo, igual que la de los tokens.
+ *
+ * Si el generador no tiene fila propia se usa la comodín `*`, que está puesta
+ * al precio del caro a propósito. Si no hubiera ni comodín se devuelve `null`
+ * y quien llama decide: el bucle del Diseñador cae entonces en su constante de
+ * respaldo en vez de dibujar gratis.
+ */
+export async function cargarTarifaDeImagen(
+  scope: TenantScope,
+  modelo: string,
+): Promise<number | null> {
+  const { rows } = await scope.query<{ ref_key: string; credits_per_unit: string }>(
+    `select ref_key, credits_per_unit
+       from public.credit_rates
+      where kind = 'model_image'
+        and ref_key in ($1, '*')
+        and effective_from <= now()
+        and (effective_to is null or effective_to > now())
+      order by case when ref_key = $1 then 0 else 1 end,
+               effective_from desc
+      limit 1`,
+    [modelo],
+  );
+  const fila = rows[0];
+  return fila ? aNumero(fila.credits_per_unit) : null;
+}

@@ -636,6 +636,9 @@ export class ConsumidorDeTareas implements Consumidor {
       conexionId: estudio.conexionId ?? "",
       taskId: tarea.id,
       ...(estudio.imagenes ? { imagenes: estudio.imagenes } : {}),
+      ...(estudio.creditosPorImagen != null
+        ? { creditosPorImagen: estudio.creditosPorImagen }
+        : {}),
       ...(estudio.medios ? { medios: estudio.medios } : {}),
       ...(estudio.estilo ? { estilo: estudio.estilo } : {}),
       approvals: puertos.aprobaciones,

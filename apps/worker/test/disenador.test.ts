@@ -35,7 +35,10 @@ class SitiosVacios implements SitePort {
 
 const IDEA = "un escritorio de abogado con documentos y una lámpara cálida, vista cenital";
 
-function montar(guion: readonly PasoGuion[], o: { conGenerador?: boolean } = {}) {
+function montar(
+  guion: readonly PasoGuion[],
+  o: { conGenerador?: boolean; creditosPorImagen?: number } = {},
+) {
   const cola = new ColaEnMemoria();
   const aprobaciones = new AprobacionesEnMemoria();
   const imagenes = new ImagenesEnMemoria();
@@ -47,6 +50,7 @@ function montar(guion: readonly PasoGuion[], o: { conGenerador?: boolean } = {})
       return {
         conexionId: "conn_sitio",
         ...(o.conGenerador === false ? {} : { imagenes }),
+        ...(o.creditosPorImagen != null ? { creditosPorImagen: o.creditosPorImagen } : {}),
         medios,
         estilo: ESTILO_DE_EJEMPLO,
         negocio: "Vox Legal",
@@ -124,6 +128,28 @@ describe("encargo del Diseñador", () => {
     expect(tarea.creditos).toBeGreaterThanOrEqual(100);
     // Y no se subió nada al sitio, porque no se pidió.
     expect(m.medios.subidas).toHaveLength(0);
+  });
+
+  it("cobra la imagen según el generador que la dibuja, no un precio fijo", async () => {
+    // El generador de Max cuesta cinco veces más que el de Lite. Si el cobro
+    // no siguiera a la tarifa del modelo, cada portada en Max se haría a
+    // pérdida: eso es lo que vigila esta prueba.
+    const guion: readonly PasoGuion[] = [
+      { llama: "img_generar", con: { idea: IDEA, formato: "portada" } },
+      { dice: "RESUMEN: ahí tienes la portada." },
+    ];
+
+    const barato = montar(guion, { creditosPorImagen: 100 });
+    await barato.consumidor.tick();
+    const caro = montar(guion, { creditosPorImagen: 250 });
+    await caro.consumidor.tick();
+
+    const unaImagenBarata = barato.cola.buscar("task_1")!.creditos ?? 0;
+    const unaImagenCara = caro.cola.buscar("task_1")!.creditos ?? 0;
+
+    // Mismo guion y mismo modelo de texto: lo único que cambia es la imagen.
+    expect(unaImagenCara - unaImagenBarata).toBe(150);
+    expect(unaImagenBarata).toBeGreaterThanOrEqual(100);
   });
 
   it("subirla al sitio espera el clic de una persona", async () => {
