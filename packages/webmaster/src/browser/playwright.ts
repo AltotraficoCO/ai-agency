@@ -134,12 +134,38 @@ export async function crearNavegadorPlaywright(o: OpcionesNavegador): Promise<Br
     };
   };
 
+  /**
+   * Abrir una página sin que un sitio «raro» tumbe la mirada.
+   *
+   * Esperar a «sin red» es lo que da la captura más fiel, pero Chromium aborta
+   * la navegación (net::ERR_ABORTED) si el sitio redirige o un script cambia
+   * la dirección mientras carga, y algunos sitios nunca quedan sin red por
+   * culpa de un chat o de la analítica. En cualquiera de esos casos se
+   * reintenta una vez con un criterio más laxo. Si ni así, se dice claro: el
+   * agente sigue trabajando por la API de WordPress, que no la frena ningún
+   * cortafuegos ni protección contra robots; el navegador solo sirve para mirar.
+   */
+  const abrir = async (path: string): Promise<Cualquiera> => {
+    const url = `${o.baseUrl}${path}`;
+    try {
+      return await page.goto(url, { waitUntil: "networkidle", timeout: 30_000 });
+    } catch (error) {
+      const motivo = error instanceof Error ? error.message : String(error);
+      try {
+        return await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20_000 });
+      } catch {
+        throw new Error(
+          `No pude abrir ${url} en el navegador (${motivo.split("\n")[0]?.slice(0, 120)}). ` +
+            "Puede que el sitio redirija, bloquee navegadores automáticos o tarde demasiado. " +
+            "Sigue por la API de WordPress: lo que cambies ahí se aplica igual.",
+        );
+      }
+    }
+  };
+
   return {
     async ir(path, paginaCompleta) {
-      const res = await page.goto(`${o.baseUrl}${path}`, {
-        waitUntil: "networkidle",
-        timeout: 30_000,
-      });
+      const res = await abrir(path);
       return { ...(await capturar(paginaCompleta)), status: res?.status() ?? null };
     },
 
@@ -174,7 +200,7 @@ export async function crearNavegadorPlaywright(o: OpcionesNavegador): Promise<Br
     },
 
     async muestrearDiseno(path) {
-      await page.goto(`${o.baseUrl}${path}`, { waitUntil: "networkidle", timeout: 30_000 });
+      await abrir(path);
       await contener();
       // Bajar y volver: las secciones con animación o carga diferida no tienen
       // estilo final hasta que entran en pantalla.
