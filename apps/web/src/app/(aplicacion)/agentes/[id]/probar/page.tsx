@@ -48,7 +48,9 @@ export default async function PaginaProbar({
   const agente = await leerAgente(marco.actual.workspaceId, id);
   if (!agente) notFound();
   const seccion = seccionDe(agente.tipo);
-  const nombreAgente = agente.spec.identidad.nombre || agente.nombre;
+  // Los del catálogo se llaman como su puesto; los de WhatsApp, como diga su ficha.
+  const nombreAgente =
+    agente.tipo === "conversational" ? agente.spec.identidad.nombre || agente.nombre : agente.nombre;
 
   // Los agentes por encargo no se prueban conversando: se les encarga trabajo
   // real y lo ejecuta el worker. Por el simulador solo podían escalar a una

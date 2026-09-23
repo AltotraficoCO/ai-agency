@@ -265,8 +265,13 @@ export function conRespaldoDelCatalogo(
   respaldo: PlantillaDeCatalogo,
 ): EspecificacionAgente {
   if (fichaVacia(spec)) return desdePlantillaDeCatalogo(respaldo);
-  if (spec.identidad.nombre.trim()) return spec;
-  return { ...spec, identidad: { ...spec.identidad, nombre: respaldo.nombre.trim() } };
+  // Un agente del catálogo se llama como su puesto, y ese nombre vive en
+  // `agents.name`. La ficha (y sobre todo la versión publicada, que es
+  // inmutable) puede arrastrar el nombre que se le puso al contratar («jaime»):
+  // al leer, manda siempre el del agente.
+  const nombre = respaldo.nombre.trim() || spec.identidad.nombre.trim();
+  if (spec.identidad.nombre === nombre) return spec;
+  return { ...spec, identidad: { ...spec.identidad, nombre } };
 }
 
 export type DatosEmpresa = {
