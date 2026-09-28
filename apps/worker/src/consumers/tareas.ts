@@ -30,6 +30,7 @@ import type {
   EncargoDelegado,
   EntradaComunDeAgente,
   ResultadoTarea,
+  ConocimientoPort,
 } from "@strappy/agentes";
 import {
   agentePara,
@@ -85,6 +86,8 @@ export type OpcionesConsumidorTareas = {
   /** Fábrica del navegador. Sin ella no hay verificación visual, y se dice. */
   readonly navegadorPara?: (sitio: SitioConectado) => Promise<BrowserPort>;
   readonly referencias?: ReferencePort;
+  /** La base de conocimiento del negocio. Sin ella, los agentes trabajan sin consultarla. */
+  readonly conocimiento?: { para(workspaceId: string): Promise<ConocimientoPort | undefined> };
   /**
    * Salida HTTP hacia el sitio del cliente. En producción es el `fetch` del
    * proceso; se inyecta para poder poner delante el doble de la REST API en
@@ -370,11 +373,17 @@ export class ConsumidorDeTareas implements Consumidor {
       : tarea.agentId && this.#o.puertos.nomina
         ? await this.#o.puertos.nomina.nombreDe({ workspaceId: tarea.workspaceId, agentId: tarea.agentId })
         : null;
+    // Lo que el negocio guardó en su base de conocimiento: todos los agentes lo
+    // consultan. Si falla la lectura, el agente trabaja sin él en vez de caerse.
+    const conocimiento = this.#o.conocimiento
+      ? await this.#o.conocimiento.para(tarea.workspaceId).catch(() => undefined)
+      : undefined;
     return {
       model: motor.model,
       modelId: motor.modelId,
       rates: motor.rates,
       workspaceId: tarea.workspaceId,
+      ...(conocimiento ? { conocimiento } : {}),
       ...(tarea.agentId ? { agentId: tarea.agentId } : {}),
       agentName: nombreReal ?? agentName,
       tarea: e.delegado

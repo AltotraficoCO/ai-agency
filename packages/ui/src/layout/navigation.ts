@@ -145,12 +145,14 @@ const agentesFinanciero: DestinoNav = {
  * El menú, en el orden en que se lee.
  *
  * Arriba, lo que es de la empresa entera: dónde empiezas (Inicio), quién
- * trabaja para ti (Tu equipo) y qué te están ahorrando (Impacto). Impacto no
- * cuelga de ningún departamento a propósito: suma el trabajo de todos, y
- * meterlo en uno haría creer que solo mide ese.
+ * trabaja para ti (Tu equipo), qué te están ahorrando (Impacto) y lo que saben
+ * de tu negocio (Conocimiento). Impacto y Conocimiento no cuelgan de ningún
+ * departamento a propósito: el primero suma el trabajo de todos, y el segundo
+ * lo consultan todos —el Webmaster, Marketing, el Diseñador, el Administrativo—,
+ * no solo los agentes de WhatsApp. Meterlos en uno haría creer que son de ese.
  *
  * Debajo, los departamentos, que son el armazón para ir contratando: hoy
- * Comunicaciones tiene cinco pantallas y los demás una, mañana tendrán las
+ * Comunicaciones tiene cuatro pantallas y los demás una, mañana tendrán las
  * suyas sin tocar este archivo más que para añadir la línea.
  *
  * Canales no está aquí a propósito: WhatsApp se conecta una vez y luego no se
@@ -160,11 +162,12 @@ export const menuPrincipal: readonly EntradaNav[] = [
   inicio,
   equipo,
   impacto,
+  conocimiento,
   {
     id: "comunicaciones",
     etiqueta: DEPARTAMENTOS.comunicaciones.etiqueta,
     icono: MessageCircle,
-    destinos: [agentesWhatsapp, bandeja, contactos, conocimiento, analitica],
+    destinos: [agentesWhatsapp, bandeja, contactos, analitica],
   },
   {
     id: "marketing",

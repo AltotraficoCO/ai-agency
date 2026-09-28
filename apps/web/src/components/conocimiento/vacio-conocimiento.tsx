@@ -37,8 +37,8 @@ export function VacioConocimiento() {
           Enséñale a tus agentes cómo es tu negocio
         </h2>
         <p className="text-md text-fg-secondary">
-          Crea una base de conocimiento y aliméntala. Tus agentes de WhatsApp responderán con esa
-          información en lugar de inventar.
+          Crea una base de conocimiento y aliméntala. Todo tu equipo la consulta —el Webmaster, Marketing, el
+          Diseñador, el Administrativo y tus agentes de WhatsApp— y trabaja con esa información en lugar de inventar.
         </p>
       </div>
 

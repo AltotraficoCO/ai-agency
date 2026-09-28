@@ -22,6 +22,7 @@ import type { RateTable } from "@strappy/core";
 import type { ToolContext } from "@strappy/tools";
 import { ejecutarTareaDeAgente, type OficioDelAgente } from "./bucle.js";
 import { bloqueDeCompaneros, type ColaboracionPort, type Companero } from "./colaboracion.js";
+import { bloqueDeConocimiento, crearHerramientaDeConocimiento, type ConocimientoPort } from "./conocimiento.js";
 import type { PasoTrabajo, ResultadoTarea, TareaEncargo } from "./tipos.js";
 
 /**
@@ -57,6 +58,8 @@ export type EntradaComunDeAgente = {
   readonly colaboracion?: ColaboracionPort;
   /** Agentes que ya intervinieron en esta cadena. Vacío si lo pidió una persona. */
   readonly cadena?: readonly string[];
+  /** La base de conocimiento del negocio. Sin ella, o sin bases, el agente no la ve. */
+  readonly conocimiento?: ConocimientoPort;
 };
 
 /** Lo mínimo que el montaje necesita saber de la definición de un agente. */
@@ -125,10 +128,15 @@ export function oficioComun(entrada: {
   const { agent, comun } = entrada;
   return {
     slug: agent.slug,
-    herramientas: entrada.herramientas,
+    // El conocimiento del negocio va a TODOS los oficios desde aquí: un oficio
+    // nuevo lo tiene sin que nadie tenga que acordarse.
+    herramientas:
+      comun.conocimiento && comun.conocimiento.bases > 0
+        ? [...entrada.herramientas, crearHerramientaDeConocimiento(comun.conocimiento)]
+        : entrada.herramientas,
     maxAcciones: agent.maxAcciones,
     timeoutMs: agent.timeoutMs,
-    sistema: entrada.sistema + bloqueDeCompaneros(comun.companeros ?? []),
+    sistema: entrada.sistema + bloqueDeCompaneros(comun.companeros ?? []) + bloqueDeConocimiento(comun.conocimiento),
     contexto: entrada.contexto,
     ...(comun.colaboracion ? { colaboracion: comun.colaboracion } : {}),
     ...(comun.cadena ? { cadena: comun.cadena } : {}),

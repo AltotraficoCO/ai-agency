@@ -3,6 +3,10 @@
 /**
  * Qué agentes de WhatsApp usan esta base.
  *
+ * Los agentes por encargo (Webmaster, Marketing, Diseñador, Administrativo) la
+ * consultan siempre, sin interruptor: trabajan para el negocio entero. Los de
+ * WhatsApp sí se eligen, porque cada uno atiende a un público distinto.
+ *
  * El interruptor cambia al instante (optimista) y vuelve atrás si el servidor
  * lo rechaza: esperar a la base para mover un interruptor se siente roto.
  */
@@ -63,9 +67,10 @@ export function PanelAgentes({
           Agentes que lo usan
         </h2>
         <p className="text-sm text-fg-secondary">
+          Tu equipo —Webmaster, Marketing, Diseñador, Administrativo— lo consulta siempre.{" "}
           {agentes.length === 0
-            ? "Solo los agentes conectados responden con este conocimiento."
-            : `${conectados} de ${agentes.length} conectados. Solo esos responden con esta información.`}
+            ? "De tus agentes de WhatsApp, solo responden con él los que conectes aquí."
+            : `De tus agentes de WhatsApp, ${conectados} de ${agentes.length} lo usan.`}
         </p>
       </div>
 

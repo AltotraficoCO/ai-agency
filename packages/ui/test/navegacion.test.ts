@@ -94,7 +94,8 @@ describe("el menú", () => {
 
   it("deja fuera de los departamentos lo que es de la empresa entera", () => {
     const sueltos = menuPrincipal.filter((e) => !esGrupoNav(e)).map((e) => e.id);
-    expect(sueltos).toEqual(["inicio", "agentes", "impacto"]);
+    // Conocimiento es de todos los agentes, no de Comunicaciones.
+    expect(sueltos).toEqual(["inicio", "agentes", "impacto", "conocimiento"]);
   });
 
   it("Comunicaciones agrupa la atención al cliente", () => {
@@ -102,7 +103,6 @@ describe("el menú", () => {
       rutas.agentesWhatsapp,
       rutas.bandeja,
       rutas.contactos,
-      rutas.conocimiento,
       rutas.analitica,
     ]);
   });

@@ -14,6 +14,11 @@ import { datosDelMarco } from "@/lib/marco";
 
 export const metadata = { title: "Conocimiento" };
 export const dynamic = "force-dynamic";
+// Aprender un sitio corre en segundo plano (`after`) dentro de la función de
+// esta página y de sus Server Actions: leer varias páginas y prepararlas para
+// buscar no cabe en el tope por defecto, y cortado a medias deja las fuentes
+// colgadas. Mismo tope que la subida de archivos.
+export const maxDuration = 300;
 
 export default async function PaginaBaseDeConocimiento({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

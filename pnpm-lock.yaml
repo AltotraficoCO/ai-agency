@@ -165,6 +165,9 @@ importers:
       '@strappy/marketing':
         specifier: workspace:*
         version: link:../../packages/marketing
+      '@strappy/rag':
+        specifier: workspace:*
+        version: link:../../packages/rag
       '@strappy/tools':
         specifier: workspace:*
         version: link:../../packages/tools

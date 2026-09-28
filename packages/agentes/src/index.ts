@@ -14,3 +14,4 @@ export * from "./huella.js";
 export * from "./colaboracion.js";
 export * from "./bucle.js";
 export * from "./montaje.js";
+export * from "./conocimiento.js";

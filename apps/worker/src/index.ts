@@ -14,6 +14,7 @@ import { CuentasPostgres } from "./adaptadores/cuentas.js";
 import { LibrosPostgres } from "./adaptadores/libros.js";
 import { VelocidadPostgres } from "./adaptadores/velocidad.js";
 import { NominaPostgres } from "./adaptadores/nomina.js";
+import { ConocimientoPostgres } from "./adaptadores/conocimiento.js";
 import { EstudioPostgres } from "./adaptadores/estudio.js";
 import { MensajeriaWhatsApp } from "./adaptadores/mensajeria.js";
 import { MotorPorPlan } from "./adaptadores/motor.js";
@@ -96,6 +97,8 @@ async function main(): Promise<void> {
     },
     workerId: config.workerId,
     motorPara: (tarea) => motor.para(tarea),
+    // Lo que el negocio guardó en su base de conocimiento, para todos los agentes.
+    conocimiento: new ConocimientoPostgres(pool),
     navegadorPara: (sitio) =>
       crearNavegadorPlaywright({
         baseUrl: sitio.url.startsWith("http") ? sitio.url : `https://${sitio.url}`,

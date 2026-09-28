@@ -20,6 +20,11 @@ export const metadata = { title: "Conocimiento" };
 
 // Lee el espacio en cada visita: las fuentes cambian mientras aprenden.
 export const dynamic = "force-dynamic";
+// Aprender un sitio corre en segundo plano (`after`) dentro de la función de
+// esta página y de sus Server Actions: leer varias páginas y prepararlas para
+// buscar no cabe en el tope por defecto, y cortado a medias deja las fuentes
+// colgadas. Mismo tope que la subida de archivos.
+export const maxDuration = 300;
 
 export default async function PaginaConocimiento() {
   const marco = await datosDelMarco();
@@ -36,7 +41,7 @@ export default async function PaginaConocimiento() {
       usuario={marco.usuario}
       creditos={marco.creditos}
       pendientes={marco.pendientes}
-      contexto="WhatsApp"
+      contexto="Tu negocio"
       titulo="Conocimiento"
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-8">
