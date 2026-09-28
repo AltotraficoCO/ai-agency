@@ -30,6 +30,13 @@ const esquema = z.object({
    */
   PAGESPEED_API_KEY: z.string().min(1).optional(),
   WORKER_TABLA_TAREAS: z.string().min(1).default("public.agent_tasks"),
+  /**
+   * La GitHub App de Strappy, con la que el Webmaster pide un token por
+   * encargo para los repositorios conectados con ella. Sin estas dos, solo
+   * funcionan los repositorios conectados con un token propio.
+   */
+  GITHUB_APP_ID: z.string().min(1).optional(),
+  GITHUB_APP_PRIVATE_KEY: z.string().min(1).optional(),
 });
 
 export type ConfigWorker = {
@@ -41,6 +48,7 @@ export type ConfigWorker = {
   readonly referenciasHost?: string;
   readonly pagespeedApiKey?: string;
   readonly tablaTareas: string;
+  readonly githubApp?: { readonly appId: string; readonly clavePrivada: string };
 };
 
 export function leerConfig(env: NodeJS.ProcessEnv = process.env): ConfigWorker {
@@ -61,6 +69,9 @@ export function leerConfig(env: NodeJS.ProcessEnv = process.env): ConfigWorker {
     ...(c.WORKER_REFERENCIAS_HOST ? { referenciasHost: c.WORKER_REFERENCIAS_HOST } : {}),
     ...(c.PAGESPEED_API_KEY ? { pagespeedApiKey: c.PAGESPEED_API_KEY } : {}),
     tablaTareas: c.WORKER_TABLA_TAREAS,
+    ...(c.GITHUB_APP_ID && c.GITHUB_APP_PRIVATE_KEY
+      ? { githubApp: { appId: c.GITHUB_APP_ID, clavePrivada: c.GITHUB_APP_PRIVATE_KEY } }
+      : {}),
   };
 }
 

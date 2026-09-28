@@ -20,6 +20,8 @@ import type {
   BackupRecord,
   BrowserPort,
   CapturaPantalla,
+  EstadoRepo,
+  RepoEstadoPort,
 } from "../index.js";
 
 // ---------------------------------------------------------------------------
@@ -59,11 +61,22 @@ export class AprobacionesEnMemoria implements ApprovalPort {
     entrada: unknown;
   }[] = [];
   readonly decisiones = new Map<string, ApprovalDecision>();
+  readonly respuestas = new Map<string, string>();
   #n = 0;
 
   /** Simula que una persona pulsó el botón. */
   decidir(huella: string, decision: ApprovalDecision): void {
     this.decisiones.set(huella, decision);
+  }
+
+  /** Simula que el cliente contestó una pregunta pulsando una opción o escribiendo. */
+  responder(huella: string, respuesta: string): void {
+    this.decisiones.set(huella, "aprobada");
+    this.respuestas.set(huella, respuesta);
+  }
+
+  async respuesta(input: { huella: string }): Promise<string | null> {
+    return this.respuestas.get(input.huella) ?? null;
   }
 
   async check(input: { huella: string }): Promise<ApprovalDecision | null> {
@@ -90,6 +103,21 @@ export class AprobacionesEnMemoria implements ApprovalPort {
   }
 }
 
+/** Lo que un encargo lleva hecho en el repositorio, guardado como lo guardaría la base. */
+export class RepoEstadoEnMemoria implements RepoEstadoPort {
+  readonly porTarea = new Map<string, EstadoRepo>();
+
+  async cargar(input: { taskId: string }): Promise<EstadoRepo | null> {
+    const e = this.porTarea.get(input.taskId);
+    // Copia profunda: lo que vuelve de la base nunca es el mismo objeto.
+    return e ? (JSON.parse(JSON.stringify(e)) as EstadoRepo) : null;
+  }
+
+  async guardar(input: { taskId: string; estado: EstadoRepo }): Promise<void> {
+    this.porTarea.set(input.taskId, JSON.parse(JSON.stringify(input.estado)) as EstadoRepo);
+  }
+}
+
 /** Navegador de mentira: devuelve el HTML del doble como si lo hubiera pintado. */
 export class NavegadorFalso implements BrowserPort {
   url = "";
@@ -111,8 +139,19 @@ export class NavegadorFalso implements BrowserPort {
     };
   }
 
+  readonly hostsPermitidos: string[] = [];
+
+  permitirHost(host: string): void {
+    this.hostsPermitidos.push(host);
+  }
+
   async ir(path: string, _completa: boolean) {
     this.visitadas.push(path);
+    if (/^https?:\/\//.test(path)) {
+      if (!this.hostsPermitidos.includes(new URL(path).host)) throw new Error("host no permitido");
+      this.url = path;
+      return { ...this.#captura({ titulo: "vista previa" }), status: 200 };
+    }
     this.url = `${this.base}${path}`;
     const p = this.buscarHtml(path);
     return { ...this.#captura({ titulo: p.titulo }), status: p.status };

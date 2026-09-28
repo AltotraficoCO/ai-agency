@@ -9,16 +9,20 @@ import { InterruptorMax } from "@/components/agentes/interruptor-max";
 import { datosDelMarco } from "@/lib/marco";
 import { leerAgente } from "@/lib/agentes";
 import { espacioConMax } from "@/lib/negocio/cartera";
+import { SeccionRepositorio } from "@/components/negocio/seccion-repositorio";
+import { sitioDelEspacio } from "@/lib/sitio/sitio";
 
 export const metadata = { title: "Instrucciones del agente" };
 export const dynamic = "force-dynamic";
 
 export default async function PaginaInstrucciones({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ github?: string; detalle?: string }>;
 }) {
-  const { id } = await params;
+  const [{ id }, vuelta] = await Promise.all([params, searchParams]);
   const marco = await datosDelMarco();
   const agente = await leerAgente(marco.actual.workspaceId, id);
   if (!agente) notFound();
@@ -26,6 +30,11 @@ export default async function PaginaInstrucciones({
   // agente. En el gratuito se enseña apagado y se dice por qué.
   const planDePago = marco.actual.esDesarrollo || (await espacioConMax(marco.actual.workspaceId));
   const seccion = seccionDe(agente.tipo);
+  // El Webmaster necesita saber DÓNDE trabaja, y el cliente lo busca aquí, en
+  // la ficha de su agente, no solo en Ajustes.
+  const esWebmaster = agente.catalogo === "webmaster";
+  const puedeEditar = marco.actual.rol === "owner" || marco.actual.rol === "admin";
+  const sitio = esWebmaster ? await sitioDelEspacio(marco.actual.workspaceId) : null;
 
   return (
     <MarcoApp
@@ -62,6 +71,19 @@ export default async function PaginaInstrucciones({
               variante={agente.tipo === "conversational" ? "whatsapp" : "catalogo"}
             />
             <InterruptorMax agentId={id} modo={agente.modo} planDePago={planDePago} />
+            {esWebmaster && (
+              <>
+                <DondeTrabaja sitio={sitio} />
+                <SeccionRepositorio
+                  workspaceId={marco.actual.workspaceId}
+                  puedeEditar={puedeEditar}
+                  volver={`/agentes/${id}/instrucciones#repositorio`}
+                  agenteId={id}
+                  github={vuelta.github}
+                  detalle={vuelta.detalle}
+                />
+              </>
+            )}
           </div>
         }
       />
@@ -74,4 +96,25 @@ function seccionDe(tipo: string) {
   return tipo === "conversational"
     ? { href: rutas.agentesWhatsapp, etiqueta: "Agentes de WhatsApp", ruta: rutas.agentesWhatsapp }
     : { href: rutas.agentes, etiqueta: "Tu equipo", ruta: rutas.agentes };
+}
+
+/** En qué sitio trabaja el Webmaster ahora mismo, y dónde se conecta un WordPress. */
+function DondeTrabaja({ sitio }: { sitio: Awaited<ReturnType<typeof sitioDelEspacio>> }) {
+  return (
+    <section className="strappy-slide-up flex flex-col gap-1 rounded-xl border border-border bg-raised px-5 py-4 shadow-e1">
+      <h2 className="text-lg font-semibold tracking-tight text-fg">Dónde trabaja</h2>
+      <p className="text-sm text-fg-secondary">
+        {sitio
+          ? sitio.tipo === "repo"
+            ? `En el código de ${sitio.repositorio ?? "tu repositorio"}, que se ve en ${sitio.url}.`
+            : sitio.tipo === "custom"
+              ? `En ${sitio.url}, por el conector de tu sitio.`
+              : `En tu WordPress, ${sitio.url}.`
+          : "Todavía en ningún sitio: conecta tu WordPress o el repositorio de tu web."}{" "}
+        <Link href="/ajustes/sitio" className="text-primary-fg underline-offset-4 hover:underline">
+          {sitio?.tipo === "wp" ? "Cambiar su WordPress" : "¿Es un WordPress? Conéctalo aquí"}
+        </Link>
+      </p>
+    </section>
+  );
 }

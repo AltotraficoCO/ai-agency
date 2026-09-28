@@ -33,6 +33,8 @@ export const SCOPES = {
   wpAdmin: "wp:admin",
   conectorRead: "conector:read",
   conectorWrite: "conector:write",
+  repoRead: "repo:read",
+  repoWrite: "repo:write",
   navegador: "navegador:use",
 } as const;
 
@@ -50,3 +52,6 @@ export const SCOPES_CONECTOR: readonly string[] = [
   SCOPES.conectorWrite,
   SCOPES.navegador,
 ];
+
+/** Los de un sitio hecho a medida cuyo código vive en un repositorio. */
+export const SCOPES_REPO: readonly string[] = [SCOPES.repoRead, SCOPES.repoWrite, SCOPES.navegador];

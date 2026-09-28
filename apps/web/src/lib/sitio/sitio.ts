@@ -22,35 +22,72 @@ export type SitioGuardado = {
   nombre: string;
   usuario: string;
   estado: string;
+  /** Cómo está hecho: WordPress, conector estándar o el repositorio de uno a medida. */
+  tipo: "wp" | "custom" | "repo";
+  /** owner/repo, si es un repositorio. */
+  repositorio?: string;
 };
 
-/** El WordPress conectado del espacio, o `null`. Por ahora hay uno por espacio. */
-export async function sitioDelEspacio(workspaceId: string): Promise<SitioGuardado | null> {
+/**
+ * El sitio que cuida el Webmaster, o `null`: el WordPress, el sitio con el
+ * conector o el repositorio de uno a medida, el último que se conectó. Es el
+ * mismo que elige un encargo nuevo (`encargos.ts`), así que la pantalla nunca
+ * dice «trabaja en X» mientras el encargo va a Y.
+ */
+export async function sitioDelEspacio(
+  workspaceId: string,
+  /** Solo el WordPress: el Diseñador publica en su biblioteca de medios y no sabe de otros. */
+  soloWordpress = false,
+): Promise<SitioGuardado | null> {
   return conEspacio(workspaceId, async (scope) => {
     const { rows } = await scope.query<{
       id: string;
+      provider: string;
       url: string | null;
       nombre: string | null;
       usuario: string | null;
+      owner: string | null;
+      repo: string | null;
       estado: string;
     }>(
-      `select id, metadata->>'url' as url, metadata->>'nombre' as nombre,
-              metadata->>'usuario' as usuario, status as estado
+      `select id, provider, metadata->>'url' as url, metadata->>'nombre' as nombre,
+              metadata->>'usuario' as usuario, metadata->>'owner' as owner,
+              metadata->>'repo' as repo, status as estado
          from public.connections
-        where workspace_id = $1 and provider = 'wordpress'
-        order by updated_at desc
+        where workspace_id = $1 and provider = any($2::text[])
+          and status <> 'revoked'
+        order by (status = 'active') desc, updated_at desc
         limit 1`,
-      [workspaceId],
+      [workspaceId, soloWordpress ? ["wordpress"] : ["wordpress", "conector", "github"]],
     );
     const fila = rows[0];
     if (!fila?.url) return null;
+    const tipo = fila.provider === "github" ? "repo" : fila.provider === "conector" ? "custom" : "wp";
     return {
       id: fila.id,
       url: fila.url,
       nombre: fila.nombre ?? new URL(fila.url).hostname,
       usuario: fila.usuario ?? "",
       estado: fila.estado,
+      tipo,
+      ...(tipo === "repo" && fila.owner && fila.repo ? { repositorio: `${fila.owner}/${fila.repo}` } : {}),
     };
+  });
+}
+
+/** El WordPress conectado, aunque el sitio activo sea otro: rellena su formulario. */
+export async function wordpressDelEspacio(workspaceId: string): Promise<{ url: string; usuario: string } | null> {
+  return conEspacio(workspaceId, async (scope) => {
+    const { rows } = await scope.query<{ url: string | null; usuario: string | null }>(
+      `select metadata->>'url' as url, metadata->>'usuario' as usuario
+         from public.connections
+        where workspace_id = $1 and provider = 'wordpress'
+        order by updated_at desc
+        limit 1`,
+      [workspaceId],
+    );
+    const f = rows[0];
+    return f?.url ? { url: f.url, usuario: f.usuario ?? "" } : null;
   });
 }
 

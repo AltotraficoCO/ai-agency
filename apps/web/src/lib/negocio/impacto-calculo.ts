@@ -90,7 +90,7 @@ export const MINIMO_POR_ENCARGO = 15;
 export const MAXIMO_POR_ENCARGO = 240;
 
 /** Herramientas que no son trabajo sino conversación con la persona. */
-const HERRAMIENTAS_SIN_TRABAJO = new Set(["preguntar_al_cliente", "pedir_aprobacion", "ver_referencia"]);
+const HERRAMIENTAS_SIN_TRABAJO = new Set(["preguntar_al_cliente", "pedir_aprobacion", "ver_referencia", "repo_elegir_rama"]);
 
 /**
  * A qué tipo de trabajo corresponde una herramienta.
@@ -104,7 +104,11 @@ export function tipoDeHerramienta(slug: string): TipoTrabajo | null {
   const s = slug.toLowerCase();
   if (HERRAMIENTAS_SIN_TRABAJO.has(s)) return null;
   if (/^navegador_|(^|_)(leer|listar|salud|verificar|consola)(_|$)/.test(s)) return "revision";
-  if (/restaurar|backup|copia/.test(s)) return "copias";
+  // En un repositorio, explorar, revisar el diff y mirar el build también es revisar.
+  if (/^repo_(info|arbol|buscar|ramas|historial|cambios_recientes|ver_cambios|estado_despliegue|ver_vista_previa)$/.test(s)) {
+    return "revision";
+  }
+  if (/restaurar|backup|copia|deshacer/.test(s)) return "copias";
   if (/plugin/.test(s)) return "plugins";
   if (/usuario|comentario/.test(s)) return "usuarios";
   if (/elementor|header|footer|plantilla|seccion|menu|tema/.test(s)) return "diseno";

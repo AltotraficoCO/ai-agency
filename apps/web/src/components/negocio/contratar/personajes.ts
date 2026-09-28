@@ -28,6 +28,7 @@ import {
   Puzzle,
   Receipt,
   ShieldCheck,
+  Code,
   UserRound,
   Users,
   Wallet,
@@ -81,6 +82,7 @@ export const ICONO_CAPACIDAD: Readonly<Record<IconoCapacidad, LucideIcon>> = {
   velocidad: Gauge,
   factura: Receipt,
   dinero: Wallet,
+  codigo: Code,
 };
 
 /** El robot de los agentes que todavía no tienen cara. */

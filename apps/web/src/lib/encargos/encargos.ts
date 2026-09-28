@@ -110,7 +110,9 @@ export const AGENTES_POR_ENCARGO = [
  * anuncios y el financiero sobre el sistema de facturación.
  */
 const PROVEEDORES_POR_AGENTE: Record<string, readonly string[]> = {
-  webmaster: ["wordpress"],
+  // El sitio esté hecho como esté: WordPress, el conector estándar o el
+  // repositorio de GitHub de uno a medida. El worker elige el agente por el tipo.
+  webmaster: ["wordpress", "conector", "github"],
   marketing: ["google_ads", "meta_ads", "tiktok_ads"],
   administrativo: ["alegra"],
   // El Diseñador dibuja con nuestra propia cartera de modelos: no necesita que
@@ -279,7 +281,8 @@ export async function crearEncargo(input: {
     if (!siteId && quien === "webmaster") {
       return {
         ok: false,
-        error: "Primero conecta tu sitio en Ajustes → Sitio web: sin acceso a tu WordPress no puedo hacer cambios.",
+        error:
+          "Primero conecta tu sitio en Ajustes → Sitio web: tu WordPress o el repositorio de GitHub de tu web. Sin acceso no puedo hacer cambios.",
       };
     }
 

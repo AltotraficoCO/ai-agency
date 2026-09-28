@@ -13,7 +13,7 @@
  *    del cliente. Un enlace externo en el sitio no puede convertir al agente
  *    en un navegador de propósito general dentro de la red del servidor.
  */
-import type { BrowserPort, CapturaPantalla, WpCreds, ConectorCreds, MuestrasDiseno } from "../ports.js";
+import type { BrowserPort, CapturaPantalla, WpCreds, ConectorCreds, RepoCreds, MuestrasDiseno } from "../ports.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Cualquiera = any;
@@ -69,7 +69,11 @@ export type OpcionesNavegador = {
   readonly viewport?: { width: number; height: number };
 };
 
-export function baseDeSitio(creds: { wp?: WpCreds; conector?: ConectorCreds }): string {
+export function baseDeSitio(creds: { wp?: WpCreds; conector?: ConectorCreds; repo?: RepoCreds }): string {
+  if (creds.repo) {
+    const u = creds.repo.urlProduccion.replace(/\/+$/, "");
+    return u.startsWith("http") ? u : `https://${u}`;
+  }
   if (creds.wp) {
     const u = creds.wp.url.replace(/\/+$/, "");
     return u.startsWith("http") ? u : `https://${u}`;
@@ -192,11 +196,17 @@ export async function crearNavegadorPlaywright(o: OpcionesNavegador): Promise<Br
   };
 
   const host = new URL(o.baseUrl).host;
+  /**
+   * Los hosts por los que se puede andar: el del sitio y los que el runtime
+   * añada (la vista previa de una rama, que da GitHub). El modelo no añade
+   * ninguno.
+   */
+  const permitidos = new Set([host]);
 
   /** Si la acción salió del dominio del cliente, vuelve y lo cuenta. */
   const contener = async (): Promise<string | undefined> => {
     try {
-      if (new URL(page.url()).host !== host) {
+      if (!permitidos.has(new URL(page.url()).host)) {
         const fuera = String(page.url());
         await page.goto(o.baseUrl, {
           waitUntil: "domcontentloaded",
@@ -236,7 +246,14 @@ export async function crearNavegadorPlaywright(o: OpcionesNavegador): Promise<Br
    * cortafuegos ni protección contra robots; el navegador solo sirve para mirar.
    */
   const abrir = async (path: string): Promise<Cualquiera> => {
-    const url = `${o.baseUrl}${path}`;
+    // Una dirección completa solo vale si su host está permitido.
+    let url = `${o.baseUrl}${path}`;
+    if (/^https?:\/\//i.test(path)) {
+      if (!permitidos.has(new URL(path).host)) {
+        throw new Error("Esa dirección no es del sitio del cliente ni de su vista previa.");
+      }
+      url = path;
+    }
     try {
       return await page.goto(url, {
         waitUntil: "networkidle",
@@ -329,6 +346,10 @@ export async function crearNavegadorPlaywright(o: OpcionesNavegador): Promise<Br
         await page.evaluate("window.scrollTo(0, 0)").catch(() => {});
         return (await page.evaluate(SCRIPT_MUESTREO)) as MuestrasDiseno;
       });
+    },
+
+    permitirHost(nuevo) {
+      permitidos.add(nuevo);
     },
 
     async cerrar() {

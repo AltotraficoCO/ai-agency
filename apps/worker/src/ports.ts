@@ -17,6 +17,8 @@ import type {
   BackupPort,
   ConectorCreds,
   EstadoVigilancia,
+  RepoCreds,
+  RepoEstadoPort,
   WpCreds,
 } from "@strappy/webmaster";
 import type { AdsPort, AnalyticsPort } from "@strappy/marketing";
@@ -170,9 +172,9 @@ export type MotorTarea = {
 export type SitioConectado = {
   readonly id: string;
   readonly workspaceId: string;
-  readonly tipo: "wp" | "custom";
+  readonly tipo: "wp" | "custom" | "repo";
   readonly url: string;
-  readonly credenciales: WpCreds | ConectorCreds;
+  readonly credenciales: WpCreds | ConectorCreds | RepoCreds;
   /** Nombre con el que el cliente conoce a su agente. */
   readonly agentName: string;
   /** Si NO ha habido ninguna tarea ejecutada de verdad sobre este sitio. */
@@ -502,6 +504,8 @@ export type PuertosWorker = {
   readonly sitios: SitePort;
   readonly backups: BackupPort;
   readonly aprobaciones: ApprovalPort;
+  /** Dónde se guarda el trabajo en curso sobre un repositorio. Sin él, se pierde en cada pausa. */
+  readonly repoEstado?: RepoEstadoPort;
   readonly notificaciones?: NotificacionPort;
   /** Sin él, un encargo de Marketing dice que falta conectar las plataformas. */
   readonly cuentas?: CuentasPort;

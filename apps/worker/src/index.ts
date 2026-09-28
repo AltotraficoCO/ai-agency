@@ -9,7 +9,7 @@
  */
 import { leerConfig } from "./config.js";
 import { ColaPostgres } from "./queue/postgres.js";
-import { AprobacionesPostgres, BackupsPostgres, SitiosPostgres } from "./adaptadores/postgres.js";
+import { AprobacionesPostgres, BackupsPostgres, RepoEstadoPostgres, SitiosPostgres } from "./adaptadores/postgres.js";
 import { CuentasPostgres } from "./adaptadores/cuentas.js";
 import { LibrosPostgres } from "./adaptadores/libros.js";
 import { VelocidadPostgres } from "./adaptadores/velocidad.js";
@@ -68,9 +68,12 @@ async function main(): Promise<void> {
   const consumidor = new ConsumidorDeTareas({
     puertos: {
       cola: new ColaPostgres(pool, { tabla: config.tablaTareas }),
-      sitios: new SitiosPostgres(pool, config.claveMaestra),
+      sitios: new SitiosPostgres(pool, config.claveMaestra, config.githubApp),
       backups: new BackupsPostgres(pool),
       aprobaciones: new AprobacionesPostgres(pool),
+      // Lo que un encargo lleva hecho en un repositorio: la rama elegida y los
+      // cambios sin subir sobreviven a la pausa de una pregunta.
+      repoEstado: new RepoEstadoPostgres(pool),
       // Las cuentas de publicidad del espacio: Google Ads, Meta y TikTok, las
       // que el cliente haya conectado. Sin ninguna llega vacío y el agente lo
       // dice en vez de fallar.
@@ -81,7 +84,7 @@ async function main(): Promise<void> {
       // Con qué dibuja el Diseñador, con qué colores y dónde publica. El
       // modelo de imagen sale de `model_tiers`, como todos los demás.
       estudio: new EstudioPostgres({
-        sitios: new SitiosPostgres(pool, config.claveMaestra),
+        sitios: new SitiosPostgres(pool, config.claveMaestra, config.githubApp),
         pool,
       }),
       // Con qué mide el Velocista. Sin PAGESPEED_API_KEY el agente dice que no
@@ -111,7 +114,7 @@ async function main(): Promise<void> {
   const mensajeria = new MensajeriaWhatsApp(pool, config.claveMaestra);
   const vigilante = new ConsumidorDeVigilancia({
     vigilancia: new VigilanciaPostgres(pool),
-    sitios: new SitiosPostgres(pool, config.claveMaestra),
+    sitios: new SitiosPostgres(pool, config.claveMaestra, config.githubApp),
     workerId: config.workerId,
     alAvisar: async ({ workspaceId, sitioUrl, aviso }) => {
       const envio = await mensajeria.avisarAlDueno({

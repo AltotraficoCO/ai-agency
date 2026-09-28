@@ -37,6 +37,7 @@ import {
   type BrowserPort,
   type ConectorCreds,
   type ReferencePort,
+  type RepoCreds,
   type SitioContext,
   type WpCreds,
 } from "@strappy/webmaster";
@@ -598,9 +599,11 @@ export class ConsumidorDeTareas implements Consumidor {
       siteId: sitio.id,
       taskId: tarea.id,
       tipo: sitio.tipo,
-      ...(sitio.tipo === "custom"
-        ? { conector: sitio.credenciales as ConectorCreds }
-        : { wp: sitio.credenciales as WpCreds }),
+      ...(sitio.tipo === "repo"
+        ? { repo: sitio.credenciales as RepoCreds, ...(puertos.repoEstado ? { repoEstado: puertos.repoEstado } : {}) }
+        : sitio.tipo === "custom"
+          ? { conector: sitio.credenciales as ConectorCreds }
+          : { wp: sitio.credenciales as WpCreds }),
       backups: puertos.backups,
       approvals: puertos.aprobaciones,
       ...(navegador ? { browser: navegador } : {}),

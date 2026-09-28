@@ -93,6 +93,8 @@ export type FichaAgente = {
   estado: ResumenAgente["estado"];
   /** `conversational` atiende por WhatsApp; `task` trabaja por encargo para el negocio. */
   tipo: string;
+  /** El puesto del catálogo del que salió (webmaster, marketing…), o null si lo creó el cliente. */
+  catalogo: string | null;
   /** Foto del agente (`/avatares/whatsapp/NN.webp`); null si no tiene. */
   avatar: string | null;
   modo: "lite" | "max";
@@ -178,6 +180,7 @@ export async function leerAgente(
       descripcion: fila.description,
       estado: fila.status,
       tipo: fila.agent_type,
+      catalogo: fila.catalog_slug,
       avatar: fila.avatar_url,
       modo: fila.mode,
       publicado: Boolean(fila.active_version_id) && fila.status === "published",

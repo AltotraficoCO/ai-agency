@@ -76,6 +76,13 @@ export interface ApprovalPort {
     resumen: string;
     entrada: unknown;
   }): Promise<ApprovalRequest>;
+  /**
+   * Lo que el cliente contestó a una pregunta, tal cual lo pulsó o lo escribió.
+   * Opcional porque solo lo necesita quien tiene que ACTUAR según la respuesta
+   * y no puede fiarse de que el modelo la repita bien: elegir la rama de un
+   * repositorio, donde «directo a main» es publicar en vivo.
+   */
+  respuesta?(input: { workspaceId: string; taskId: string; huella: string }): Promise<string | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +117,12 @@ export interface BrowserPort {
    * Opcional: sin él, el diseño se deduce del CSS de Elementor.
    */
   muestrearDiseno?(path: string): Promise<MuestrasDiseno>;
+  /**
+   * Deja entrar en otro host además del sitio: la vista previa de una rama.
+   * Lo llama el runtime con un host que dio GitHub, nunca el modelo; a partir
+   * de ahí `ir` acepta direcciones completas de ese host.
+   */
+  permitirHost?(host: string): void;
   cerrar(): Promise<void>;
 }
 
@@ -200,12 +213,73 @@ export type ConectorCreds = {
   readonly token: string;
 };
 
+/**
+ * Un repositorio de GitHub con el código del sitio: el desarrollo propio del
+ * cliente en React, Next, Astro o lo que sea. El agente no ejecuta nada de ese
+ * código; lo lee, lo edita y lo sube a una rama por la API.
+ */
+export type RepoCreds = {
+  readonly proveedor: "github";
+  readonly owner: string;
+  readonly repo: string;
+  /** La rama que se publica en producción (main, master…). */
+  readonly ramaPrincipal: string;
+  /**
+   * Token con acceso al repositorio: uno personal de grano fino o el de
+   * instalación de la GitHub App, que el worker genera por tarea. Nunca llega
+   * al modelo.
+   */
+  readonly token: string;
+  /** Dónde se ve el sitio en vivo. Es la base del navegador. */
+  readonly urlProduccion: string;
+  /** Secreto de «Protection Bypass» de Vercel para ver vistas previas protegidas. */
+  readonly bypassVistaPrevia?: string;
+  /** Solo para GitHub Enterprise. Por defecto https://api.github.com. */
+  readonly apiBase?: string;
+};
+
+/** Qué rama se eligió para un encargo y cómo. */
+export type TipoRama = "nueva" | "existente" | "principal";
+
+/** Un archivo tocado y aún sin subir: texto, binario en base64 o `null` si se borra. */
+export type ArchivoPendiente = { readonly texto: string } | { readonly base64: string } | null;
+
+/**
+ * Lo que un encargo lleva hecho en el repositorio. Se guarda fuera del proceso
+ * porque el encargo se PAUSA —una pregunta, una aprobación— y al reanudarse lo
+ * retoma otro proceso: sin esto, los cambios sin subir y la rama elegida se
+ * perderían justo cuando el cliente contesta.
+ */
+export type EstadoRepo = {
+  readonly rama: string | null;
+  readonly tipoRama: TipoRama | null;
+  /** Cambios sobre la rama, aún sin subir. */
+  readonly cambios: Readonly<Record<string, ArchivoPendiente>>;
+  /** El PR abierto desde la rama del encargo, si lo hay. */
+  readonly pr: number | null;
+  /** Último commit que subió este encargo. */
+  readonly ultimoCommit: string | null;
+  /** La pregunta de la rama que espera respuesta del cliente. */
+  readonly preguntaRama: {
+    readonly huella: string;
+    readonly destinos: readonly { readonly etiqueta: string; readonly tipo: TipoRama; readonly rama: string }[];
+  } | null;
+};
+
+export interface RepoEstadoPort {
+  cargar(input: { workspaceId: string; taskId: string }): Promise<EstadoRepo | null>;
+  guardar(input: { workspaceId: string; taskId: string; siteId: string; estado: EstadoRepo }): Promise<void>;
+}
+
 export type SitioContext = {
   readonly siteId: string;
   readonly taskId: string;
-  readonly tipo: "wp" | "custom";
+  readonly tipo: "wp" | "custom" | "repo";
   readonly wp?: WpCreds;
   readonly conector?: ConectorCreds;
+  readonly repo?: RepoCreds;
+  /** Dónde se guarda el trabajo en curso sobre el repositorio. */
+  readonly repoEstado?: RepoEstadoPort;
   readonly backups: BackupPort;
   readonly approvals: ApprovalPort;
   readonly browser?: BrowserPort;
@@ -240,6 +314,15 @@ export function requireConector(sitio: SitioContext, toolSlug: string): Conector
     );
   }
   return sitio.conector;
+}
+
+export function requireRepo(sitio: SitioContext, toolSlug: string): RepoCreds {
+  if (!sitio.repo) {
+    throw new Error(
+      `La herramienta "${toolSlug}" necesita un repositorio conectado y este sitio es de tipo "${sitio.tipo}".`,
+    );
+  }
+  return sitio.repo;
 }
 
 export function requireBrowser(sitio: SitioContext, toolSlug: string): BrowserPort {

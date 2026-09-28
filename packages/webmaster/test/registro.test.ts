@@ -23,15 +23,16 @@ import {
   masterKeyFromEnv,
   webmaster,
   webmasterConector,
+  webmasterRepo,
   webmasterToolRegistry,
 } from "../src/index.js";
 
 describe("registro de herramientas", () => {
-  it("están las 51 herramientas y ninguna repetida", () => {
-    expect(HERRAMIENTAS_WEBMASTER).toHaveLength(51);
+  it("están las 74 herramientas y ninguna repetida", () => {
+    expect(HERRAMIENTAS_WEBMASTER).toHaveLength(74);
     const slugs = HERRAMIENTAS_WEBMASTER.map((t) => t.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
-    expect(webmasterToolRegistry.list()).toHaveLength(51);
+    expect(webmasterToolRegistry.list()).toHaveLength(74);
   });
 
   it("porta las familias del proyecto anterior", () => {
@@ -43,6 +44,7 @@ describe("registro de herramientas", () => {
     // del sitio parece un cambio fallido y el agente lo deshacía.
     expect(cuenta("wp_")).toBe(30);
     expect(cuenta("conector_")).toBe(10);
+    expect(cuenta("repo_")).toBe(23);
     expect(cuenta("navegador_")).toBe(5);
     for (const suelta of ["sitio_salud", "verificar_http", "ver_referencia"]) {
       expect(slugs).toContain(suelta);
@@ -85,6 +87,13 @@ describe("registro de herramientas", () => {
     expect(conector.some((s) => s.startsWith("wp_"))).toBe(false);
     expect(wp).toContain("navegador_ver_pagina");
     expect(conector).toContain("navegador_ver_pagina");
+    const repo = herramientasDe(webmasterRepo).map((t) => t.slug);
+    expect(repo.some((s) => s.startsWith("wp_") || s.startsWith("conector_"))).toBe(false);
+    expect(wp.some((s) => s.startsWith("repo_"))).toBe(false);
+    expect(conector.some((s) => s.startsWith("repo_"))).toBe(false);
+    expect(repo).toContain("repo_elegir_rama");
+    expect(repo).toContain("navegador_ver_pagina");
+    expect(repo).toContain("preguntar_al_cliente");
   });
 
   it("los prompts conservan las reglas que costaron fallos reales", () => {
@@ -176,7 +185,7 @@ describe("cifrado de credenciales", () => {
 describe("los dos adaptadores salen de la misma definición", () => {
   it("el descriptor MCP se deriva del mismo Zod que valida en ejecución", () => {
     const descriptores = webmasterToolRegistry.list().map(toMcpDescriptor);
-    expect(descriptores).toHaveLength(51);
+    expect(descriptores).toHaveLength(74);
 
     const editar = descriptores.find((d) => d.name === "wp_editar_contenido");
     expect(editar?.annotations.readOnlyHint).toBe(false);
@@ -192,7 +201,7 @@ describe("los dos adaptadores salen de la misma definición", () => {
 
   it("el conjunto para el AI SDK tiene needsApproval donde la ficha lo pide", () => {
     const set = toAiToolSet(HERRAMIENTAS_WEBMASTER);
-    expect(Object.keys(set)).toHaveLength(51);
+    expect(Object.keys(set)).toHaveLength(74);
     expect(set.wp_instalar_plugin?.needsApproval).toBe(true);
     expect(set.wp_listar_contenido?.needsApproval).toBe(false);
   });

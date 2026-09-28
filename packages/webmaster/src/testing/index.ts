@@ -10,3 +10,4 @@
 export * from "./wordpress.js";
 export * from "./conector.js";
 export * from "./dobles.js";
+export * from "./github.js";

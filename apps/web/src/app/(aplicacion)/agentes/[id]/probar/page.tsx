@@ -233,7 +233,7 @@ async function loConectado(
       return contabilidad ? { nombre: contabilidad.nombre, url: "/ajustes/contabilidad", estado: contabilidad.estado } : null;
     }
     default: {
-      const sitio = await sitioDelEspacio(workspaceId);
+      const sitio = await sitioDelEspacio(workspaceId, oficio === "disenador");
       return sitio ? { nombre: sitio.nombre, url: sitio.url, estado: sitio.estado } : null;
     }
   }

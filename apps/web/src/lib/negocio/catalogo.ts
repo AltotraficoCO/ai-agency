@@ -136,9 +136,10 @@ export async function catalogoDelEspacio(workspaceId: string): Promise<FichaCata
       ...Object.fromEntries([...activas].map((p) => [p, true])),
       whatsapp: Number(canales.rows[0]?.n ?? 0) > 0,
       conocimiento: Number(bases.rows[0]?.n ?? 0) > 0,
-      // Listo cuando hay un WordPress con credenciales que ya se probaron: la
-      // dirección sola, sin acceso, no le sirve de nada al Webmaster.
-      sitio: activas.has("wordpress"),
+      // Listo cuando hay un sitio con credenciales que ya se probaron —el
+      // WordPress, el conector o el repositorio de GitHub—: la dirección sola,
+      // sin acceso, no le sirve de nada al Webmaster.
+      sitio: activas.has("wordpress") || activas.has("conector") || activas.has("github"),
       // Igual con la facturación: sin ella el agente financiero no tiene libros
       // que mirar, y más vale decirlo antes de contratarlo.
       contabilidad: activas.has("alegra"),

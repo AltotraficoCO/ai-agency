@@ -215,6 +215,9 @@ export class ProgramadorPostgres implements ProgramadorPort {
 /** Sobre qué conexión trabaja cada oficio. Igual que en la web. */
 function proveedoresDe(agente: string): string[] {
   if (agente === "marketing") return ["google_ads", "meta_ads", "tiktok_ads"];
+  // El Webmaster cuida el sitio esté hecho como esté: WordPress, un sitio con
+  // el conector o el repositorio de uno hecho a medida.
+  if (agente === "webmaster") return ["wordpress", "conector", "github"];
   if (agente === "administrativo") return ["alegra"];
   return ["wordpress"];
 }

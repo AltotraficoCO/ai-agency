@@ -33,7 +33,7 @@ const SECCIONES: readonly Seccion[] = [
   { href: "/ajustes/espacio", etiqueta: "Espacio", descripcion: "Nombre, zona y horario", icono: Building2 },
   { href: "/ajustes/equipo", etiqueta: "Equipo", descripcion: "Quién entra y qué puede hacer", icono: Users },
   { href: "/ajustes/canales", etiqueta: "Canales", descripcion: "Tu número de WhatsApp", icono: MessageCircle },
-  { href: "/ajustes/sitio", etiqueta: "Sitio web", descripcion: "El WordPress del Webmaster", icono: Globe },
+  { href: "/ajustes/sitio", etiqueta: "Sitio web", descripcion: "El WordPress o el repositorio que cuida el Webmaster", icono: Globe },
   {
     href: "/ajustes/avisos",
     etiqueta: "Avisos",

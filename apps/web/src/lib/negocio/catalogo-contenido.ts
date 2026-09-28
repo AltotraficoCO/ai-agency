@@ -40,7 +40,8 @@ export type IconoCapacidad =
   | "imagen"
   | "velocidad"
   | "factura"
-  | "dinero";
+  | "dinero"
+  | "codigo";
 
 export type CapacidadAgente = {
   readonly icono: IconoCapacidad;
@@ -121,7 +122,7 @@ export const CONTENIDO_POR_AGENTE: Readonly<Record<string, ContenidoDeAgente>> =
       {
         clave: "sitio",
         nombre: "Tu sitio web",
-        descripcion: "La dirección que tiene que vigilar y mantener.",
+        descripcion: "Tu WordPress, o el repositorio de GitHub si tu web está hecha a medida.",
         ruta: "/ajustes/sitio",
       },
     ],
@@ -130,6 +131,11 @@ export const CONTENIDO_POR_AGENTE: Readonly<Record<string, ContenidoDeAgente>> =
         icono: "web",
         titulo: "Cambia textos, páginas y entradas",
         detalle: "Le pides el cambio y lo hace él mismo en tu WordPress.",
+      },
+      {
+        icono: "codigo",
+        titulo: "También trabaja en webs hechas a medida",
+        detalle: "React, Next, Astro…: edita el código en tu GitHub, te pregunta en qué rama y publica con tu clic.",
       },
       {
         icono: "velocidad",

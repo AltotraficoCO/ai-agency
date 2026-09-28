@@ -8,7 +8,7 @@
  *
  * Backups y aprobaciones sí son tablas nuevas: `packages/db/migrations/0015_tareas_webmaster.sql`.
  */
-import { decryptJson } from "@strappy/webmaster";
+import { decryptJson, githubApp } from "@strappy/webmaster";
 import type {
   ApprovalDecision,
   ApprovalPort,
@@ -16,6 +16,9 @@ import type {
   BackupPort,
   BackupRecord,
   ConectorCreds,
+  EstadoRepo,
+  RepoCreds,
+  RepoEstadoPort,
   WpCreds,
 } from "@strappy/webmaster";
 import type { SitePort, SitioConectado, SqlExecutor } from "../ports.js";
@@ -137,6 +140,42 @@ export class AprobacionesPostgres implements ApprovalPort {
       decision: f.decision === "aprobada" || f.decision === "rechazada" ? f.decision : null,
     };
   }
+
+  /** Lo que contestó el cliente: la web lo guarda en `entrada.respuesta` al responder. */
+  async respuesta(input: { workspaceId: string; taskId: string; huella: string }): Promise<string | null> {
+    const { rows } = await this.sql.query<{ respuesta: string | null }>(
+      `select entrada->>'respuesta' as respuesta from public.task_approvals
+        where workspace_id = $1 and task_id = $2 and huella = $3 and decision is not null`,
+      [input.workspaceId, input.taskId, input.huella],
+    );
+    return rows[0]?.respuesta ?? null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sesiones de trabajo sobre un repositorio
+// ---------------------------------------------------------------------------
+
+export class RepoEstadoPostgres implements RepoEstadoPort {
+  constructor(private readonly sql: SqlExecutor) {}
+
+  async cargar(input: { workspaceId: string; taskId: string }): Promise<EstadoRepo | null> {
+    const { rows } = await this.sql.query<{ estado: EstadoRepo }>(
+      `select estado from public.repo_sesiones where workspace_id = $1 and task_id = $2`,
+      [input.workspaceId, input.taskId],
+    );
+    return rows[0]?.estado ?? null;
+  }
+
+  async guardar(input: { workspaceId: string; taskId: string; siteId: string; estado: EstadoRepo }): Promise<void> {
+    await this.sql.query(
+      `insert into public.repo_sesiones (task_id, workspace_id, site_id, estado)
+       values ($1, $2, $3, $4::jsonb)
+       on conflict (task_id) do update set estado = excluded.estado
+        where public.repo_sesiones.workspace_id = excluded.workspace_id`,
+      [input.taskId, input.workspaceId, input.siteId, JSON.stringify(input.estado)],
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -148,13 +187,48 @@ type MetadatosSitio = {
   tipo?: string;
   agent_name?: string;
   primer_contacto?: boolean;
+  owner?: string;
+  repo?: string;
+  rama_principal?: string;
+};
+
+/** Lo que se guarda cifrado de un repositorio: un token propio o la instalación de la App. */
+type CredencialesRepo = {
+  token?: string;
+  installationId?: number;
+  bypassVistaPrevia?: string;
 };
 
 export class SitiosPostgres implements SitePort {
   constructor(
     private readonly sql: SqlExecutor,
     private readonly claveMaestra: Buffer,
+    /** La GitHub App de Strappy. Sin ella, solo sirven los repos conectados con token. */
+    private readonly app?: githubApp.ConfigApp,
   ) {}
+
+  /** Las credenciales con las que el agente habla con GitHub durante este encargo. */
+  async #credencialesRepo(meta: MetadatosSitio, guardadas: CredencialesRepo): Promise<RepoCreds> {
+    if (!meta.owner || !meta.repo) throw new Error("El repositorio conectado no dice cuál es: hay que reconectarlo.");
+    let token = guardadas.token;
+    if (!token && guardadas.installationId) {
+      if (!this.app) {
+        throw new Error("El repositorio se conectó con la GitHub App y este worker no tiene su configuración (GITHUB_APP_ID y GITHUB_APP_PRIVATE_KEY).");
+      }
+      // Dura una hora: de sobra para un encargo, que no pasa de diez minutos.
+      ({ token } = await githubApp.tokenDeInstalacion(this.app, guardadas.installationId));
+    }
+    if (!token) throw new Error("El repositorio no tiene acceso guardado: hay que reconectarlo.");
+    return {
+      proveedor: "github",
+      owner: meta.owner,
+      repo: meta.repo,
+      ramaPrincipal: meta.rama_principal ?? "main",
+      token,
+      urlProduccion: meta.url ?? `https://github.com/${meta.owner}/${meta.repo}`,
+      ...(guardadas.bypassVistaPrevia ? { bypassVistaPrevia: guardadas.bypassVistaPrevia } : {}),
+    };
+  }
 
   async cargar(input: { workspaceId: string; siteId: string }): Promise<SitioConectado | null> {
     const { rows } = await this.sql.query<{
@@ -178,9 +252,9 @@ export class SitiosPostgres implements SitePort {
       throw new Error("El sitio no tiene credenciales guardadas: hay que reconectarlo.");
     }
 
-    let credenciales: WpCreds | ConectorCreds;
+    let guardadas: WpCreds | ConectorCreds | CredencialesRepo;
     try {
-      credenciales = decryptJson<WpCreds | ConectorCreds>(
+      guardadas = decryptJson<WpCreds | ConectorCreds | CredencialesRepo>(
         f.credentials_encrypted,
         this.claveMaestra,
       );
@@ -190,12 +264,19 @@ export class SitiosPostgres implements SitePort {
       );
     }
 
-    const tipo = f.metadata?.tipo === "custom" ? "custom" : "wp";
+    const meta = f.metadata ?? {};
+    const tipo = meta.tipo === "repo" ? "repo" : meta.tipo === "custom" ? "custom" : "wp";
+    const credenciales =
+      tipo === "repo"
+        ? await this.#credencialesRepo(meta, guardadas as CredencialesRepo)
+        : (guardadas as WpCreds | ConectorCreds);
     return {
       id: f.id,
       workspaceId: f.workspace_id,
       tipo,
-      url: f.metadata?.url ?? ("url" in credenciales ? credenciales.url : credenciales.baseUrl),
+      url:
+        meta.url ??
+        ("url" in credenciales ? credenciales.url : "baseUrl" in credenciales ? credenciales.baseUrl : credenciales.urlProduccion),
       credenciales,
       agentName: f.metadata?.agent_name ?? "Webmaster",
       // Solo simula si se pide expresamente: el Webmaster ejecuta desde el

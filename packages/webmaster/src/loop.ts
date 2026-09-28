@@ -188,6 +188,8 @@ export function describirSolicitud(toolName: string, entrada: unknown): string {
       return `Crear el usuario «${texto(e.username)}» (${texto(e.email)}) con el rol ${texto(e.role)}.`;
     case "wp_cambiar_rol_usuario":
       return `Cambiar el rol del usuario ${texto(e.usuario_id)} a ${texto(e.role)}.`;
+    case "repo_publicar":
+      return `Publicar en vivo el PR #${texto(e.pr)}: fusionarlo en la rama principal del repositorio.`;
     default:
       return `${toolName}: ${JSON.stringify(redactSecrets(entrada)).slice(0, 160)}`;
   }
@@ -197,6 +199,7 @@ export function describirSolicitud(toolName: string, entrada: unknown): string {
 export function urlVisible(sitio: SitioContext): string {
   if (sitio.wp) return sitio.wp.url;
   if (sitio.conector) return sitio.conector.baseUrl.replace(/\/(api\/)?[a-z]+\/v\d+\/?$/, "");
+  if (sitio.repo) return sitio.repo.urlProduccion;
   return "(sitio sin conectar)";
 }
 
@@ -206,7 +209,13 @@ export function urlVisible(sitio: SitioContext): string {
  * que el modelo haya copiado literalmente una credencial en su respuesta.
  */
 export function limpiarSecretos(texto: string, sitio: SitioContext, extra: readonly string[] = []): string {
-  const secretos = [sitio.wp?.appPassword, sitio.conector?.token, ...extra].filter(
+  const secretos = [
+    sitio.wp?.appPassword,
+    sitio.conector?.token,
+    sitio.repo?.token,
+    sitio.repo?.bypassVistaPrevia,
+    ...extra,
+  ].filter(
     (s): s is string => typeof s === "string" && s.length >= 8,
   );
   return secretos.reduce((acc, s) => acc.split(s).join("«oculto»"), texto);

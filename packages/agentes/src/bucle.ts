@@ -319,7 +319,11 @@ export async function ejecutarTareaDeAgente(input: EjecucionAgente): Promise<Res
     const salida = l.output as Record<string, unknown> | undefined;
     const backupId = typeof salida?.backup_id === "string" ? salida.backup_id : undefined;
     if (backupId) backups.push(backupId);
-    if (l.slug === "preguntar_al_cliente" && salida?.requiere_aprobacion === true) hayPregunta = true;
+    // Otras herramientas también preguntan con botones (elegir la rama de un
+    // repositorio): lo dicen con `es_pregunta` y paran el bucle igual.
+    if ((l.slug === "preguntar_al_cliente" || salida?.es_pregunta === true) && salida?.requiere_aprobacion === true) {
+      hayPregunta = true;
+    }
     if (salida?.requiere_aprobacion === true) {
       // Una herramienta normal deja UNA solicitud. La de pedir ayuda a un
       // compañero puede traer varias de golpe, porque el compañero hizo varias

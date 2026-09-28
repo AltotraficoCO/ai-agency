@@ -3,8 +3,9 @@
  *
  * 24 de WordPress (incluidas `sitio_salud`, `sitio_leer_diseno` y `verificar_http`),
  * `wp_enlazar_entrada_en_blog`, 3 de plantillas
- * de Elementor, 10 del conector estándar, 6 de navegador y referencias, y
- * `pedir_aprobacion`, que es como el agente le pregunta algo al cliente. Los
+ * de Elementor, 10 del conector estándar, 6 de navegador y referencias,
+ * `pedir_aprobacion`, que es como el agente le pregunta algo al cliente, y las
+ * 23 `repo_*` de los sitios hechos a medida cuyo código vive en GitHub. Los
  * adaptadores a AI SDK y a MCP viven en `@strappy/tools` y salen de estas mismas
  * definiciones: no hay una segunda copia que pueda divergir.
  */
@@ -15,6 +16,7 @@ import { HERRAMIENTAS_ELEMENTOR } from "./elementor.js";
 import { HERRAMIENTAS_CONECTOR } from "./conector.js";
 import { HERRAMIENTAS_NAVEGADOR } from "./navegador.js";
 import { HERRAMIENTAS_CONFIRMACION } from "./confirmacion.js";
+import { HERRAMIENTAS_REPO } from "./repo.js";
 
 export * from "./wp.js";
 export * from "./blog.js";
@@ -22,6 +24,7 @@ export * from "./elementor.js";
 export * from "./conector.js";
 export * from "./navegador.js";
 export * from "./confirmacion.js";
+export * from "./repo.js";
 
 export const HERRAMIENTAS_WEBMASTER: readonly ToolDef<never, unknown>[] = [
   ...HERRAMIENTAS_WP,
@@ -30,6 +33,7 @@ export const HERRAMIENTAS_WEBMASTER: readonly ToolDef<never, unknown>[] = [
   ...HERRAMIENTAS_CONECTOR,
   ...HERRAMIENTAS_NAVEGADOR,
   ...HERRAMIENTAS_CONFIRMACION,
+  ...HERRAMIENTAS_REPO,
 ];
 
 /** Registro propio: no se mezcla con el de sistema para no exponerlo a todos. */

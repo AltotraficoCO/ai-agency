@@ -164,7 +164,7 @@ function montar() {
 
 describe("barrido de herramientas de WordPress y navegador", () => {
   const aProbar = HERRAMIENTAS_WEBMASTER.filter(
-    (t) => !t.slug.startsWith("conector_") && !SIN_PROBAR_AQUI.has(t.slug),
+    (t) => !t.slug.startsWith("conector_") && !t.slug.startsWith("repo_") && !SIN_PROBAR_AQUI.has(t.slug),
   );
 
   it("la lista del barrido cubre todas las herramientas no del conector", () => {
@@ -174,7 +174,7 @@ describe("barrido de herramientas de WordPress y navegador", () => {
   });
 
   for (const def of HERRAMIENTAS_WEBMASTER.filter(
-    (t) => !t.slug.startsWith("conector_") && !SIN_PROBAR_AQUI.has(t.slug),
+    (t) => !t.slug.startsWith("conector_") && !t.slug.startsWith("repo_") && !SIN_PROBAR_AQUI.has(t.slug),
   )) {
     it(`${def.slug} responde contra el doble`, async () => {
       const { ctx } = montar();
