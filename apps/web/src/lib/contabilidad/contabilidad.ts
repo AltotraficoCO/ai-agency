@@ -45,7 +45,7 @@ export async function contabilidadDelEspacio(
       `select id, metadata->>'nombre' as nombre, metadata->>'usuario' as usuario,
               status as estado, (metadata->>'solo_lectura')::boolean as solo_lectura
          from public.connections
-        where workspace_id = $1 and provider = 'alegra'
+        where workspace_id = $1 and provider = 'alegra' and status <> 'revoked'
         order by updated_at desc
         limit 1`,
       [workspaceId],
@@ -153,6 +153,29 @@ export async function probarYGuardarContabilidad(input: {
   }
 
   await conEspacio(input.workspaceId, async (scope) => {
+    // Si la cuenta entera ya estaba conectada (OAuth, `mcp`), se conserva: cambiar
+    // el token de la API contable no puede desconectar la nómina.
+    const previa = await scope.query<{ credentials_encrypted: string | null }>(
+      `select credentials_encrypted from public.connections
+        where workspace_id = $1 and provider = 'alegra' and status <> 'revoked'
+          and (metadata->>'mcp')::boolean is true
+        order by updated_at desc limit 1`,
+      [input.workspaceId],
+    );
+    let mcp: unknown;
+    try {
+      const sobre = previa.rows[0]?.credentials_encrypted;
+      mcp = sobre ? decryptJson<{ mcp?: unknown }>(sobre, clave).mcp : undefined;
+    } catch {
+      mcp = undefined;
+    }
+    // Una sola fila de Alegra por espacio: la de OAuth se llama «Alegra» y la
+    // del token, por el correo. Al juntar las dos, la otra queda retirada.
+    await scope.query(
+      `update public.connections set status = 'revoked', updated_at = now()
+        where workspace_id = $1 and provider = 'alegra' and name <> $2 and status <> 'revoked'`,
+      [input.workspaceId, usuario],
+    );
     await scope.query(
       `insert into public.connections
          (workspace_id, provider, name, auth_type, credentials_encrypted, key_version,
@@ -171,12 +194,13 @@ export async function probarYGuardarContabilidad(input: {
         // actualiza la fila en vez de duplicarla, y el `id` que ya tengan los
         // encargos sigue valiendo.
         usuario,
-        encryptJson(credenciales, clave),
+        encryptJson(mcp ? { ...credenciales, mcp } : credenciales, clave),
         JSON.stringify({
           sistema: "Alegra",
           nombre: "Alegra",
           usuario,
           solo_lectura: !puedeEmitir,
+          ...(mcp ? { mcp: true } : {}),
           // El agente financiero mira desde el primer encargo; lo que emite
           // pasa por aprobación, así que no hace falta un modo de prueba aparte.
           primer_contacto: false,

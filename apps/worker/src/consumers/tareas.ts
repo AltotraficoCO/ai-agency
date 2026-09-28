@@ -747,7 +747,7 @@ export class ConsumidorDeTareas implements Consumidor {
 
     decir(
       `"${tarea.titulo}" → ${oficio.slug} · ` +
-        `${libros.contabilidad ? libros.contabilidad.sistema : "sin contabilidad conectada"} · ` +
+        `${libros.contabilidad ? libros.contabilidad.sistema : "sin contabilidad conectada"}${libros.alegra ? " + Alegra completo" : ""} · ` +
         `${motor.modelId}${motor.modo ? ` (${motor.modo})` : ""}` +
         (libros.primerContacto ? " (simulación)" : ""),
     );
@@ -756,6 +756,7 @@ export class ConsumidorDeTareas implements Consumidor {
       conexionId: libros.conexionId ?? "",
       taskId: tarea.id,
       ...(libros.contabilidad ? { contabilidad: libros.contabilidad } : {}),
+      ...(libros.alegra ? { alegra: libros.alegra } : {}),
       approvals: puertos.aprobaciones,
       // El backup solo tiene dónde colgarse si hay conexión: sin ella no hay
       // nada que revertir todavía.

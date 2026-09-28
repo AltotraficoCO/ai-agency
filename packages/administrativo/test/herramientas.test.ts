@@ -258,9 +258,10 @@ describe("el recordatorio se escribe, no se envía", () => {
 });
 
 describe("el registro de trabajo y el catálogo de herramientas", () => {
-  it("las ocho herramientas están registradas y ninguna pide datos del runtime", () => {
-    // 8 del Administrativo + el informe del negocio, que usa el de Reportes.
-    expect(HERRAMIENTAS_ADMINISTRATIVO).toHaveLength(9);
+  it("las once herramientas están registradas y ninguna pide datos del runtime", () => {
+    // 8 del Administrativo + el informe del negocio, que usa el de Reportes,
+    // + las 2 que abren el resto de Alegra por su servidor MCP.
+    expect(HERRAMIENTAS_ADMINISTRATIVO).toHaveLength(11);
     for (const h of HERRAMIENTAS_ADMINISTRATIVO) {
       expect(h.slug).toMatch(/^[a-z][a-z0-9_]*$/);
     }

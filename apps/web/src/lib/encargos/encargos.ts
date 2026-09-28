@@ -531,7 +531,7 @@ export async function eliminarEncargo(input: {
     const estado = rows[0]?.estado;
     if (!estado) return { ok: false, error: "Ese encargo ya no existe." };
     if (estado === "running") {
-      return { ok: false, error: "Está trabajando en tu sitio ahora mismo. Espera a que termine para borrarlo." };
+      return { ok: false, error: "Está trabajando en este encargo ahora mismo. Espera a que termine para borrarlo." };
     }
     await scope.query(
       `delete from public.agent_tasks

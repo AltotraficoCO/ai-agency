@@ -12,7 +12,13 @@
  * saber qué hacer; uno que termina explicando qué le falta, no.
  */
 import { crearContabilidadAlegra, type CredencialesAlegra } from "@strappy/administrativo/alegra";
-import { decryptJson } from "@strappy/webmaster";
+import {
+  crearAlegraMcp,
+  necesitaRenovar,
+  renovarTokens,
+  type CredencialesMcpAlegra,
+} from "@strappy/administrativo/alegra-mcp";
+import { decryptJson, encryptJson } from "@strappy/webmaster";
 import type { LibrosDelNegocio, LibrosPort, SqlExecutor } from "../ports.js";
 
 /** Proveedores de `connections` que son sistemas de facturación. */
@@ -34,12 +40,60 @@ type FilaConexion = {
   status: string;
 };
 
+/**
+ * Lo que se guarda cifrado de una conexión con Alegra. El usuario y el token
+ * dan la API contable; `mcp`, la cuenta entera (nómina incluida) por OAuth. Una
+ * conexión puede tener cualquiera de las dos, o las dos.
+ */
+type CredencialesGuardadas = Partial<CredencialesAlegra> & { mcp?: CredencialesMcpAlegra };
+
 export class LibrosPostgres implements LibrosPort {
   constructor(
     private readonly sql: SqlExecutor,
     private readonly claveMaestra: Buffer,
     private readonly fetchContable?: typeof globalThis.fetch,
   ) {}
+
+  /**
+   * Un token de acceso a Alegra vigente, renovándolo si caduca pronto.
+   *
+   * La renovación se guarda con una comparación sobre el sobre anterior: si
+   * otro encargo renovó a la vez, su escritura gana y aquí se relee la suya en
+   * vez de pisarla. Alegra puede rotar el token de renovación, y guardar uno ya
+   * gastado dejaría la conexión muerta hasta que el cliente la rehiciera.
+   */
+  async #accesoMcp(conexionId: string, sobre: string, cred: CredencialesGuardadas): Promise<CredencialesMcpAlegra | null> {
+    const mcp = cred.mcp;
+    if (!mcp) return null;
+    if (!necesitaRenovar(mcp)) return mcp;
+    if (!mcp.refreshToken) return null;
+    try {
+      const nuevos = await renovarTokens({ clientId: mcp.clientId, refreshToken: mcp.refreshToken }, this.fetchContable);
+      const actualizado: CredencialesMcpAlegra = { clientId: mcp.clientId, ...nuevos };
+      const { rows } = await this.sql.query<{ id: string }>(
+        `update public.connections
+            set credentials_encrypted = $3, updated_at = updated_at
+          where id = $1 and credentials_encrypted = $2
+          returning id`,
+        [conexionId, sobre, encryptJson({ ...cred, mcp: actualizado }, this.claveMaestra)],
+      );
+      if (rows.length > 0) return actualizado;
+    } catch {
+      /* puede que otro encargo ya la renovara y gastara el token: se relee */
+    }
+    const { rows } = await this.sql.query<{ credentials_encrypted: string | null }>(
+      `select credentials_encrypted from public.connections where id = $1`,
+      [conexionId],
+    );
+    const otro = rows[0]?.credentials_encrypted;
+    if (!otro || otro === sobre) return null;
+    try {
+      const releido = decryptJson<CredencialesGuardadas>(otro, this.claveMaestra).mcp;
+      return releido && !necesitaRenovar(releido) ? releido : null;
+    } catch {
+      return null;
+    }
+  }
 
   async cargar(input: {
     workspaceId: string;
@@ -76,9 +130,9 @@ export class LibrosPostgres implements LibrosPort {
     };
     if (!fila || fila.status !== "active" || !fila.credentials_encrypted) return sinContabilidad;
 
-    let credenciales: CredencialesAlegra;
+    let credenciales: CredencialesGuardadas;
     try {
-      credenciales = decryptJson<CredencialesAlegra>(fila.credentials_encrypted, this.claveMaestra);
+      credenciales = decryptJson<CredencialesGuardadas>(fila.credentials_encrypted, this.claveMaestra);
     } catch {
       // Indescifrable con la clave actual: el agente trabaja sin libros y lo
       // dice. Tumbar el encargo aquí no le daría al cliente ninguna pista.
@@ -86,18 +140,29 @@ export class LibrosPostgres implements LibrosPort {
     }
 
     const soloLectura = fila.metadata?.solo_lectura === true;
-    const contabilidad = crearContabilidadAlegra(credenciales, {
-      soloLectura,
-      ...(this.fetchContable ? { fetch: this.fetchContable } : {}),
-    });
+    const contabilidad =
+      credenciales.usuario && credenciales.secreto
+        ? crearContabilidadAlegra(credenciales as CredencialesAlegra, {
+            soloLectura,
+            ...(this.fetchContable ? { fetch: this.fetchContable } : {}),
+          })
+        : undefined;
+
+    // El resto de Alegra (nómina, gastos, reportes), si el cliente conectó su
+    // cuenta. Si la autorización ya no sirve, el agente trabaja sin ella y lo dice.
+    const mcp = await this.#accesoMcp(fila.id, fila.credentials_encrypted, credenciales).catch(() => null);
+    const alegra = mcp
+      ? crearAlegraMcp({ token: mcp.accessToken, ...(this.fetchContable ? { fetch: this.fetchContable } : {}) })
+      : undefined;
 
     return {
       conexionId: fila.id,
-      contabilidad,
+      ...(contabilidad ? { contabilidad } : {}),
+      ...(alegra ? { alegra } : {}),
       negocio,
       agentName: fila.metadata?.agent_name?.trim() || "Tu agente financiero",
-      // El token y el usuario nunca pueden salir en un paso ni en un error.
-      secretos: [credenciales.secreto, credenciales.usuario].filter(
+      // Los tokens y el usuario nunca pueden salir en un paso ni en un error.
+      secretos: [credenciales.secreto, credenciales.usuario, mcp?.accessToken, mcp?.refreshToken].filter(
         (s): s is string => typeof s === "string" && s.length > 0,
       ),
     };

@@ -10,6 +10,7 @@
 import type { LanguageModel, ToolApprovalResponse } from "ai";
 import type { Cadencia, ModelMode, RateTable } from "@strappy/core";
 import type { EstiloDeMarca, ImagenesPort, MediosPort } from "@strappy/disenador";
+import type { AlegraMcpPort } from "@strappy/administrativo/alegra-mcp";
 import type { Companero } from "@strappy/agentes";
 import type {
   ApprovalPort,
@@ -236,6 +237,8 @@ export type LibrosDelNegocio = {
   /** Conexión del encargo, si la hay: sobre ella cuelgan las aprobaciones. */
   readonly conexionId: string | null;
   readonly contabilidad?: ContabilidadPort;
+  /** Alegra entero (nómina, gastos, reportes), si el cliente conectó su cuenta con OAuth. */
+  readonly alegra?: AlegraMcpPort;
   /** Nombre del negocio: el agente habla de él por su nombre. */
   readonly negocio: string;
   /** Nombre con el que el cliente conoce a su agente. */

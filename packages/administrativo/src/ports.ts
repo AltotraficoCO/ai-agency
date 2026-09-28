@@ -19,6 +19,7 @@
  *    clientes. Si mañana el cliente lleva su contabilidad en otro sitio, se
  *    escribe otro adaptador y el agente no se entera.
  */
+import type { AlegraMcpPort } from "./adaptadores/alegra-mcp.js";
 
 /** ISO 4217: COP, USD, MXN… */
 export type Moneda = string;
@@ -242,6 +243,12 @@ export type LibrosContext = {
   readonly contabilidad?: ContabilidadPort;
   /** Hoy nunca viene. Existe para que enchufarlo sea rellenar, no rehacer. */
   readonly mensajeria?: MensajeriaPort;
+  /**
+   * Alegra entero por su servidor MCP: nómina, gastos, inventario, reportes.
+   * Solo si el cliente conectó su cuenta con OAuth; sin él, el agente ve lo de
+   * `contabilidad` y dice qué le falta.
+   */
+  readonly alegra?: AlegraMcpPort;
   readonly approvals: ApprovalPort;
   readonly backups?: BackupPort;
   /**

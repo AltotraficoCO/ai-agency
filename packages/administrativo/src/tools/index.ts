@@ -1,9 +1,10 @@
 /**
- * El registro del agente Administrativo: 8 herramientas definidas una sola vez.
+ * El registro del agente Administrativo: 10 herramientas definidas una sola vez.
  *
  * 3 de lectura (caja, facturas por cobrar, clientes), 2 que dejan papel en la
  * contabilidad y siempre pasan por aprobación humana, 1 que redacta el cobro
- * sin enviarlo y 2 para hablar con el cliente. Igual que en el Webmaster y en
+ * sin enviarlo, 2 para hablar con el cliente y 2 que abren el resto de Alegra
+ * (nómina, gastos, inventario, reportes) por su servidor MCP. Igual que en el Webmaster y en
  * Marketing, los adaptadores a AI SDK y a MCP salen de estas mismas
  * definiciones: no hay una segunda copia que pueda divergir.
  */
@@ -13,12 +14,14 @@ import { HERRAMIENTAS_INFORME } from "./informe.js";
 import { HERRAMIENTAS_DOCUMENTOS } from "./documentos.js";
 import { HERRAMIENTAS_COBROS } from "./cobros.js";
 import { HERRAMIENTAS_CONFIRMACION } from "./confirmacion.js";
+import { HERRAMIENTAS_ALEGRA } from "./alegra.js";
 
 export * from "./lectura.js";
 export * from "./informe.js";
 export * from "./documentos.js";
 export * from "./cobros.js";
 export * from "./confirmacion.js";
+export * from "./alegra.js";
 export * from "./comun.js";
 
 export const HERRAMIENTAS_ADMINISTRATIVO: readonly ToolDef<never, unknown>[] = [
@@ -27,6 +30,7 @@ export const HERRAMIENTAS_ADMINISTRATIVO: readonly ToolDef<never, unknown>[] = [
   ...HERRAMIENTAS_DOCUMENTOS,
   ...HERRAMIENTAS_COBROS,
   ...HERRAMIENTAS_CONFIRMACION,
+  ...HERRAMIENTAS_ALEGRA,
 ];
 
 /** Registro propio, separado del de sistema y del de los demás agentes. */

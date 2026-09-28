@@ -487,6 +487,7 @@ export function EncargosWebmaster({
                   encargo={encargo}
                   nombreAgente={nombreAgente}
                   foto={oficio.foto}
+                  textoTrabajando={oficio.trabajando}
                   resaltado={seleccionado === encargo.id}
                   decidir={decidir}
                   responder={responder}
@@ -522,7 +523,7 @@ export function EncargosWebmaster({
                 placeholder={
                   sitio || !oficio.conexion.bloquea
                     ? oficio.placeholder(nombreAgente)
-                    : "Conecta tu sitio para encargar cambios"
+                    : `${oficio.conexion.ctaTexto} para encargarle trabajo`
                 }
                 className="min-h-12 flex-1 resize-none border-0 bg-transparent shadow-none focus-visible:outline-none"
               />
@@ -622,6 +623,7 @@ function Encargo({
   encargo,
   nombreAgente,
   foto,
+  textoTrabajando,
   resaltado,
   equipo,
   decidir,
@@ -632,6 +634,8 @@ function Encargo({
   encargo: EncargoVista;
   nombreAgente: string;
   foto: string;
+  /** Lo que dice mientras trabaja, el de SU oficio: el Administrativo no trabaja en tu web. */
+  textoTrabajando: string;
   resaltado: boolean;
   equipo?: EquipoVista;
 } & Acciones) {
@@ -645,7 +649,7 @@ function Encargo({
   const pasos = encargo.pasos ?? [];
 
   async function borrar() {
-    if (!window.confirm("¿Eliminar este encargo del historial? Lo que ya cambió en tu sitio se queda como está.")) {
+    if (!window.confirm("¿Eliminar este encargo del historial? Lo que ya hizo se queda como está.")) {
       return;
     }
     setBorrando(true);
@@ -734,7 +738,7 @@ function Encargo({
               pasos={pasos}
               equipo={equipo}
               activo={enCurso}
-              textoActivo={encargo.estado === "queued" ? "En cola, empiezo en un momento" : "Trabajando en tu web…"}
+              textoActivo={encargo.estado === "queued" ? "En cola, empiezo en un momento" : textoTrabajando}
             />
           )}
           {encargo.estado === "running" && pasos.length === 0 && (
