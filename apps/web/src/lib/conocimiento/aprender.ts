@@ -123,6 +123,17 @@ async function marcar(
 }
 
 async function marcarError(fuente: Fuente, error: unknown): Promise<void> {
+  const pg = error as { code?: string; detail?: string; table?: string; constraint?: string; column?: string; where?: string };
+  console.error("[conocimiento] fuente en error", {
+    fuente: fuente.fuenteId,
+    mensaje: error instanceof Error ? error.message : String(error),
+    code: pg?.code,
+    detail: pg?.detail,
+    table: pg?.table,
+    constraint: pg?.constraint,
+    column: pg?.column,
+    where: pg?.where,
+  });
   try {
     await marcar(fuente, "error", mensajeLegible(error));
   } catch (fallo) {
@@ -151,6 +162,19 @@ async function indexar(
     return resultado;
   } catch (error) {
     const texto = error instanceof Error ? error.message : String(error);
+    // El error de Postgres entero —código, detalle, tabla, restricción—: es lo
+    // que dice qué falló de verdad, y el mensaje solo no siempre basta.
+    const pg = error as { code?: string; detail?: string; table?: string; constraint?: string; column?: string; where?: string };
+    console.error("[conocimiento] indexado fallido (con vectores)", {
+      fuente: fuente.fuenteId,
+      mensaje: texto,
+      code: pg?.code,
+      detail: pg?.detail,
+      table: pg?.table,
+      constraint: pg?.constraint,
+      column: pg?.column,
+      where: pg?.where,
+    });
     // Cualquier fallo con la búsqueda por significado encendida se reintenta
     // solo por palabras, no solo los del proveedor: la escritura de vectores es
     // lo más nuevo del circuito y, si falla, la fuente tiene que quedar aprendida

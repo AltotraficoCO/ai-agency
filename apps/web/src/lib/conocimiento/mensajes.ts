@@ -34,7 +34,12 @@ export function traducirDetalle(texto: string): string {
   if (esFalloDeProveedor(m)) {
     return "No pudimos preparar la búsqueda inteligente. Vuelve a leer la fuente: se guardará para buscar por palabras.";
   }
-  if (/abort|timeout|timed out|ETIMEDOUT/i.test(m)) {
+  // Antes que el tiempo agotado: «current transaction is aborted» lleva
+  // «abort» y no es que la web tardara, es que falló el guardado.
+  if (/statement timeout|canceling statement|deadlock|connection terminated|too many clients|transaction is aborted/i.test(m)) {
+    return "Tuvimos un problema guardando lo aprendido. Vuelve a leer la fuente en un momento.";
+  }
+  if (/\baborted?\b|timeout|timed out|ETIMEDOUT/i.test(m)) {
     return "No pudimos leer esa dirección: tardó demasiado en responder. Inténtalo más tarde.";
   }
   if (/fetch failed|ENOTFOUND|ECONNREFUSED|ECONNRESET|EAI_AGAIN|getaddrinfo|certificate|socket/i.test(m)) {

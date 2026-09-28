@@ -295,12 +295,21 @@ export async function indexarDocumento(
   } catch (error) {
     const detalle = error instanceof Error ? error.message : String(error);
     deps.registro?.aviso("conocimiento.indexado_fallido", { fuenteId: fuente.id, detalle });
-    await db.marcarEstadoFuente({
-      workspaceId: input.workspaceId,
-      fuenteId: fuente.id,
-      estado: "error",
-      detalle,
-    });
+    // Si el fallo fue de Postgres, la transacción ya está abortada y esta
+    // escritura también fallará («current transaction is aborted»). Ese
+    // segundo error NO puede sustituir al primero: era lo único que decía qué
+    // pasó de verdad, y sin él todas las fuentes salían en error sin causa.
+    // Quien llama marca la fuente en su propia transacción.
+    try {
+      await db.marcarEstadoFuente({
+        workspaceId: input.workspaceId,
+        fuenteId: fuente.id,
+        estado: "error",
+        detalle,
+      });
+    } catch {
+      /* se propaga el error original, abajo */
+    }
     throw error;
   }
 }
