@@ -24,49 +24,21 @@
 import { randomUUID } from "node:crypto";
 import type { LanguageModel, ModelMessage, ToolApprovalResponse } from "ai";
 import type { RateTable } from "@strappy/core";
-import type {
-  ColaboracionPort,
-  Companero,
-  EncargoDelegado,
-  EntradaComunDeAgente,
-  ResultadoTarea,
-  ConocimientoPort,
-} from "@strappy/agentes";
-import {
-  agentePara,
-  ejecutarTareaWebmaster,
-  type BrowserPort,
-  type ConectorCreds,
-  type ReferencePort,
-  type RepoCreds,
-  type SitioContext,
-  type WpCreds,
-} from "@strappy/webmaster";
-import { ejecutarTareaMarketing, marketing, type CuentasContext } from "@strappy/marketing";
-import {
-  administrativo,
-  AGENTES as AGENTES_ADMINISTRATIVOS,
-  ejecutarTareaAdministrativa,
-  type LibrosContext,
-} from "@strappy/administrativo";
-import {
-  disenador,
-  ejecutarTareaDisenador,
-  type DisenoContext,
-} from "@strappy/disenador";
-import type { Medicion, VelocidadContext } from "@strappy/velocista";
-import type {
-  CuentasDeMarketing,
-  EstudioDeDiseno,
-  LibrosDelNegocio,
-  MotorTarea,
-  PuertosWorker,
-  SitioConectado,
-  TareaReclamada,
-  VelocidadDelSitio,
-} from "../ports.js";
+import type { ConocimientoPort, EntradaComunDeAgente, ResultadoTarea } from "@strappy/agentes";
+import type { BrowserPort, ReferencePort } from "@strappy/webmaster";
+import type { MotorTarea, PuertosWorker, SitioConectado, TareaReclamada } from "../ports.js";
 import { RegistroDePasos } from "./pasos.js";
 import type { Consumidor } from "./tipos.js";
+import { cerrarTarea } from "./tareas/cierre.js";
+import { companerosDe, esperaDeUnCompanero, nombreDe, puertoDeColaboracion } from "./tareas/colaboracion.js";
+import { agenteDeLaTarea, esDefinitivo, normalizarSlug, oficioDesconocido, type Encargo } from "./tareas/encargo.js";
+import {
+  ejecutarAdministrativo,
+  ejecutarDisenador,
+  ejecutarMarketing,
+  ejecutarWebmaster,
+  type EntornoDeOficio,
+} from "./tareas/oficios.js";
 
 export type OpcionesConsumidorTareas = {
   readonly puertos: PuertosWorker;
@@ -98,70 +70,12 @@ export type OpcionesConsumidorTareas = {
   readonly log?: (mensaje: string) => void;
 };
 
-/**
- * Todo lo que un encargo arrastra mientras se ejecuta.
- *
- * Iba como siete parámetros posicionales repetidos en la firma de cada rama.
- * Varios eran del mismo tipo, así que cambiarlos de orden por error no daba
- * ningún aviso del compilador: compilaba y se comportaba mal.
- */
-type Encargo = {
-  readonly tarea: TareaReclamada;
-  readonly motor: MotorTarea;
-  readonly registro: RegistroDePasos;
-  readonly decir: (m: string) => void;
-  /** Agentes que ya intervinieron, del primero al actual. Vacío si lo pidió una persona. */
-  readonly cadena: readonly string[];
-  /** Lo que gastan los compañeros. Se acumula para cobrarlo todo junto una vez. */
-  /** Se dispara cuando el cliente para el encargo o lo reclama otro worker. */
-  readonly senal: AbortSignal;
-  readonly extra: {
-    creditos: number;
-    /**
-     * El compañero que se quedó a un clic de terminar, con su conversación.
-     * Se guarda en la evidencia del encargo para poder RETOMARLO cuando el
-     * cliente apruebe, en vez de que empiece de cero.
-     */
-    colaboracionPendiente?: {
-      slug: string;
-      titulo: string;
-      detalle: string;
-      mensajes: readonly unknown[];
-    };
-  };
-  /** El trabajo que le encarga un compañero, cuando no es el encargo del cliente. */
-  readonly delegado?: { titulo: string; detalle: string };
-};
-
-/** Errores que no tiene sentido reintentar: fallarán igual la próxima vez. */
-function esDefinitivo(mensaje: string): boolean {
-  return /credencial|indescifrable|no está conectado|desconocid|inválid|APP_ENCRYPTION_KEY|créditos disponibles|OPENROUTER_API_KEY|AI_GATEWAY_API_KEY/i.test(
-    mensaje,
-  );
-}
-
-/**
- * El slug con el que se busca el oficio.
- *
- * Se compara en minúsculas y sin espacios porque llega de dos sitios distintos:
- * la columna `agente` de la tarea y el `slug` que un agente escribe al pedirle
- * ayuda a un compañero. Un modelo que escriba «Velocista » con mayúscula o con
- * un espacio de más nombraba un oficio que existe y se llevaba un rechazo.
- */
-function normalizarSlug(valor: string): string {
-  return valor.trim().toLowerCase();
-}
-
-/** Quién ejecuta el encargo. Sin valor, el Webmaster: es lo que eran todos. */
-function agenteDeLaTarea(tarea: TareaReclamada): string {
-  return normalizarSlug(tarea.agente ?? "webmaster") || "webmaster";
-}
-
 export class ConsumidorDeTareas implements Consumidor {
   readonly nombre = "tareas";
   readonly #o: Required<Pick<OpcionesConsumidorTareas, "arrendamientoMs" | "latidoMs">> &
     OpcionesConsumidorTareas;
   #navegadorAbierto: BrowserPort | null = null;
+  readonly #oficios: EntornoDeOficio;
 
   constructor(o: OpcionesConsumidorTareas) {
     if (!o.motorPara && !(o.model && o.modelId && o.rates)) {
@@ -174,6 +88,13 @@ export class ConsumidorDeTareas implements Consumidor {
       // detecta que el cliente pulsó «Detener», y esperar medio minuto viendo
       // al agente seguir trabajando no es detenerlo.
       latidoMs: o.latidoMs ?? 10_000,
+    };
+    this.#oficios = {
+      puertos: o.puertos,
+      comun: (e, slug, agentName) => this.#comun(e, slug, agentName),
+      abrirNavegador: (sitio, decir) => this.#abrirNavegador(sitio, decir),
+      ...(o.referencias ? { referencias: o.referencias } : {}),
+      ...(o.fetchSitio ? { fetchSitio: o.fetchSitio } : {}),
     };
   }
 
@@ -267,7 +188,7 @@ export class ConsumidorDeTareas implements Consumidor {
           .catch((e) => decir(`no se pudo cobrar: ${e instanceof Error ? e.message : String(e)}`));
       }
 
-      await this.#cerrarTarea(tarea, resultado, decir, extra);
+      await cerrarTarea(this.#o, tarea, resultado, decir, extra);
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : String(error);
       await registro.cerrar("fallida");
@@ -312,44 +233,19 @@ export class ConsumidorDeTareas implements Consumidor {
       // velocidad, que son las mismas.
       case "webmaster":
       case "velocista":
-        return this.#ejecutarWebmaster(e);
+        return ejecutarWebmaster(e, this.#oficios);
       case "marketing":
-        return this.#ejecutarMarketing(e);
+        return ejecutarMarketing(e, this.#oficios);
       case "disenador":
-        return this.#ejecutarDisenador(e);
+        return ejecutarDisenador(e, this.#oficios);
       // Dos puestos, un mismo paquete: el Administrativo toca la contabilidad y
       // Reportes solo la mira. Comparten adaptador, así que comparten camino.
       case "administrativo":
       case "reportes":
-        return this.#ejecutarAdministrativo(e, quien);
+        return ejecutarAdministrativo(e, quien, this.#oficios);
       default:
-        return this.#oficioDesconocido(quien, e);
+        return oficioDesconocido(quien, e);
     }
-  }
-
-  /**
-   * Se devuelve como fallo del compañero, no como excepción: el que pidió ayuda
-   * tiene que poder terminar su parte y contarlo. Tumbar un encargo que el
-   * cliente ya aprobó por esto sería desproporcionado.
-   */
-  #oficioDesconocido(quien: string, e: Encargo): ResultadoTarea {
-    e.decir(`no puedo delegar en "${quien}": ese oficio todavía no se ejecuta aquí`);
-    return {
-      estado: "fallida",
-      motivo: "error",
-      error: `Todavía no puedo encargarle trabajo a "${quien}" desde otro agente.`,
-      evidencia: {
-        acciones: [],
-        capturas: [],
-        backups: [],
-        aprobacionesPendientes: [],
-        pasos: 0,
-        uso: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
-        creditos: 0,
-        modelo: e.motor.modelId,
-        simulacion: false,
-      },
-    };
   }
 
   /**
@@ -361,17 +257,20 @@ export class ConsumidorDeTareas implements Consumidor {
    */
   async #comun(e: Encargo, slug: string, agentName: string): Promise<EntradaComunDeAgente> {
     const { tarea, motor, registro, decir } = e;
-    const colaboracion = this.#colaboracion(slug, e);
-    const companeros = await this.#companeros(slug, tarea.workspaceId);
+    const { nomina } = this.#o.puertos;
+    const colaboracion = nomina
+      ? puertoDeColaboracion(slug, e, nomina, (quien, encargo) => this.#ejecutarAgente(quien, encargo))
+      : null;
+    const companeros = await companerosDe(nomina, slug, tarea.workspaceId);
     // El nombre manda desde `agents`: el que guardó cada conexión al crearse
     // («Larry») se queda viejo cuando el agente pasa a llamarse como su puesto.
     // Un compañero al que se le pidió ayuda comparte el encargo (y su agentId)
     // con quien lo llamó: su nombre sale de la nómina por su oficio, no del
     // agente del encargo, o el registro diría que el Webmaster es el Velocista.
     const nombreReal = e.delegado
-      ? await this.#nombreDe(e, slug)
-      : tarea.agentId && this.#o.puertos.nomina
-        ? await this.#o.puertos.nomina.nombreDe({ workspaceId: tarea.workspaceId, agentId: tarea.agentId })
+      ? await nombreDe(nomina, tarea.workspaceId, slug)
+      : tarea.agentId && nomina
+        ? await nomina.nombreDe({ workspaceId: tarea.workspaceId, agentId: tarea.agentId })
         : null;
     // Lo que el negocio guardó en su base de conocimiento: todos los agentes lo
     // consultan. Si falla la lectura, el agente trabaja sin él en vez de caerse.
@@ -397,476 +296,13 @@ export class ConsumidorDeTareas implements Consumidor {
       // no son de este agente: sus huellas apuntan a herramientas que él no
       // tiene. Se las lleva el compañero cuando se le vuelva a pedir ayuda, y
       // aquí se entra con el aviso de reanudación en su lugar.
-      ...(tarea.aprobaciones && !this.#esperaDeUnCompanero(tarea)
+      ...(tarea.aprobaciones && !esperaDeUnCompanero(tarea)
         ? { aprobaciones: tarea.aprobaciones as ToolApprovalResponse[] }
         : {}),
       abortSignal: e.senal,
       onEvento: decir,
       alAvanzar: (paso) => registro.anotar(paso),
     };
-  }
-
-  /**
-   * Con quién puede contar el agente y cómo se le encarga trabajo a uno.
-   *
-   * El compañero se ejecuta con SU contexto y SUS aprobaciones: aquí solo se
-   * enruta. Comparte el `taskId` a propósito, para que el cliente vea un único
-   * encargo con todo lo que pasó dentro, y sus créditos se suman al mismo cargo.
-   */
-  #colaboracion(quien: string, e: Encargo): ColaboracionPort | null {
-    const nomina = this.#o.puertos.nomina;
-    if (!nomina) return null;
-
-    const puerto: ColaboracionPort = {
-      companeros: () => nomina.companeros({ workspaceId: e.tarea.workspaceId, exceptoSlug: quien }),
-      encargar: async (input: EncargoDelegado): Promise<ResultadoTarea> => {
-        e.decir(`${quien} le pide ayuda a ${input.slug}: "${input.titulo}"`);
-        // La petición y la respuesta se anotan como pasos del encargo, con
-        // quién habla en cada uno: el cliente ve la conversación entre los
-        // dos, no una lista de pasos sueltos sin dueño.
-        const [nombreQuien, nombreCompanero] = await Promise.all([
-          this.#nombreDe(e, quien),
-          this.#nombreDe(e, input.slug),
-        ]);
-        const marca = Date.now();
-        e.registro.anotar({
-          id: `colaboracion-${marca}-pide`,
-          herramienta: "colaboracion",
-          etiqueta: `Le pide ayuda a ${nombreCompanero}`,
-          detalle: input.titulo,
-          estado: "hecho",
-          en: new Date().toISOString(),
-          agente: { slug: quien, nombre: nombreQuien },
-        });
-        // El compañero empieza de cero: el historial y las aprobaciones son de
-        // quien llamó. Pasárselos hacía que el Webmaster «continuara» la
-        // conversación del Velocista y respondiera como si fuera él.
-        //
-        // La excepción es retomarlo: si este mismo compañero dejó una parte a
-        // un clic en el intento anterior, vuelve con SU conversación y con las
-        // decisiones que el cliente acaba de dar. Esas decisiones son suyas y
-        // no de quien llamó: sus huellas apuntan a las herramientas del
-        // compañero, así que inyectarlas arriba no valdría de nada.
-        const retomar = this.#colaboracionAMedias(e, input.slug);
-        const resultado = await this.#ejecutarAgente(input.slug, {
-          ...e,
-          tarea: retomar
-            ? { ...e.tarea, mensajes: retomar.mensajes, ...(e.tarea.aprobaciones ? { aprobaciones: e.tarea.aprobaciones } : {}) }
-            : { ...e.tarea, mensajes: undefined, aprobaciones: undefined },
-          cadena: [...e.cadena, quien],
-          delegado: { titulo: input.titulo, detalle: input.detalle },
-        });
-        e.decir(
-          `${input.slug} terminó (${resultado.estado}) · ${resultado.evidencia.creditos} créditos`,
-        );
-
-        if (resultado.estado === "esperando_aprobacion") {
-          // El clic se pide en ESTE encargo, que es donde está el cliente
-          // mirando. Se guarda por dónde iba el compañero para retomarlo, y
-          // sus créditos se suman aquí porque su trabajo ya no vive aparte.
-          e.extra.creditos += resultado.evidencia.creditos;
-          e.extra.colaboracionPendiente = {
-            slug: input.slug,
-            titulo: input.titulo,
-            detalle: input.detalle,
-            mensajes: resultado.mensajes,
-          };
-          e.registro.anotar({
-            id: `colaboracion-${marca}-responde`,
-            herramienta: "colaboracion",
-            etiqueta: `Necesita tu aprobación para terminar`,
-            detalle: resultado.resumen,
-            estado: "esperando",
-            en: new Date().toISOString(),
-            agente: { slug: input.slug, nombre: nombreCompanero },
-          });
-          e.decir(
-            `${input.slug} espera ${resultado.evidencia.aprobacionesPendientes.length} aprobaciones en este mismo encargo`,
-          );
-          return resultado;
-        }
-
-        e.extra.creditos += resultado.evidencia.creditos;
-        e.registro.anotar({
-          id: `colaboracion-${marca}-responde`,
-          herramienta: "colaboracion",
-          etiqueta:
-            resultado.estado === "completada" ? `Le responde a ${nombreQuien}` : `No pudo terminar lo que pidió ${nombreQuien}`,
-          detalle:
-            resultado.estado === "fallida" ? resultado.error : resultado.resumen,
-          estado: resultado.estado === "completada" ? "hecho" : "error",
-          en: new Date().toISOString(),
-          agente: { slug: input.slug, nombre: nombreCompanero },
-        });
-        return resultado;
-      },
-    };
-    return puerto;
-  }
-
-  /**
-   * La colaboración que quedó a un clic en el intento anterior, si es de este
-   * mismo compañero.
-   *
-   * Vive en la evidencia del encargo suspendido. Se compara el slug a
-   * propósito: si el agente decide pedirle ayuda a OTRO compañero al
-   * reanudarse, ese empieza de cero, que es lo correcto.
-   */
-  /** ¿Lo que dejó esperando este encargo fue la parte de un compañero? */
-  #esperaDeUnCompanero(tarea: TareaReclamada): boolean {
-    const ev = tarea.evidencia as { colaboracionPendiente?: unknown } | null | undefined;
-    return Boolean(ev?.colaboracionPendiente);
-  }
-
-  #colaboracionAMedias(
-    e: Encargo,
-    slug: string,
-  ): { mensajes: readonly unknown[] } | null {
-    const ev = e.tarea.evidencia as
-      | { colaboracionPendiente?: { slug?: unknown; mensajes?: unknown } }
-      | null
-      | undefined;
-    const p = ev?.colaboracionPendiente;
-    if (!p || p.slug !== slug || !Array.isArray(p.mensajes) || p.mensajes.length === 0) return null;
-    return { mensajes: p.mensajes };
-  }
-
-  /** Cómo se llama en este espacio el agente de un oficio; el slug si no se sabe. */
-  async #nombreDe(e: Encargo, slug: string): Promise<string> {
-    const nomina = this.#o.puertos.nomina;
-    if (!nomina) return slug;
-    try {
-      const companeros = await nomina.companeros({ workspaceId: e.tarea.workspaceId, exceptoSlug: "" });
-      return companeros.find((c) => c.slug === slug)?.nombre ?? slug;
-    } catch {
-      return slug;
-    }
-  }
-
-  /** La nómina, ya resuelta, para ofrecérsela al modelo en su prompt. */
-  async #companeros(quien: string, workspaceId: string): Promise<readonly Companero[]> {
-    const nomina = this.#o.puertos.nomina;
-    if (!nomina) return [];
-    try {
-      return await nomina.companeros({ workspaceId, exceptoSlug: quien });
-    } catch {
-      // Quedarse sin compañeros es trabajar solo, que es lo de siempre. No es
-      // motivo para tumbar un encargo que el cliente ya aprobó.
-      return [];
-    }
-  }
-
-  // -------------------------------------------------------------------------
-  // Cada oficio: cargar lo suyo y lanzarlo. Lo demás ya es común.
-  // -------------------------------------------------------------------------
-
-  async #ejecutarWebmaster(e: Encargo): Promise<ResultadoTarea> {
-    const { tarea, motor, decir } = e;
-    const { puertos } = this.#o;
-    if (!tarea.siteId) {
-      throw new Error(
-        "El sitio no está conectado. El cliente debe conectarlo antes de que pueda trabajar en él.",
-      );
-    }
-    const sitio = await puertos.sitios.cargar({
-      workspaceId: tarea.workspaceId,
-      siteId: tarea.siteId,
-    });
-    if (!sitio) {
-      throw new Error(
-        "El sitio no está conectado. El cliente debe conectarlo antes de que pueda trabajar en él.",
-      );
-    }
-
-    const agent = agentePara(sitio.tipo);
-    decir(
-      `"${tarea.titulo}" → ${agent.slug} @ ${sitio.url} · ${motor.modelId}${motor.modo ? ` (${motor.modo})` : ""}` +
-        (sitio.primerContacto ? " (simulación)" : ""),
-    );
-
-    // La velocidad va dentro del Webmaster: medidor de PageSpeed, historial
-    // de mediciones de ESTE encargo y lo necesario para activar la caché.
-    const velocidad: VelocidadDelSitio | null = puertos.velocidad
-      ? await puertos.velocidad.cargar({ workspaceId: tarea.workspaceId, conexionId: tarea.siteId })
-      : null;
-    const historial: Medicion[] = [];
-    const contextoVelocidad: VelocidadContext | null = velocidad
-      ? {
-          conexionId: velocidad.conexionId ?? "",
-          taskId: tarea.id,
-          ...(velocidad.sitio ? { sitio: velocidad.sitio } : {}),
-          ...(velocidad.rendimiento ? { rendimiento: velocidad.rendimiento } : {}),
-          approvals: puertos.aprobaciones,
-          ...(velocidad.conexionId ? { backups: puertos.backups } : {}),
-          ...(sitio.primerContacto ? { primerContacto: true } : {}),
-          historial,
-        }
-      : null;
-
-    const navegador = await this.#abrirNavegador(sitio, decir);
-    const contextoSitio: SitioContext = {
-      siteId: sitio.id,
-      taskId: tarea.id,
-      tipo: sitio.tipo,
-      ...(sitio.tipo === "repo"
-        ? { repo: sitio.credenciales as RepoCreds, ...(puertos.repoEstado ? { repoEstado: puertos.repoEstado } : {}) }
-        : sitio.tipo === "custom"
-          ? { conector: sitio.credenciales as ConectorCreds }
-          : { wp: sitio.credenciales as WpCreds }),
-      backups: puertos.backups,
-      approvals: puertos.aprobaciones,
-      ...(navegador ? { browser: navegador } : {}),
-      ...(this.#o.referencias ? { referencias: this.#o.referencias } : {}),
-      ...(this.#o.fetchSitio ? { fetch: this.#o.fetchSitio } : {}),
-      primerContacto: sitio.primerContacto,
-    };
-
-    const resultado = await ejecutarTareaWebmaster({
-      ...(await this.#comun(e, "webmaster", sitio.agentName)),
-      agent,
-      sitio: contextoSitio,
-      ...(contextoVelocidad ? { velocidad: contextoVelocidad } : {}),
-      ...(velocidad?.secretos ? { secretos: velocidad.secretos } : {}),
-    });
-
-    // Con simulación no se tocó el sitio, así que sigue siendo primer
-    // contacto: el próximo encargo ejecuta de verdad solo si esta vez se
-    // ejecutó de verdad.
-    if (!resultado.evidencia.simulacion && resultado.estado !== "fallida") {
-      await puertos.sitios.marcarTocado({ workspaceId: tarea.workspaceId, siteId: sitio.id });
-    }
-    return resultado;
-  }
-
-  async #ejecutarMarketing(e: Encargo): Promise<ResultadoTarea> {
-    const { tarea, motor, decir } = e;
-    const { puertos } = this.#o;
-    const cuentas: CuentasDeMarketing = puertos.cuentas
-      ? await puertos.cuentas.cargar({
-          workspaceId: tarea.workspaceId,
-          conexionId: tarea.siteId,
-        })
-      : {
-          conexionId: tarea.siteId,
-          ads: [],
-          negocio: "tu negocio",
-          agentName: marketing.label,
-        };
-
-    decir(
-      `"${tarea.titulo}" → ${marketing.slug} · ${cuentas.ads.length} plataforma(s) · ` +
-        `${motor.modelId}${motor.modo ? ` (${motor.modo})` : ""}` +
-        (cuentas.primerContacto ? " (simulación)" : ""),
-    );
-
-    const contexto: CuentasContext = {
-      conexionId: cuentas.conexionId ?? "",
-      taskId: tarea.id,
-      ads: cuentas.ads,
-      ...(cuentas.analytics ? { analytics: cuentas.analytics } : {}),
-      approvals: puertos.aprobaciones,
-      // El backup solo tiene dónde colgarse si hay conexión: sin ella no hay
-      // nada que revertir todavía.
-      ...(cuentas.conexionId ? { backups: puertos.backups } : {}),
-      ...(cuentas.primerContacto ? { primerContacto: true } : {}),
-    };
-
-    return ejecutarTareaMarketing({
-      ...(await this.#comun(e, "marketing", cuentas.agentName)),
-      agent: marketing,
-      negocio: cuentas.negocio,
-      cuentas: contexto,
-      ...(cuentas.secretos ? { secretos: cuentas.secretos } : {}),
-    });
-  }
-
-  /**
-   * El compañero más pedido de la oficina.
-   *
-   * Dos cosas propias suyas: el estudio se arma con el MODO de la tarea (el
-   * modelo de imagen sale de `model_tiers`, fila `imagen`, igual que el de
-   * texto sale de `negocio`), y su conexión es el sitio del cliente, que es
-   * donde acaban las imágenes que publica.
-   */
-  async #ejecutarDisenador(e: Encargo): Promise<ResultadoTarea> {
-    const { tarea, motor, decir } = e;
-    const { puertos } = this.#o;
-    const estudio: EstudioDeDiseno = puertos.estudio
-      ? await puertos.estudio.cargar({
-          workspaceId: tarea.workspaceId,
-          siteId: tarea.siteId,
-          taskId: tarea.id,
-          modo: motor.modo ?? "lite",
-        })
-      : {
-          conexionId: tarea.siteId,
-          negocio: "tu negocio",
-          agentName: disenador.label,
-        };
-
-    decir(
-      `"${tarea.titulo}" → ${disenador.slug} · ` +
-        `${estudio.imagenes ? estudio.imagenes.modelo : "sin generador de imágenes"} · ` +
-        `${estudio.medios ? estudio.medios.sitio : "sin sitio donde publicar"}` +
-        (estudio.estilo ? " · con los colores del sitio" : " · sin colores medidos") +
-        (estudio.primerContacto ? " (simulación)" : ""),
-    );
-
-    const contexto: DisenoContext = {
-      conexionId: estudio.conexionId ?? "",
-      taskId: tarea.id,
-      ...(estudio.imagenes ? { imagenes: estudio.imagenes } : {}),
-      ...(estudio.creditosPorImagen != null
-        ? { creditosPorImagen: estudio.creditosPorImagen }
-        : {}),
-      ...(estudio.medios ? { medios: estudio.medios } : {}),
-      ...(estudio.estilo ? { estilo: estudio.estilo } : {}),
-      approvals: puertos.aprobaciones,
-      ...(estudio.primerContacto ? { primerContacto: true } : {}),
-    };
-
-    return ejecutarTareaDisenador({
-      ...(await this.#comun(e, "disenador", estudio.agentName)),
-      agent: disenador,
-      negocio: estudio.negocio,
-      diseno: contexto,
-    });
-  }
-
-  async #ejecutarAdministrativo(e: Encargo, quien: string): Promise<ResultadoTarea> {
-    const { tarea, motor, decir } = e;
-    const { puertos } = this.#o;
-    // El oficio decide qué herramientas tiene: Reportes no lleva las que
-    // escriben, así que no puede emitir nada aunque se lo pidan.
-    // Sin respaldo a `administrativo`: era una red que dependia de quien
-    // llamara. Hoy el enrutado solo manda aqui dos slugs, pero un tercero
-    // acabaria emitiendo facturas con el oficio equivocado en vez de fallar.
-    const oficio = AGENTES_ADMINISTRATIVOS[normalizarSlug(quien)];
-    if (!oficio) return this.#oficioDesconocido(quien, e);
-    const libros: LibrosDelNegocio = puertos.libros
-      ? await puertos.libros.cargar({
-          workspaceId: tarea.workspaceId,
-          conexionId: tarea.siteId,
-        })
-      : {
-          conexionId: tarea.siteId,
-          negocio: "tu negocio",
-          agentName: oficio.label,
-        };
-
-    decir(
-      `"${tarea.titulo}" → ${oficio.slug} · ` +
-        `${libros.contabilidad ? libros.contabilidad.sistema : "sin contabilidad conectada"}${libros.alegra ? " + Alegra completo" : ""} · ` +
-        `${motor.modelId}${motor.modo ? ` (${motor.modo})` : ""}` +
-        (libros.primerContacto ? " (simulación)" : ""),
-    );
-
-    const contexto: LibrosContext = {
-      conexionId: libros.conexionId ?? "",
-      taskId: tarea.id,
-      ...(libros.contabilidad ? { contabilidad: libros.contabilidad } : {}),
-      ...(libros.alegra ? { alegra: libros.alegra } : {}),
-      approvals: puertos.aprobaciones,
-      // El backup solo tiene dónde colgarse si hay conexión: sin ella no hay
-      // nada que revertir todavía.
-      ...(libros.conexionId ? { backups: puertos.backups } : {}),
-      ...(libros.primerContacto ? { primerContacto: true } : {}),
-    };
-
-    return ejecutarTareaAdministrativa({
-      ...(await this.#comun(e, oficio.slug, libros.agentName)),
-      agent: oficio,
-      negocio: libros.negocio,
-      libros: contexto,
-      ...(libros.secretos ? { secretos: libros.secretos } : {}),
-    });
-  }
-
-
-
-  // -------------------------------------------------------------------------
-  // Cierre, igual para cualquier agente
-  // -------------------------------------------------------------------------
-
-  async #cerrarTarea(
-    tarea: TareaReclamada,
-    resultado: ResultadoTarea,
-    decir: (m: string) => void,
-    extra?: Encargo["extra"],
-  ): Promise<void> {
-    const { puertos, workerId } = this.#o;
-    switch (resultado.estado) {
-      case "completada": {
-        await puertos.cola.completar({
-          taskId: tarea.id,
-          workerId,
-          resumen: resultado.resumen,
-          evidencia: resultado.evidencia,
-          creditos: resultado.evidencia.creditos,
-        });
-        await puertos.notificaciones?.avisar({
-          workspaceId: tarea.workspaceId,
-          taskId: tarea.id,
-          tipo: "resultado",
-          texto: resultado.resumen,
-        });
-        decir(
-          `listo · ${resultado.evidencia.acciones.length} acciones, ${resultado.evidencia.creditos} créditos`,
-        );
-        break;
-      }
-      case "esperando_aprobacion": {
-        await puertos.cola.suspender({
-          taskId: tarea.id,
-          workerId,
-          resumen: resultado.resumen,
-          // La colaboración a medias viaja DENTRO de la evidencia: es lo único
-          // que se guarda entre un intento y el siguiente, y sin ella el
-          // compañero volvería a empezar cuando el cliente apruebe.
-          evidencia: extra?.colaboracionPendiente
-            ? { ...(resultado.evidencia as object), colaboracionPendiente: extra.colaboracionPendiente }
-            : resultado.evidencia,
-          creditos: resultado.evidencia.creditos + (extra?.creditos ?? 0),
-          mensajes: resultado.mensajes,
-        });
-        await puertos.notificaciones?.avisar({
-          workspaceId: tarea.workspaceId,
-          taskId: tarea.id,
-          tipo: "aprobacion",
-          texto: resultado.resumen,
-        });
-        decir(`en espera · ${resultado.evidencia.aprobacionesPendientes.length} aprobaciones`);
-        break;
-      }
-      case "fallida": {
-        await puertos.cola.fallar({
-          taskId: tarea.id,
-          workerId,
-          error: resultado.error,
-          motivo: resultado.motivo,
-          evidencia: resultado.evidencia,
-          // Un freno por fallo repetido volvería a tropezar igual, y empezar
-          // de cero podría duplicar lo que ya se creó.
-          reintentable:
-            resultado.motivo !== "timeout" &&
-            resultado.motivo !== "tope_acciones" &&
-            !esDefinitivo(resultado.error),
-        });
-        await puertos.notificaciones?.avisar({
-          workspaceId: tarea.workspaceId,
-          taskId: tarea.id,
-          tipo: "error",
-          texto:
-            resultado.motivo === "timeout"
-              ? `La tarea "${tarea.titulo}" se pasó del tiempo permitido. No dejé cambios sin backup.`
-              : resultado.motivo === "tope_acciones"
-                ? `Detuve "${tarea.titulo}" porque repetía el mismo fallo. No dejé cambios sin backup: revisa el registro de trabajo y pídemelo de nuevo.`
-                : `Algo falló ejecutando "${tarea.titulo}". No dejé cambios sin backup: puedes pedírmelo de nuevo.`,
-        });
-        decir(`fallo (${resultado.motivo}): ${resultado.error}`);
-        break;
-      }
-    }
   }
 
   async #abrirNavegador(
