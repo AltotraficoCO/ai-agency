@@ -161,10 +161,15 @@ export function crearConocimientoDb(scope: TenantScope): ConocimientoDbPort {
         if (!brainId) throw new Error(`La fuente ${plan.fuenteId} no existe en este espacio.`);
 
         for (const trozo of plan.escribir) {
+          // `extensions.vector` con esquema, no `vector` a secas: pgvector vive
+          // en el esquema `extensions` (0006) y la sesión con el rol de la app
+          // no lo tiene en su search_path. Sin esto, TODO trozo —también en modo
+          // solo texto, con el vector a NULL— fallaba con «type "vector" does
+          // not exist» y ninguna fuente se aprendía.
           await scope.query(
             `insert into public.brain_chunks
                (workspace_id, brain_id, source_id, position, content, token_count, embedding, metadata)
-             values ($1, $2, $3, $4, $5, $6, $7::vector, $8::jsonb)`,
+             values ($1, $2, $3, $4, $5, $6, $7::extensions.vector, $8::jsonb)`,
             [
               ws,
               brainId,
@@ -203,7 +208,7 @@ export function crearConocimientoDb(scope: TenantScope): ConocimientoDbPort {
         distance: number | null;
         metadata: Record<string, unknown> | null;
       }>(
-        `select * from public.search_knowledge($1::uuid[], $2, $3::vector, $4)`,
+        `select * from public.search_knowledge($1::uuid[], $2, $3::extensions.vector, $4)`,
         // Sin embedding se pasa NULL a proposito: es el modo "solo texto", el
         // de una instalacion sin proveedor de embeddings. La rama vectorial de
         // search_knowledge lleva `and qvec is not null`, asi que se queda
@@ -283,7 +288,7 @@ export function crearRevectorizadoDb(scope: TenantScope): RevectorizadoDbPort {
       for (const { id, embedding } of vectores) {
         const { rows } = await scope.query<{ source_id: string }>(
           `update public.brain_chunks
-              set embedding = $3::vector,
+              set embedding = $3::extensions.vector,
                   metadata = (coalesce(metadata, '{}'::jsonb) - 'sinVectorizar' - 'modo')
                              || jsonb_build_object('modelo', $4::text)
             where workspace_id = $1 and id = $2 and embedding is null

@@ -343,7 +343,7 @@ export async function searchKnowledge(
 ): Promise<KnowledgeHit[]> {
   if (input.brainIds.length === 0) return [];
   const { rows } = await scope.query<KnowledgeHit>(
-    `select * from public.search_knowledge($1::uuid[], $2, $3::vector, $4)`,
+    `select * from public.search_knowledge($1::uuid[], $2, $3::extensions.vector, $4)`,
     [input.brainIds, input.query, toVectorLiteral(input.embedding), input.k ?? 8],
   );
   return rows;
