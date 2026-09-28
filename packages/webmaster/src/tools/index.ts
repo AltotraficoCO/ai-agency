@@ -10,21 +10,21 @@
  * definiciones: no hay una segunda copia que pueda divergir.
  */
 import { ToolRegistry, type ToolDef } from "@strappy/tools";
-import { HERRAMIENTAS_WP } from "./wp.js";
+import { HERRAMIENTAS_WP } from "./wp/index.js";
 import { HERRAMIENTAS_BLOG } from "./blog.js";
 import { HERRAMIENTAS_ELEMENTOR } from "./elementor.js";
 import { HERRAMIENTAS_CONECTOR } from "./conector.js";
 import { HERRAMIENTAS_NAVEGADOR } from "./navegador.js";
 import { HERRAMIENTAS_CONFIRMACION } from "./confirmacion.js";
-import { HERRAMIENTAS_REPO } from "./repo.js";
+import { HERRAMIENTAS_REPO } from "./repo/index.js";
 
-export * from "./wp.js";
+export * from "./wp/index.js";
 export * from "./blog.js";
 export * from "./elementor.js";
 export * from "./conector.js";
 export * from "./navegador.js";
 export * from "./confirmacion.js";
-export * from "./repo.js";
+export * from "./repo/index.js";
 
 export const HERRAMIENTAS_WEBMASTER: readonly ToolDef<never, unknown>[] = [
   ...HERRAMIENTAS_WP,
