@@ -25,6 +25,7 @@ import { createServerClient } from "@supabase/ssr";
  * el endpoint no se podía dar de alta. Cada ruta comprueba su propia firma.
  */
 const PUBLICAS = [
+  "/conoce",
   "/entrar",
   "/registro",
   "/recuperar",
@@ -81,6 +82,14 @@ export async function proxy(peticion: NextRequest) {
 
   const ruta = peticion.nextUrl.pathname;
   const esPublica = PUBLICAS.some((p) => ruta === p || ruta.startsWith(`${p}/`));
+
+  // La portada de quien no ha entrado es la landing, en la misma dirección:
+  // strappy.io enseña la landing al visitante y la app a quien tiene sesión.
+  if (!user && ruta === "/") {
+    const landing = peticion.nextUrl.clone();
+    landing.pathname = "/conoce";
+    return NextResponse.rewrite(landing);
+  }
 
   if (!user && !esPublica) {
     const destino = peticion.nextUrl.clone();
