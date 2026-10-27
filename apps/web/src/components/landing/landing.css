@@ -892,14 +892,17 @@ html:has(.landing) body {
   font-variant-numeric: tabular-nums;
 }
 /* La jornada corre dentro de su ventana: sin recorte, las tarjetas pasaban por
-   encima del reloj y del título. El fundido de la izquierda hace que salgan
-   en vez de cortarse en seco; el relleno deja sitio a sombras y giros. */
+   encima del reloj y del título. Por la derecha llega hasta el borde de la
+   pantalla aunque el contenido mida 1320 px; si no, en un monitor ancho se
+   cortaba en seco a media pantalla. Los fundidos de los dos lados hacen que
+   las tarjetas entren y salgan, y el relleno deja sitio a sombras y giros. */
 .lp-dia-ventana {
+  --hasta-el-borde: calc(28px + max(0px, (100vw - 1320px) / 2));
   overflow: hidden;
-  margin: -40px -28px -40px 0;
-  padding: 40px 28px 40px 24px;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 56px);
-  mask-image: linear-gradient(90deg, transparent 0, #000 56px);
+  margin: -40px calc(-1 * var(--hasta-el-borde)) -40px 0;
+  padding: 40px var(--hasta-el-borde) 40px 24px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 64px, #000 calc(100% - 120px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 64px, #000 calc(100% - 120px), transparent 100%);
 }
 .lp-dia-pista {
   display: flex;

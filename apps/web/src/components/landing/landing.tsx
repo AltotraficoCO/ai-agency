@@ -166,7 +166,8 @@ export function Landing({ claseFuentes }: { claseFuentes: string }) {
         // Se mide contra la ventana visible, no contra la pista: la pista mide
         // lo que su contenido, así que contra sí misma el recorrido salía casi
         // cero y la jornada saltaba de las 07:52 a las 18:30 sin verse.
-        const recorrido = () => Math.max(0, pista.scrollWidth - ventana.clientWidth + 80);
+        // El margen final deja la última tarjeta entera, fuera del fundido.
+        const recorrido = () => Math.max(0, pista.scrollWidth - ventana.clientWidth + 180);
         const primera = UN_DIA[0].minutos;
         const ultima = UN_DIA[UN_DIA.length - 1].minutos;
         const tl = gsap.timeline({
