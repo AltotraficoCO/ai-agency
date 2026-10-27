@@ -65,7 +65,7 @@ export default async function PaginaHilo({
           activoId={hilo.id}
           claveAlmacen="strappy-historial-strap"
           vacio="Tus conversaciones con Strap aparecerán aquí."
-          nuevo={{ etiqueta: "Nueva conversación", href: "/" }}
+          nuevo={{ etiqueta: "Nueva conversación", href: "/app" }}
         />
         <div className="min-h-0 min-w-0 flex-1">
           <Hilo

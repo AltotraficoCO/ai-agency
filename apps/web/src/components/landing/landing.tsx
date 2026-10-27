@@ -275,7 +275,7 @@ export function Landing({ claseFuentes }: { claseFuentes: string }) {
 
       {/* ── Barra ─────────────────────────────────────────────────────── */}
       <header className="lp-nav" data-fondo="no" data-oculta="no">
-        <Link href="/conoce" className="lp-logo" aria-label="Strappy, inicio">
+        <Link href="/" className="lp-logo" aria-label="Strappy, inicio">
           <Strap pose="saludando" size={34} animate={false} />
           <span>strappy</span>
         </Link>

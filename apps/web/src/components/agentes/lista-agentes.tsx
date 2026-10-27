@@ -147,7 +147,7 @@ export async function ListaAgentes(props: PropsListaAgentes) {
       : TEXTOS_EQUIPO;
 
   const acciones = esWhatsapp ? (
-    <EnlaceBoton href="/">
+    <EnlaceBoton href="/app">
       <Sparkles size={16} aria-hidden />
       Crear con Strap
     </EnlaceBoton>
@@ -187,7 +187,7 @@ export async function ListaAgentes(props: PropsListaAgentes) {
             <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-12 text-center">
               <p className="text-lg font-semibold text-fg">{t.tituloSinAgentes}</p>
               <p className="max-w-[56ch] text-base text-fg-secondary">{t.textoSinAgentes}</p>
-              <EnlaceBoton href={esWhatsapp ? "/" : "/contratar"} size="lg">
+              <EnlaceBoton href={esWhatsapp ? "/app" : "/contratar"} size="lg">
                 {esWhatsapp ? (
                   <>
                     <Sparkles size={16} aria-hidden />

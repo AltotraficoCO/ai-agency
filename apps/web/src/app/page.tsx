@@ -4,8 +4,8 @@ import { Landing } from "@/components/landing/landing";
 import "@/components/landing/landing.css";
 
 /**
- * La landing pública. Quien llega a `/` sin sesión la ve en su sitio (el proxy
- * reescribe la ruta); con sesión, `/` sigue siendo la app.
+ * La landing pública: la portada de strappy.io para todos, con sesión o sin
+ * ella. La app empieza en `/app`.
  */
 
 // La letra de las anotaciones: rotulador de pizarra, no la caligrafía de boda

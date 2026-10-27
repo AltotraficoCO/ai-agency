@@ -50,7 +50,6 @@ const Armazon = React.createContext<ContextoArmazon | null>(null);
 function rutaActivaDe(pathname: string): Ruta {
   const candidatas = todosLosDestinos
     .map((d) => d.href as string)
-    .filter((r) => r !== "/")
     .sort((a, b) => b.length - a.length);
   const encontrada = candidatas.find((r) => pathname === r || pathname.startsWith(`${r}/`));
   return (encontrada ?? rutas.inicio) as Ruta;

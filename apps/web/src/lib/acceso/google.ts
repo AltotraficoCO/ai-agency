@@ -38,9 +38,12 @@ function clave(): Buffer {
   return leerClave(process.env.ENCRYPTION_KEY);
 }
 
-/** Solo rutas internas: un `siguiente` con dominio sería un redirector abierto. */
+/**
+ * Solo rutas internas: un `siguiente` con dominio sería un redirector abierto.
+ * `/` es la landing, así que tampoco vale: quien entra va a la app.
+ */
 export function destinoSeguro(valor: string | null | undefined): string {
-  if (!valor || !valor.startsWith("/") || valor.startsWith("//")) return "/";
+  if (!valor || valor === "/" || !valor.startsWith("/") || valor.startsWith("//")) return "/app";
   return valor;
 }
 
@@ -66,7 +69,7 @@ export function leerEstado(state: string): { siguiente: string; nonce: string } 
     const datos = JSON.parse(descifrar(state, clave())) as Record<string, unknown>;
     const { s, n, exp } = datos;
     if (typeof n !== "string" || typeof exp !== "number" || exp < Date.now()) return null;
-    return { siguiente: destinoSeguro(typeof s === "string" ? s : "/"), nonce: n };
+    return { siguiente: destinoSeguro(typeof s === "string" ? s : "/app"), nonce: n };
   } catch {
     return null;
   }

@@ -23,7 +23,7 @@ import { DEPARTAMENTOS, type DepartamentoId } from "./departamentos";
  * estas: si una ruta cambia, TypeScript obliga a actualizarla en un único sitio.
  */
 export const rutas = {
-  inicio: "/",
+  inicio: "/app",
   agentes: "/agentes",
   impacto: "/negocio/impacto",
   agentesWhatsapp: "/whatsapp/agentes",

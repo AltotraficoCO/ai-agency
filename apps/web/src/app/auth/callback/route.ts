@@ -11,7 +11,7 @@ import { crearClienteServidor, hayAutenticacionConfigurada } from "@/lib/supabas
 export async function GET(peticion: Request) {
   const url = new URL(peticion.url);
   const code = url.searchParams.get("code");
-  const siguiente = url.searchParams.get("siguiente") ?? "/";
+  const siguiente = url.searchParams.get("siguiente") ?? "/app";
   const error = url.searchParams.get("error_description") ?? url.searchParams.get("error");
 
   if (error) {
@@ -32,6 +32,7 @@ export async function GET(peticion: Request) {
   }
 
   // Solo rutas internas: un `siguiente` absoluto sería un redirector abierto.
-  const destino = siguiente.startsWith("/") ? siguiente : "/";
+  // `/` es la landing: quien acaba de entrar va a la app.
+  const destino = siguiente.startsWith("/") && !siguiente.startsWith("//") && siguiente !== "/" ? siguiente : "/app";
   return NextResponse.redirect(new URL(destino, url.origin));
 }

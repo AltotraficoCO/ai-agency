@@ -63,7 +63,7 @@ export default async function PaginaContratar() {
           titulo="Agentes listos para trabajar"
           descripcion="Contrata los que quieras: no cuestan nada por tenerlos. Solo pagas los créditos que gasten cuando trabajen."
           acciones={
-            <EnlaceBoton href="/" variant="secondary">
+            <EnlaceBoton href="/app" variant="secondary">
               <Sparkles size={16} aria-hidden />
               Crear uno de WhatsApp a medida
             </EnlaceBoton>

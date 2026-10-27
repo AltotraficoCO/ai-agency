@@ -77,7 +77,7 @@ export function PanelAgentes({
       {agentes.length === 0 ? (
         <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-border p-4">
           <p className="text-sm text-fg-secondary">Todavía no tienes agentes de WhatsApp que puedan usarlo.</p>
-          <EnlaceBoton href="/" size="sm" variant="secondary">
+          <EnlaceBoton href="/app" size="sm" variant="secondary">
             <Sparkles size={14} aria-hidden />
             Crear un agente con Strap
           </EnlaceBoton>

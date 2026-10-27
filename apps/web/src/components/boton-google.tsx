@@ -12,7 +12,7 @@
  */
 import { Button } from "@strappy/ui";
 
-export function BotonGoogle({ siguiente = "/" }: { siguiente?: string }) {
+export function BotonGoogle({ siguiente = "/app" }: { siguiente?: string }) {
   return (
     <form action="/api/auth/google/inicio" method="get">
       <input type="hidden" name="siguiente" value={siguiente} />
