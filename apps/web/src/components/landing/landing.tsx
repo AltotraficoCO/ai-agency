@@ -5,7 +5,7 @@
  *
  * Toda la página cuenta una sola idea —no vendemos una herramienta, vendemos
  * un equipo— y cada sección la cuenta con un objeto de oficina: la
- * acreditación que cuelga de su cinta, las piezas que arman el equipo, el reloj de
+ * acreditación que cuelga de su cinta, el expediente de personal, el reloj de
  * la jornada, el sello de aprobado y el recibo de fin de mes.
  *
  * El movimiento lo llevan GSAP (ScrollTrigger, SplitText y DrawSVG) y Lenis,
@@ -133,64 +133,31 @@ export function Landing({ claseFuentes }: { claseFuentes: string }) {
 
       const mm = gsap.matchMedia();
 
-      // ── El equipo se arma: cada pieza cae, encaja con un clic y se queda ──
-      // Nada se apaga: la gracia es ver cómo el equipo va quedando completo.
+      // ── Expedientes: se apilan uno sobre otro (solo con pantalla grande) ──
       mm.add("(min-width: 960px)", () => {
-        const armado = document.querySelector<HTMLElement>(".lp-armado");
-        if (!armado) return;
-        armado.dataset.activo = "si";
-        const ladrillos = gsap.utils.toArray<HTMLElement>(".lp-ladrillo");
-        const fichas = gsap.utils.toArray<HTMLElement>(".lp-ficha");
-        const cuenta = armado.querySelector<HTMLElement>(".lp-armado-cuenta b");
-        const giros = [-9, 7, -6, 10];
-        const paso = 1.4;
-        const encajes = ladrillos.map((_, i) => i * paso + 0.8);
-        let piezas = -1;
+        const expedientes = gsap.utils.toArray<HTMLElement>(".lp-expediente");
         const tl = gsap.timeline({
           scrollTrigger: {
-            trigger: armado,
-            start: "top top+=130",
-            end: () => `+=${window.innerHeight * 3.2}`,
-            scrub: 0.5,
+            trigger: ".lp-expedientes",
+            start: "top top+=96",
+            end: () => `+=${window.innerHeight * (expedientes.length - 1) * 0.9}`,
+            scrub: 0.6,
             pin: true,
             anticipatePin: 1,
-            onUpdate: () => {
-              const n = encajes.filter((t) => tl.time() >= t).length;
-              if (n === piezas || !cuenta) return;
-              piezas = n;
-              cuenta.textContent = String(n);
-              armado.dataset.completo = n === ladrillos.length ? "si" : "no";
-            },
           },
         });
-        gsap.set(fichas, { autoAlpha: 0, y: 24 });
-        ladrillos.forEach((l, i) => {
-          const t = i * paso;
-          const antes = i === 0 ? ".lp-armado-intro" : fichas[i - 1];
+        // Entran desde abajo de la pantalla como una carpeta que se archiva
+        // encima de la otra. Las de atrás no se apagan: siguen a la vista con
+        // su pestaña, que va corrida, como en un archivador de verdad.
+        expedientes.forEach((ex, i) => {
+          if (i === 0) return;
           tl.fromTo(
-            l,
-            { y: () => -window.innerHeight, rotate: giros[i % giros.length], autoAlpha: 0 },
-            { y: 0, rotate: 0, autoAlpha: 1, duration: 0.8, ease: "power3.in" },
-            t,
-          )
-            // El clic: se aplasta al tocar la base y rebota.
-            .to(l, { scaleY: 0.86, scaleX: 1.05, duration: 0.08, ease: "power1.out" }, t + 0.8)
-            .to(l, { scaleY: 1, scaleX: 1, duration: 0.3, ease: "back.out(4)" }, t + 0.88)
-            .fromTo(
-              l.querySelector(".lp-clic"),
-              { autoAlpha: 0, scale: 0.4, y: 10 },
-              { autoAlpha: 1, scale: 1, y: 0, duration: 0.15, ease: "back.out(3)" },
-              t + 0.8,
-            )
-            .to(l.querySelector(".lp-clic"), { autoAlpha: 0, y: -14, duration: 0.3 }, t + 1.15)
-            .to(antes, { autoAlpha: 0, y: -20, duration: 0.3 }, t + 0.75)
-            .to(fichas[i], { autoAlpha: 1, y: 0, duration: 0.4, ease: "power2.out" }, t + 0.85);
+            ex,
+            { y: () => window.innerHeight, rotate: i % 2 ? 2.5 : -2.5 },
+            { y: 0, rotate: 0, ease: "power3.out" },
+            i - 1,
+          );
         });
-        tl.to({}, { duration: 0.6 });
-        return () => {
-          delete armado.dataset.activo;
-          delete armado.dataset.completo;
-        };
       });
 
       // ── Un día: el reloj avanza y la jornada corre en horizontal ──────────
@@ -238,16 +205,8 @@ export function Landing({ claseFuentes }: { claseFuentes: string }) {
           );
       });
 
-      // En el móvil la jornada va en vertical y cada momento aparece solo,
-      // y cada pieza del equipo cae y encaja al llegar a ella.
+      // En el móvil la jornada va en vertical y cada momento aparece solo.
       mm.add("(max-width: 959px)", () => {
-        gsap.utils.toArray<HTMLElement>(".lp-ladrillo").forEach((l, i) => {
-          gsap
-            .timeline({ scrollTrigger: { trigger: l, start: "top 85%" } })
-            .from(l, { y: -90, rotate: i % 2 ? 6 : -6, autoAlpha: 0, duration: 0.45, ease: "power3.in" })
-            .to(l, { scaleY: 0.88, scaleX: 1.04, duration: 0.07 })
-            .to(l, { scaleY: 1, scaleX: 1, duration: 0.3, ease: "back.out(4)" });
-        });
         gsap.utils.toArray<HTMLElement>(".lp-momento").forEach((m) => {
           gsap.from(m, { y: 40, opacity: 0, duration: 0.6, ease: "power3.out", scrollTrigger: { trigger: m, start: "top 88%" } });
         });
@@ -404,7 +363,7 @@ export function Landing({ claseFuentes }: { claseFuentes: string }) {
           </div>
         </div>
 
-        {/* ── El equipo: se arma pieza por pieza ─────────────────────── */}
+        {/* ── El equipo: expedientes ──────────────────────────────────── */}
         <section id="equipo" className="lp-seccion">
           <div className="lp-cabecera">
             <p className="lp-mano">el equipo</p>
@@ -418,56 +377,40 @@ export function Landing({ claseFuentes }: { claseFuentes: string }) {
             </p>
           </div>
 
-          <div className="lp-armado">
-            <div className="lp-armado-base" aria-hidden>
-              <span className="lp-armado-cuenta">
-                armando tu equipo · <b>0</b>/{EQUIPO.length}
-              </span>
-            </div>
+          <div className="lp-expedientes">
             {EQUIPO.map((m, i) => (
-              <span key={m.slug} className="lp-hueco" style={{ ["--hueco" as string]: `b${i}` }} aria-hidden>
-                aquí va {m.departamento}
-              </span>
-            ))}
-            <div className="lp-armado-intro">
-              <p className="lp-mano">pieza por pieza</p>
-              <p>
-                Baja y mira cómo encaja cada uno. Empiezas con el que más te hace falta y sumas los demás cuando
-                quieras.
-              </p>
-            </div>
-            {EQUIPO.map((m, i) => (
-              <article key={m.slug} className="lp-pieza" style={{ ["--color" as string]: m.color }}>
-                <div className="lp-ladrillo" style={{ ["--hueco" as string]: `b${i}` }}>
-                  <span className="lp-ladrillo-tetones" aria-hidden>
-                    <i />
-                    <i />
-                    <i />
-                  </span>
-                  <Image src={m.imagen} alt={`Personaje de ${m.departamento}`} width={220} height={220} />
-                  <div className="lp-ladrillo-texto">
-                    <span>{m.numero}</span>
-                    <strong>{m.departamento}</strong>
-                  </div>
-                  <span className="lp-clic" aria-hidden>
-                    ¡clic!
-                  </span>
+              <article
+                key={m.slug}
+                className="lp-expediente"
+                style={{ ["--color" as string]: m.color, ["--i" as string]: i, zIndex: i + 1 }}>
+                <div className="lp-expediente-pestana">
+                  Exp. {m.numero} · {m.departamento}
                 </div>
-                <div className="lp-ficha">
-                  <p className="lp-ficha-depto">{m.departamento}</p>
-                  <h3>{m.puesto}</h3>
-                  <p className="lp-ficha-etiqueta">Se encarga de</p>
-                  <ul>
-                    {m.seEncarga.map((s) => (
-                      <li key={s}>
-                        <Chulo className="lp-chulo" color={m.color} />
-                        {s}
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="lp-ficha-regla">
-                    <span>Regla de la casa</span>
-                    {m.regla}
+                <div className="lp-expediente-cuerpo">
+                  <div className="lp-expediente-foto">
+                    <div className="lp-expediente-halo" />
+                    <Image src={m.imagen} alt={`Personaje de ${m.departamento}`} width={340} height={340} />
+                    <span className="lp-expediente-clip" aria-hidden />
+                  </div>
+                  <div className="lp-expediente-datos">
+                    <div className="lp-expediente-fila">
+                      <span>Departamento</span>
+                      <strong>{m.departamento}</strong>
+                    </div>
+                    <h3>{m.puesto}</h3>
+                    <p className="lp-expediente-etiqueta">Se encarga de</p>
+                    <ul>
+                      {m.seEncarga.map((s) => (
+                        <li key={s}>
+                          <Chulo className="lp-chulo" color={m.color} />
+                          {s}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="lp-expediente-regla">
+                      <span>Regla de la casa</span>
+                      {m.regla}
+                    </div>
                   </div>
                 </div>
               </article>
