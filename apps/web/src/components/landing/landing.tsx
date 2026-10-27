@@ -72,15 +72,13 @@ export function Landing({ claseFuentes }: { claseFuentes: string }) {
       };
       anclas.forEach((a) => a.addEventListener("click", alPulsarAncla));
 
-      // ── La barra de arriba se esconde al bajar y vuelve al subir ──────────
+      // ── La barra flota siempre: «Contratar» tiene que estar a mano en toda
+      // la página. Al bajar solo gana sombra, para separarse del contenido.
       ScrollTrigger.create({
         start: 0,
         end: "max",
         onUpdate: (st) => {
-          const nav = raiz.current?.querySelector(".lp-nav");
-          const arriba = st.scroll() < 80;
-          nav?.setAttribute("data-fondo", arriba ? "no" : "si");
-          nav?.setAttribute("data-oculta", !arriba && st.direction === 1 ? "si" : "no");
+          raiz.current?.querySelector(".lp-nav")?.setAttribute("data-fondo", st.scroll() < 80 ? "no" : "si");
         },
       });
 
@@ -279,7 +277,7 @@ export function Landing({ claseFuentes }: { claseFuentes: string }) {
       <div className="lp-grano" aria-hidden />
 
       {/* ── Barra ─────────────────────────────────────────────────────── */}
-      <header className="lp-nav" data-fondo="no" data-oculta="no">
+      <header className="lp-nav" data-fondo="no">
         <Link href="/" className="lp-logo" aria-label="Strappy, inicio">
           <Strap pose="saludando" size={34} animate={false} />
           <span>strappy</span>

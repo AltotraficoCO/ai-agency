@@ -227,9 +227,6 @@ html:has(.landing) body {
 .lp-nav[data-fondo="si"] {
   box-shadow: 0 14px 40px -18px rgb(0 0 0 / 0.8);
 }
-.lp-nav[data-oculta="si"] {
-  transform: translateY(-140%);
-}
 .lp-logo {
   display: inline-flex;
   align-items: center;
