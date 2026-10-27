@@ -161,8 +161,12 @@ export function Landing({ claseFuentes }: { claseFuentes: string }) {
       // ── Un día: el reloj avanza y la jornada corre en horizontal ──────────
       mm.add("(min-width: 960px)", () => {
         const pista = document.querySelector<HTMLElement>(".lp-dia-pista");
-        if (!pista) return;
-        const recorrido = () => pista.scrollWidth - pista.clientWidth + 80;
+        const ventana = document.querySelector<HTMLElement>(".lp-dia-ventana");
+        if (!pista || !ventana) return;
+        // Se mide contra la ventana visible, no contra la pista: la pista mide
+        // lo que su contenido, así que contra sí misma el recorrido salía casi
+        // cero y la jornada saltaba de las 07:52 a las 18:30 sin verse.
+        const recorrido = () => Math.max(0, pista.scrollWidth - ventana.clientWidth + 80);
         const primera = UN_DIA[0].minutos;
         const ultima = UN_DIA[UN_DIA.length - 1].minutos;
         const tl = gsap.timeline({

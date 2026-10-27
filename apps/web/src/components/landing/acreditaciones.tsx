@@ -70,11 +70,11 @@ export function Acreditaciones({ equipo, velocidad }: Props) {
       // Se mide la ventana y no la caja: en escritorio la caja es media portada.
       const vw = window.innerWidth;
       const estrecho = vw < 900;
-      const tw = vw < 560 ? 104 : estrecho ? 132 : 196;
-      const th = vw < 560 ? 148 : estrecho ? 186 : 272;
+      const tw = vw < 560 ? 112 : estrecho ? 132 : 196;
+      const th = vw < 560 ? 154 : estrecho ? 186 : 272;
       // Cada tarjeta cuelga a una altura distinta para que no formen una fila
       // de uniformes: la de en medio, más baja, es la que se ve primero.
-      const largos = estrecho ? [0.3, 0.46, 0.24, 0.4] : [0.16, 0.34, 0.08, 0.26];
+      const largos = estrecho ? [0.3, 0.46, 0.24, 0.4] : [0.12, 0.44, 0.06, 0.34];
       const columnas = equipo.length;
 
       // Pared invisible a la izquierda: por mucho que se lancen, las tarjetas

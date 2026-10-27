@@ -58,16 +58,19 @@ html:has(.landing) body {
   overflow-x: clip;
 }
 
-.landing *,
-.landing *::before,
-.landing *::after {
+/* Los reinicios van con :where() para no sumar especificidad: con `.landing a`
+   el color de los botones verdes (que son enlaces) perdía frente a `inherit` y
+   el texto salía claro sobre verde, ilegible. */
+:where(.landing) *,
+:where(.landing) *::before,
+:where(.landing) *::after {
   box-sizing: border-box;
 }
-.landing a {
+:where(.landing) a {
   color: inherit;
   text-decoration: none;
 }
-.landing img {
+:where(.landing) img {
   user-select: none;
   -webkit-user-drag: none;
 }
@@ -179,8 +182,8 @@ html:has(.landing) body {
 .lp-boton-icono {
   display: inline-grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
   border: 2px solid var(--borde-fuerte);
   background: transparent;
@@ -209,7 +212,12 @@ html:has(.landing) body {
   gap: 1.5rem;
   padding: 0 10px 0 18px;
   border-radius: 20px;
-  border: 1px solid transparent;
+  /* Fondo desde el principio: las cintas de la portada cuelgan por detrás de la
+     barra y, sin él, cruzaban los enlaces y no se leían. */
+  background: rgb(17 17 17 / 0.82);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid var(--borde);
   transition:
     transform 380ms cubic-bezier(0.25, 1, 0.5, 1),
     background-color 300ms ease,
@@ -217,10 +225,6 @@ html:has(.landing) body {
     box-shadow 300ms ease;
 }
 .lp-nav[data-fondo="si"] {
-  background: rgb(17 17 17 / 0.82);
-  backdrop-filter: blur(14px) saturate(1.3);
-  -webkit-backdrop-filter: blur(14px) saturate(1.3);
-  border-color: var(--borde);
   box-shadow: 0 14px 40px -18px rgb(0 0 0 / 0.8);
 }
 .lp-nav[data-oculta="si"] {
@@ -276,6 +280,21 @@ html:has(.landing) body {
 @media (max-width: 860px) {
   .lp-nav-enlaces {
     display: none;
+  }
+  .lp-nav {
+    top: 8px;
+    height: 56px;
+    width: calc(100% - 16px);
+    padding: 0 8px 0 14px;
+  }
+  .lp-nav-entrar {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 0.75rem;
+  }
+  .lp-nav .lp-boton-chico {
+    --alto: 44px;
   }
 }
 
@@ -493,7 +512,9 @@ html:has(.landing) body {
     border-radius: 16px;
   }
   .lp-acreditacion-nombre {
-    font-size: 0.72rem;
+    font-size: 0.6rem;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
   }
   .lp-acreditacion-puesto,
   .lp-acreditacion-barras {
@@ -552,6 +573,22 @@ html:has(.landing) body {
   font-family: var(--f-mano);
   font-weight: 400;
   font-size: clamp(1.25rem, 2.4vw, 1.75rem);
+}
+@media (max-width: 760px) {
+  /* Con poco ancho las dos cintas apenas se cruzan: se separan para que la
+     oscura no quede tapada por la verde. */
+  .lp-cintas {
+    height: 180px;
+    margin: 1rem 0 1.5rem;
+  }
+  .lp-cinta-verde {
+    top: 28px;
+    rotate: -4deg;
+  }
+  .lp-cinta-oscura {
+    top: 102px;
+    rotate: 3deg;
+  }
 }
 .lp-cinta-pista {
   display: inline-flex;
@@ -854,8 +891,15 @@ html:has(.landing) body {
   color: var(--verde);
   font-variant-numeric: tabular-nums;
 }
+/* La jornada corre dentro de su ventana: sin recorte, las tarjetas pasaban por
+   encima del reloj y del título. El fundido de la izquierda hace que salgan
+   en vez de cortarse en seco; el relleno deja sitio a sombras y giros. */
 .lp-dia-ventana {
-  overflow: visible;
+  overflow: hidden;
+  margin: -40px -28px -40px 0;
+  padding: 40px 28px 40px 24px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 56px);
+  mask-image: linear-gradient(90deg, transparent 0, #000 56px);
 }
 .lp-dia-pista {
   display: flex;
@@ -1011,6 +1055,13 @@ html:has(.landing) body {
   }
   .lp-dia-nota {
     display: none;
+  }
+  .lp-dia-ventana {
+    overflow: visible;
+    margin: 0;
+    padding: 0;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
   .lp-dia-pista {
     flex-direction: column;
@@ -1339,6 +1390,9 @@ html:has(.landing) body {
   .lp-mando-rejilla {
     grid-template-columns: 1fr;
   }
+  .lp-telefono {
+    height: 470px;
+  }
   .lp-mando-col-permiso {
     padding-top: 0;
   }
@@ -1431,6 +1485,10 @@ html:has(.landing) body {
   }
   .lp-pasa-cinta {
     height: 90px;
+  }
+  .lp-pasa-agente figcaption {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.55rem;
   }
   .lp-pasa-msj {
     max-width: 92%;
@@ -1559,6 +1617,15 @@ html:has(.landing) body {
     transparent 16px 19px
   );
 }
+@media (max-width: 560px) {
+  .lp-recibo-papel {
+    padding: 2.6rem 1.2rem 2.2rem;
+    font-size: 0.8rem;
+  }
+  .lp-recibo-lineas li > span:last-child {
+    text-align: right;
+  }
+}
 @media (max-width: 860px) {
   .lp-recibo {
     grid-template-columns: 1fr;
@@ -1610,7 +1677,7 @@ html:has(.landing) body {
   overflow: hidden;
 }
 .lp-asomados img {
-  width: clamp(130px, 20vw, 230px);
+  width: clamp(84px, 20vw, 230px);
   height: auto;
   align-self: flex-start;
 }
@@ -1635,6 +1702,18 @@ html:has(.landing) body {
 }
 .lp-pie-pagina .lp-logo {
   font-size: 1.1rem;
+}
+.lp-pie-pagina nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+@media (max-width: 560px) {
+  .lp-pie-pagina {
+    flex-direction: column;
+    text-align: center;
+    padding-bottom: 36px;
+  }
 }
 
 /* ── Sin movimiento ─────────────────────────────────────────────────────── */
