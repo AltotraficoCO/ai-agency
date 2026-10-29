@@ -9,6 +9,8 @@ export type Fetch = typeof globalThis.fetch;
 export type WpClientOptions = {
   readonly fetch?: Fetch;
   readonly abortSignal?: AbortSignal;
+  /** Resolución DNS inyectable: solo para pruebas con el doble de WordPress, que no tiene dominio. */
+  readonly resolver?: (host: string) => Promise<readonly string[]>;
 };
 
 export function baseUrl(c: WpCreds): string {

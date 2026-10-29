@@ -28,6 +28,7 @@ import type { ConocimientoPort, EntradaComunDeAgente, ResultadoTarea } from "@st
 import type { BrowserPort, ReferencePort } from "@strappy/webmaster";
 import type { MotorTarea, PuertosWorker, SitioConectado, TareaReclamada } from "../ports.js";
 import { RegistroDePasos } from "./pasos.js";
+import { enEspacio } from "../db/ambito.js";
 import type { Consumidor } from "./tipos.js";
 import { cerrarTarea } from "./tareas/cierre.js";
 import { companerosDe, esperaDeUnCompanero, nombreDe, puertoDeColaboracion } from "./tareas/colaboracion.js";
@@ -105,7 +106,10 @@ export class ConsumidorDeTareas implements Consumidor {
       arrendamientoMs: this.#o.arrendamientoMs,
     });
     if (!tarea) return false;
-    await this.#procesar(tarea);
+    // Todo lo que la tarea consulte corre bajo RLS de SU espacio (db/ambito.ts).
+    // Lo que es de la cola (latidos, pasos, cierre) va por el pool crudo que
+    // `ColaPostgres` recibe aparte, así que no le afecta.
+    await enEspacio(tarea.workspaceId, () => this.#procesar(tarea));
     return true;
   }
 

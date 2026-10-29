@@ -14,7 +14,7 @@
     "@strappy/analysis": "workspace:*",
     "@strappy/core": "workspace:*",
     "ai": "6.0.271",
-    "zod": "^4.4.3"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "vitest": "^4.1.11"

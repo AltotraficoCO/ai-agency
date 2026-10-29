@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.73",
+    "@strappy/core": "workspace:*",
     "ai": "6.0.271"
   },
   "devDependencies": {

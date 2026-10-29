@@ -292,6 +292,12 @@ export type SitioContext = {
    */
   readonly fetch?: typeof globalThis.fetch;
   /**
+   * Resolución DNS inyectable, solo para pruebas: el doble de WordPress vive
+   * en un dominio inventado y `wp_subir_media` exige que la URL resuelva a
+   * una dirección pública antes de descargar nada.
+   */
+  readonly resolverDns?: (host: string) => Promise<readonly string[]>;
+  /**
    * Primer contacto con este sitio: el agente explora y propone, no muta.
    * El worker lo activa mirando si ya hubo una tarea completada antes.
    */

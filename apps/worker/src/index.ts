@@ -26,6 +26,8 @@ import { ProgramadorPostgres } from "./adaptadores/programador.js";
 import { Runner } from "./runner.js";
 import type { SitioConectado, SqlPool } from "./ports.js";
 import { crearNavegadorPlaywright, type ReferencePort } from "@strappy/webmaster";
+import { comprobarUrlPublica, fetchPublico } from "@strappy/core";
+import { PoolConAmbito } from "./db/ambito.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Cualquiera = any;
@@ -47,7 +49,8 @@ function referenciasDe(host: string | undefined): ReferencePort | undefined {
   return {
     hostsPermitidos: [host],
     async descargar(url: string) {
-      const res = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+      // Solo a internet: una referencia que apunte a la red interna no es una referencia.
+      const res = await fetchPublico(url, { signal: AbortSignal.timeout(20_000) });
       if (!res.ok) throw new Error(`No pude descargar la referencia (${res.status}).`);
       return {
         mimeType: res.headers.get("content-type") ?? "application/octet-stream",
@@ -57,9 +60,32 @@ function referenciasDe(host: string | undefined): ReferencePort | undefined {
   };
 }
 
+/**
+ * Chrome se abre apuntando a la dirección del cliente. Antes de abrirlo se
+ * comprueba que es de internet: el cargador de sitios ya lo hace, pero el
+ * navegador es la pieza que de verdad lee lo que haya al otro lado, y una
+ * comprobación de más aquí no cuesta nada.
+ */
+async function navegadorDe(config: ReturnType<typeof leerConfig>, sitio: SitioConectado) {
+  const baseUrl = sitio.url.startsWith("http") ? sitio.url : `https://${sitio.url}`;
+  await comprobarUrlPublica(baseUrl);
+  return crearNavegadorPlaywright({
+    baseUrl,
+    ...(config.chromePath ? { chromePath: config.chromePath } : {}),
+  });
+}
+
 async function main(): Promise<void> {
   const config = leerConfig();
-  const pool = await abrirPool(config.databaseUrl);
+  // Dos pools sobre las mismas conexiones:
+  //  - `crudo`: rol postgres, para lo que es de TODOS los espacios (reclamar de
+  //    la cola, latidos y cierre por id de tarea, listar sitios vigilados,
+  //    reclamar programados).
+  //  - `pool`: acotado (db/ambito.ts), baja a `strappy_worker` y declara el
+  //    espacio de la tarea en curso en cada consulta. Es el que reciben todos
+  //    los adaptadores que leen credenciales o datos de un cliente.
+  const crudo = await abrirPool(config.databaseUrl);
+  const pool = new PoolConAmbito(crudo);
   const log = (m: string) => console.log(`${new Date().toISOString()} ${m}`);
 
   // El modelo NO se fija al arrancar: cada tarea usa el de su plan (ver
@@ -68,7 +94,7 @@ async function main(): Promise<void> {
   const referencias = referenciasDe(config.referenciasHost);
   const consumidor = new ConsumidorDeTareas({
     puertos: {
-      cola: new ColaPostgres(pool, { tabla: config.tablaTareas }),
+      cola: new ColaPostgres(crudo, { tabla: config.tablaTareas }),
       sitios: new SitiosPostgres(pool, config.claveMaestra, config.githubApp),
       backups: new BackupsPostgres(pool),
       aprobaciones: new AprobacionesPostgres(pool),
@@ -99,11 +125,7 @@ async function main(): Promise<void> {
     motorPara: (tarea) => motor.para(tarea),
     // Lo que el negocio guardó en su base de conocimiento, para todos los agentes.
     conocimiento: new ConocimientoPostgres(pool),
-    navegadorPara: (sitio) =>
-      crearNavegadorPlaywright({
-        baseUrl: sitio.url.startsWith("http") ? sitio.url : `https://${sitio.url}`,
-        ...(config.chromePath ? { chromePath: config.chromePath } : {}),
-      }),
+    navegadorPara: (sitio) => navegadorDe(config, sitio),
     ...(referencias ? { referencias } : {}),
     log,
   });
@@ -116,7 +138,7 @@ async function main(): Promise<void> {
   // falle no puede tumbar la ronda: por eso solo se registra.
   const mensajeria = new MensajeriaWhatsApp(pool, config.claveMaestra);
   const vigilante = new ConsumidorDeVigilancia({
-    vigilancia: new VigilanciaPostgres(pool),
+    vigilancia: new VigilanciaPostgres(crudo),
     sitios: new SitiosPostgres(pool, config.claveMaestra, config.githubApp),
     workerId: config.workerId,
     alAvisar: async ({ workspaceId, sitioUrl, aviso }) => {
@@ -132,11 +154,7 @@ async function main(): Promise<void> {
           : `[aviso] ${sitioUrl} · sin WhatsApp: ${envio.motivo}`,
       );
     },
-    navegadorPara: (sitio: SitioConectado) =>
-      crearNavegadorPlaywright({
-        baseUrl: sitio.url.startsWith("http") ? sitio.url : `https://${sitio.url}`,
-        ...(config.chromePath ? { chromePath: config.chromePath } : {}),
-      }),
+    navegadorPara: (sitio: SitioConectado) => navegadorDe(config, sitio),
     log,
   });
 
@@ -144,7 +162,7 @@ async function main(): Promise<void> {
   // No ejecuta agentes: cuando llega la hora crea el encargo y lo hace el
   // consumidor de tareas de arriba, con sus aprobaciones y su cobro.
   const programados = new ConsumidorDeProgramados({
-    programador: new ProgramadorPostgres(pool),
+    programador: new ProgramadorPostgres(crudo),
     workerId: config.workerId,
     log,
   });

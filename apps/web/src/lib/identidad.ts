@@ -48,7 +48,14 @@ export type UsuarioActual = {
  * `NEXT_PUBLIC_SUPABASE_URL`, y en producción esa variable existe siempre.
  */
 export async function obtenerUsuarioActual(): Promise<UsuarioActual | null> {
-  if (!hayAutenticacionConfigurada()) return usuarioDeDesarrollo();
+  if (!hayAutenticacionConfigurada()) {
+    // En producción, que falte la variable no puede convertir a todo el mundo
+    // en el usuario de desarrollo: se corta aquí, con la causa.
+    if (process.env.VERCEL_ENV === "production" || process.env.NODE_ENV === "production") {
+      throw new Error("Falta NEXT_PUBLIC_SUPABASE_URL o la clave pública de Supabase: sin autenticación no se sirve nada.");
+    }
+    return usuarioDeDesarrollo();
+  }
 
   const supabase = await crearClienteServidor();
   const {

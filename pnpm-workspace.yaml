@@ -10,3 +10,14 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - ai@6.0.271
   - '@ai-sdk/react@3.0.274'
+# Avisos de seguridad en dependencias transitivas que sus padres aún no
+# actualizaron (revisión del 28-oct-2026): undici lo arrastra @ai-sdk/provider-utils
+# y source-map-js lo arrastra postcss vía next.
+overrides:
+  undici: ">=6.29.1"
+  source-map-js: ">=1.2.2"
+# CVE-2026-111497 (Node2Shell, 28-oct-2026): un `fetch` a un servidor ajeno
+# ejecuta código en un Node sin parche, y este proyecto rastrea sitios ajenos
+# a propósito. `engines.node` del package.json raíz lista las versiones
+# parcheadas; con esto, instalar en un Node vulnerable falla en vez de avisar.
+engineStrict: true

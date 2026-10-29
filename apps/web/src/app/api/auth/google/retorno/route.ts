@@ -3,8 +3,9 @@
  * sesión con él. Es la segunda ruta, con /auth/callback, que habla con el SDK
  * de autenticación. Ver lib/acceso/google.
  */
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { appGoogle, canjearCodigo, leerEstado } from "@/lib/acceso/google";
+import { COOKIE_VINCULO, appGoogle, canjearCodigo, leerEstado } from "@/lib/acceso/google";
 import { origenPublico } from "@/lib/canales/anuncios";
 import { crearClienteServidor, hayAutenticacionConfigurada } from "@/lib/supabase/servidor";
 
@@ -25,8 +26,10 @@ export async function GET(peticion: Request) {
   if (!code || !state || !app || !hayAutenticacionConfigurada()) {
     return aEntrar(origen, "Google no devolvió el código de acceso. Vuelve a intentarlo.");
   }
-  const estado = leerEstado(state);
-  if (!estado) return aEntrar(origen, "El enlace de acceso caducó. Vuelve a intentarlo.");
+  // El retorno solo vale en el navegador que empezó el flujo.
+  const vinculo = (await cookies()).get(COOKIE_VINCULO)?.value;
+  const estado = leerEstado(state, vinculo);
+  if (!estado) return aEntrar(origen, "El enlace de acceso caducó o no se abrió desde este navegador. Vuelve a intentarlo.");
 
   let idToken: string;
   try {
@@ -39,5 +42,7 @@ export async function GET(peticion: Request) {
   const { error } = await supabase.auth.signInWithIdToken({ provider: "google", token: idToken, nonce: estado.nonce });
   if (error) return aEntrar(origen, error.message);
 
-  return NextResponse.redirect(new URL(estado.siguiente, origen));
+  const respuesta = NextResponse.redirect(new URL(estado.siguiente, origen));
+  respuesta.cookies.delete({ name: COOKIE_VINCULO, path: "/api/auth/google" });
+  return respuesta;
 }

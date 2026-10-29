@@ -12,6 +12,7 @@ import "server-only";
  * Se prueba ANTES de guardar: una dirección con credenciales que no sirven no
  * es un sitio conectado, es una tarea que fallará a las tres de la mañana.
  */
+import { comprobarUrlPublica, UrlNoPublicaError } from "@strappy/core";
 import { encryptJson, masterKeyFromEnv } from "@strappy/webmaster/crypto";
 import { health } from "@strappy/webmaster/wordpress";
 import { conEspacio } from "@/lib/db/pool";
@@ -103,6 +104,12 @@ export async function probarYGuardarSitio(input: {
   const url = normalizarUrl(input.url);
   if (!url) {
     return { ok: false, error: "Escribe la dirección de tu sitio, por ejemplo https://misitio.com." };
+  }
+  try {
+    await comprobarUrlPublica(url);
+  } catch (error) {
+    const motivo = error instanceof UrlNoPublicaError ? error.message : "no es accesible desde internet";
+    return { ok: false, error: `La dirección del sitio no vale: ${motivo}` };
   }
   const usuario = input.usuario.trim();
   const appPassword = input.contrasena.trim();

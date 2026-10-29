@@ -19,6 +19,7 @@ import "server-only";
  * permiso de escritura no es un sitio conectado, es un encargo que fallará.
  */
 import { cookies } from "next/headers";
+import { comprobarUrlPublica, UrlNoPublicaError } from "@strappy/core";
 import { decryptJson, encryptJson, masterKeyFromEnv } from "@strappy/webmaster/crypto";
 import { infoRepo, listarRamas, ErrorGithub } from "@strappy/webmaster/github";
 import {
@@ -179,6 +180,14 @@ async function probar(
   const url = normalizarUrl(entrada.url) ?? (info.web ? normalizarUrl(info.web) : null);
   if (!url) {
     return { ok: false, error: "Escribe la dirección donde se ve tu sitio en vivo, por ejemplo https://misitio.com." };
+  }
+  // El worker abre esta dirección en Chrome y la vigila: tiene que ser de
+  // internet, no de la red donde corre el worker.
+  try {
+    await comprobarUrlPublica(url);
+  } catch (error) {
+    const motivo = error instanceof UrlNoPublicaError ? error.message : "no es accesible desde internet";
+    return { ok: false, error: `La dirección del sitio no vale: ${motivo}` };
   }
   const [owner, repo] = info.nombre.split("/") as [string, string];
   return { ok: true, owner, repo, url, rama, nombre: info.nombre };

@@ -9,6 +9,12 @@ set -euo pipefail
 cd /opt/strappy
 echo "==> antes: $(git log -1 --oneline)"
 
+# Antes de tocar nada: el runtime. Si Node es vulnerable y no se puede
+# actualizar, mejor fallar aquí con el worker viejo todavía en pie.
+git fetch --quiet origin main
+git show origin/main:apps/worker/scripts/asegurar-runtime.sh > /tmp/asegurar-runtime.sh
+bash /tmp/asegurar-runtime.sh
+
 # Primero se PARA, y solo despues se toca el arbol.
 #
 # El 22-sep un despliegue entro a mitad de un encargo del Webmaster: el

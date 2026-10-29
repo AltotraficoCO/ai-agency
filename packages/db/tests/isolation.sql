@@ -497,7 +497,7 @@ $$;
 do $$
 declare
   v_a uuid := current_setting('test.ws_a')::uuid;
-  r record; v_before numeric; v_after numeric;
+  r record; v_before numeric; v_after numeric; v_esperado numeric;
 begin
   perform set_config('app.workspace_id', v_a::text, true);
 
@@ -505,14 +505,20 @@ begin
     from public.credit_wallets where workspace_id = v_a;
   perform pg_temp.assert(v_before = 5000, 'el alta no dejo 5.000 creditos incluidos');
 
-  -- 10 ktokens de entrada + 2 de salida con GLM Flash = 10*0,21 + 2*1,20 = 4,50
+  -- 10 ktokens de entrada + 2 de salida con GLM Flash, a la tarifa vigente
+  -- (las migraciones de margen la cambian; lo que se prueba es el cobro, no
+  -- el precio).
+  v_esperado :=
+      10 * (select credits_per_unit from public.resolve_credit_rate('model_input',  'zai/glm-4.7-flash'))
+    +  2 * (select credits_per_unit from public.resolve_credit_rate('model_output', 'zai/glm-4.7-flash'));
+  perform pg_temp.assert(v_esperado > 0, 'sin tarifa para zai/glm-4.7-flash');
   select * into r from public.charge_credits(
     v_a, 'agent_run:test-1',
     '[{"kind":"model_input","ref_key":"zai/glm-4.7-flash","quantity":10},
       {"kind":"model_output","ref_key":"zai/glm-4.7-flash","quantity":2}]'::jsonb);
   perform pg_temp.assert(r.applied, 'el primer cobro no se aplico');
-  perform pg_temp.assert(r.credits = 4.5, format('tarifa mal resuelta: %s creditos en lugar de 4,5', r.credits));
-  perform pg_temp.assert(r.from_included = 4.5, 'no se consumio primero el saldo incluido');
+  perform pg_temp.assert(r.credits = v_esperado, format('tarifa mal resuelta: %s creditos en lugar de %s', r.credits, v_esperado));
+  perform pg_temp.assert(r.from_included = v_esperado, 'no se consumio primero el saldo incluido');
   perform pg_temp.assert(r.from_purchased = 0, 'se toco el saldo comprado habiendo incluido');
 
   -- Reintento con la MISMA clave: no debe volver a cobrar.
@@ -524,8 +530,8 @@ begin
 
   select included_balance + purchased_balance into v_after
     from public.credit_wallets where workspace_id = v_a;
-  perform pg_temp.assert(v_after = v_before - 4.5,
-    format('el saldo no cuadra: %s, esperado %s', v_after, v_before - 4.5));
+  perform pg_temp.assert(v_after = v_before - v_esperado,
+    format('el saldo no cuadra: %s, esperado %s', v_after, v_before - v_esperado));
   perform pg_temp.assert(
     (select count(*) from public.credit_ledger
       where workspace_id = v_a and idempotency_key = 'agent_run:test-1') = 1,
@@ -599,6 +605,106 @@ begin
     'el enrutado no siguio el estado del numero');
 
   raise notice '10 · channel_routing e ingesta idempotente correctos';
+end;
+$$;
+
+-- =============================================================================
+-- 11 · Las funciones del servidor no se pueden llamar desde la API (0052)
+-- =============================================================================
+do $$
+declare
+  v_a uuid := current_setting('test.ws_a')::uuid;
+  v_fallo boolean;
+begin
+  perform pg_temp.login('11111111-1111-1111-1111-111111111111');
+  set local role authenticated;
+
+  -- grant_credits: ni con el espacio propio.
+  v_fallo := false;
+  begin
+    perform public.grant_credits(v_a, 'rest-abuso-1', 1000000, 'purchased');
+  exception when insufficient_privilege then v_fallo := true;
+  end;
+  perform pg_temp.assert(v_fallo, 'un usuario de la API pudo ejecutar grant_credits');
+
+  v_fallo := false;
+  begin
+    perform public.drop_expired_webhook_partitions(-100000);
+  exception when insufficient_privilege then v_fallo := true;
+  end;
+  perform pg_temp.assert(v_fallo, 'un usuario de la API pudo ejecutar drop_expired_webhook_partitions');
+
+  v_fallo := false;
+  begin
+    perform public.ingest_webhook_event('whatsapp', 'hash-forjado', '{}'::jsonb, true, 'pn-alfa');
+  exception when insufficient_privilege then v_fallo := true;
+  end;
+  perform pg_temp.assert(v_fallo, 'un usuario de la API pudo ejecutar ingest_webhook_event');
+
+  reset role;
+  raise notice '11 · Las funciones del servidor no son publicas';
+end;
+$$;
+
+-- =============================================================================
+-- 12 · Un admin no se asciende a owner (0052)
+-- =============================================================================
+do $$
+declare
+  v_a uuid := current_setting('test.ws_a')::uuid;
+  v_owner uuid := '11111111-1111-1111-1111-111111111111';
+  v_admin uuid := '33333333-3333-3333-3333-333333333333';
+  v_fallo boolean;
+begin
+  insert into auth.users (id, email, raw_user_meta_data) values
+    (v_admin, 'admin@alfa.test', '{}'),
+    ('44444444-4444-4444-4444-444444444444', 'nuevo@alfa.test', '{}')
+    on conflict (id) do nothing;
+  delete from public.memberships m
+   where m.user_id in (v_admin, '44444444-4444-4444-4444-444444444444');
+  insert into public.memberships (workspace_id, user_id, role) values (v_a, v_admin, 'admin');
+
+  perform pg_temp.login(v_admin);
+  set local role authenticated;
+
+  v_fallo := false;
+  begin
+    update public.memberships set role = 'owner' where workspace_id = v_a and user_id = v_admin;
+  exception when insufficient_privilege then v_fallo := true;
+  end;
+  perform pg_temp.assert(v_fallo, 'un admin se ascendio a owner');
+
+  v_fallo := false;
+  begin
+    update public.memberships set permissions = array['billing.manage']
+     where workspace_id = v_a and user_id = v_admin;
+  exception when insufficient_privilege then v_fallo := true;
+  end;
+  perform pg_temp.assert(v_fallo, 'un admin se concedio billing.manage');
+
+  v_fallo := false;
+  begin
+    update public.memberships set role = 'analyst' where workspace_id = v_a and user_id = v_owner;
+  exception when insufficient_privilege then v_fallo := true;
+  end;
+  perform pg_temp.assert(v_fallo, 'un admin degrado al owner');
+
+  v_fallo := false;
+  begin
+    delete from public.memberships where workspace_id = v_a and user_id = v_owner;
+  exception when insufficient_privilege then v_fallo := true;
+  end;
+  perform pg_temp.assert(v_fallo, 'un admin borro al owner');
+
+  -- Lo que sí puede: invitar a alguien con un rol normal.
+  insert into public.memberships (workspace_id, user_id, role)
+    values (v_a, '44444444-4444-4444-4444-444444444444', 'agent');
+
+  reset role;
+  perform pg_temp.assert(
+    (select role from public.memberships where workspace_id = v_a and user_id = v_admin) = 'admin',
+    'el rol del admin cambio');
+  raise notice '12 · Un admin no se asciende ni toca al owner';
 end;
 $$;
 

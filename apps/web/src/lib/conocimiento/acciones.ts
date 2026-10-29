@@ -19,6 +19,7 @@ import { Cerebro, crearEmbeddingsSiHayProveedor } from "@strappy/rag";
 import { crearConocimientoDb, crearModelTiersPort } from "@strappy/db/adapters";
 import { conEspacio } from "../db/pool";
 import { obtenerUsuarioActual, type UsuarioActual } from "../identidad";
+import { comprobarUrlPublica, UrlNoPublicaError } from "@strappy/core";
 import { normalizarUrl } from "../meta/sitio";
 import {
   aprenderPagina,
@@ -229,10 +230,16 @@ export async function accionAgregarUrl(
   let url: string;
   try {
     url = normalizarUrl(String(entrada.url ?? ""));
-    const { protocol, hostname } = new URL(url);
-    if ((protocol !== "http:" && protocol !== "https:") || !hostname.includes(".")) throw new Error();
   } catch {
     return { ok: false, error: "Esa dirección no parece válida. Escríbela como tunegocio.com o https://tunegocio.com/precios." };
+  }
+  // Solo internet: una dirección de la red del servidor convertiría la base de
+  // conocimiento en un lector de lo que haya detrás.
+  try {
+    await comprobarUrlPublica(url);
+  } catch (error) {
+    const motivo = error instanceof UrlNoPublicaError ? error.message : "Esa dirección no es accesible desde internet.";
+    return { ok: false, error: motivo };
   }
 
   const host = new URL(url).hostname.replace(/^www\./, "");

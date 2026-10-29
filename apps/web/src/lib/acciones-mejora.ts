@@ -47,12 +47,18 @@ export type ResultadoMejora =
 /** Lo que se reserva antes de llamar: una mejora cuesta uno o dos créditos. */
 const CREDITOS_ESTIMADOS = 2;
 
+/** Mejorar instrucciones gasta créditos y cambia el agente: mismos papeles que editarlo. */
+const PAPELES_QUE_EDITAN = new Set(["owner", "admin", "builder"]);
+
 export async function mejorarInstrucciones(
   agentId: string,
   spec: EspecificacionAgente,
 ): Promise<ResultadoMejora> {
   try {
     const usuario = await exigirUsuarioActual();
+    if (!PAPELES_QUE_EDITAN.has(usuario.rol)) {
+      return { ok: false, error: "Tu papel en este espacio no permite cambiar agentes." };
+    }
     const actual = leerEspecificacion(spec);
 
     if (!hayModeloReal()) {

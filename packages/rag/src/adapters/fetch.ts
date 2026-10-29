@@ -4,6 +4,7 @@
  * Se mantiene aparte del resto del paquete para que los tests puedan inyectar
  * un `FetchPort` de mentira y no toque la red nadie sin querer.
  */
+import { fetchPublico } from "@strappy/core";
 import type { FetchPort, RespuestaHttp } from "../ports.js";
 
 export type OpcionesFetch = {
@@ -11,6 +12,12 @@ export type OpcionesFetch = {
   readonly timeoutMs?: number;
   /** Tope de descarga. Una página de 40 MB no es contenido, es un accidente. */
   readonly maximoBytes?: number;
+  /**
+   * Resolución DNS inyectable para las pruebas. En producción se resuelve de
+   * verdad: la URL (y cada redirección) tiene que apuntar a internet, nunca a
+   * la red del servidor. Ver `fetchPublico` en @strappy/core.
+   */
+  readonly resolver?: (host: string) => Promise<readonly string[]>;
 };
 
 export function crearFetch(opciones: OpcionesFetch = {}): FetchPort {
@@ -29,10 +36,10 @@ export function crearFetch(opciones: OpcionesFetch = {}): FetchPort {
       };
       input.signal?.addEventListener("abort", alAbortar);
       try {
-        const respuesta = await fetch(input.url, {
+        const respuesta = await fetchPublico(input.url, {
           headers: { "user-agent": agente, accept: "text/html,application/xhtml+xml,text/plain,*/*" },
-          redirect: "follow",
           signal: control.signal,
+          ...(opciones.resolver ? { resolver: opciones.resolver } : {}),
         });
         const contentType = respuesta.headers.get("content-type") ?? "";
         const largo = Number.parseInt(respuesta.headers.get("content-length") ?? "", 10);

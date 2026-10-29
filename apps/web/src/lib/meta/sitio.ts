@@ -12,6 +12,7 @@ import "server-only";
  * para indexarlo. Volver a descargar cuarenta páginas entre una frase y la
  * siguiente sería maleducado con el sitio del cliente.
  */
+import { comprobarUrlPublica } from "@strappy/core";
 import { crearFetch, rastrearSitio, type ResultadoRastreo } from "@strappy/rag";
 
 const VIDA_CACHE_MS = 10 * 60 * 1000;
@@ -41,6 +42,9 @@ export async function analizarSitio(
   opciones: { maximoPaginas?: number } = {},
 ): Promise<ResultadoRastreo & { url: string }> {
   const url = normalizarUrl(urlCruda);
+  // La URL la escribió el cliente en el chat: solo se rastrea internet. Lanza
+  // con un motivo legible, que la herramienta convierte en respuesta.
+  await comprobarUrlPublica(url);
   const maximoPaginas = Math.min(30, Math.max(1, opciones.maximoPaginas ?? PAGINAS_POR_DEFECTO));
   const clave = `${url}|${maximoPaginas}`;
 

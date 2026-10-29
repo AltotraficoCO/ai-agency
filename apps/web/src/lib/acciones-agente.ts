@@ -23,12 +23,17 @@ import { esAvatarWhatsapp, esCaraDeAgente } from "./avatares";
 
 export type ResultadoAccion = { ok: true } | { ok: false; error: string };
 
+/** Quién puede cambiar lo que un agente es y dice: dueño, admin o constructor. */
+const PAPELES_QUE_EDITAN = new Set(["owner", "admin", "builder"]);
+const SIN_PERMISO = "Tu papel en este espacio no permite cambiar agentes.";
+
 export async function guardarBorrador(
   agentId: string,
   spec: EspecificacionAgente,
 ): Promise<ResultadoAccion> {
   try {
     const usuario = await exigirUsuarioActual();
+    if (!PAPELES_QUE_EDITAN.has(usuario.rol)) return { ok: false, error: SIN_PERMISO };
     const limpia = leerEspecificacion(spec);
 
     await conEspacio(usuario.workspaceId, async (scope) => {
@@ -59,6 +64,7 @@ export async function publicarAgente(
 ): Promise<ResultadoAccion> {
   try {
     const usuario = await exigirUsuarioActual();
+    if (!PAPELES_QUE_EDITAN.has(usuario.rol)) return { ok: false, error: SIN_PERMISO };
     const limpia = leerEspecificacion(spec);
 
     if (!limpia.identidad.nombre.trim()) {
@@ -120,7 +126,6 @@ function mensaje(error: unknown): string {
   return error instanceof Error ? error.message : "Algo salió mal al guardar.";
 }
 
-const PAPELES_QUE_EDITAN = new Set(["owner", "admin", "builder"]);
 
 /** Cambia la foto de un agente de WhatsApp por otra de la serie de plastilina. */
 export async function cambiarFotoAgente(agentId: string, foto: string): Promise<ResultadoAccion> {

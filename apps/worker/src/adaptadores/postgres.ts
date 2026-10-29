@@ -8,6 +8,7 @@
  *
  * Backups y aprobaciones sí son tablas nuevas: `packages/db/migrations/0015_tareas_webmaster.sql`.
  */
+import { comprobarUrlPublica } from "@strappy/core";
 import { decryptJson, githubApp } from "@strappy/webmaster";
 import type {
   ApprovalDecision,
@@ -200,12 +201,24 @@ type CredencialesRepo = {
 };
 
 export class SitiosPostgres implements SitePort {
+  readonly #comprobarUrl: (url: string) => Promise<unknown>;
+
   constructor(
     private readonly sql: SqlExecutor,
     private readonly claveMaestra: Buffer,
     /** La GitHub App de Strappy. Sin ella, solo sirven los repos conectados con token. */
     private readonly app?: githubApp.ConfigApp,
-  ) {}
+    opciones: {
+      /**
+       * Con qué se comprueba que la dirección del sitio es de internet. Por
+       * defecto resuelve el nombre y rechaza la red interna; los tests inyectan
+       * una que no toque el DNS.
+       */
+      readonly comprobarUrl?: (url: string) => Promise<unknown>;
+    } = {},
+  ) {
+    this.#comprobarUrl = opciones.comprobarUrl ?? comprobarUrlPublica;
+  }
 
   /** Las credenciales con las que el agente habla con GitHub durante este encargo. */
   async #credencialesRepo(meta: MetadatosSitio, guardadas: CredencialesRepo): Promise<RepoCreds> {
@@ -270,13 +283,26 @@ export class SitiosPostgres implements SitePort {
       tipo === "repo"
         ? await this.#credencialesRepo(meta, guardadas as CredencialesRepo)
         : (guardadas as WpCreds | ConectorCreds);
+    const url =
+      meta.url ??
+      ("url" in credenciales ? credenciales.url : "baseUrl" in credenciales ? credenciales.baseUrl : credenciales.urlProduccion);
+    // La dirección la escribió el cliente y aquí se abre en Chrome, se vigila y
+    // se le hacen peticiones con sus credenciales. Si apunta a la red interna
+    // del servidor (10.x, 169.254.x, localhost…) no es un sitio: es un intento
+    // de leer lo que el worker tiene al lado. Se rechaza como error definitivo
+    // («inválida» lo reconoce `esDefinitivo`): reintentar no lo arreglaría.
+    try {
+      await this.#comprobarUrl(url.startsWith("http") ? url : `https://${url}`);
+    } catch (e) {
+      throw new Error(
+        `La dirección del sitio (${url}) es inválida para trabajar desde aquí: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
     return {
       id: f.id,
       workspaceId: f.workspace_id,
       tipo,
-      url:
-        meta.url ??
-        ("url" in credenciales ? credenciales.url : "baseUrl" in credenciales ? credenciales.baseUrl : credenciales.urlProduccion),
+      url,
       credenciales,
       agentName: f.metadata?.agent_name ?? "Webmaster",
       // Solo simula si se pide expresamente: el Webmaster ejecuta desde el

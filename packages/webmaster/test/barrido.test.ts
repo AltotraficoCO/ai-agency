@@ -150,6 +150,8 @@ function montar() {
     },
     browser: navegador,
     fetch: wp.fetch,
+    // El doble no tiene DNS: se resuelve a una IP pública cualquiera.
+    resolverDns: async () => ["93.184.216.34"],
   };
   const ctx: ToolContext = {
     workspaceId: "ws_1",

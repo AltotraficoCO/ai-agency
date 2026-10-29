@@ -28,6 +28,7 @@ import {
 } from "@strappy/webmaster";
 import type { PuertosWorker, SitioConectado, SitioVigilado, VigilanciaPort } from "../ports.js";
 import type { Consumidor } from "./tipos.js";
+import { enEspacio } from "../db/ambito.js";
 
 export type OpcionesConsumidorVigilancia = {
   readonly vigilancia: VigilanciaPort;
@@ -81,7 +82,10 @@ export class ConsumidorDeVigilancia implements Consumidor {
     });
     if (!sitio) return false;
 
-    await this.#comprobar(sitio, ahora);
+    // El sitio, sus credenciales y el aviso por WhatsApp se leen bajo RLS del
+    // espacio al que pertenece (db/ambito.ts). Reclamar y reprogramar son de
+    // todos los espacios y van por el pool crudo del adaptador de vigilancia.
+    await enEspacio(sitio.workspaceId, () => this.#comprobar(sitio, ahora));
     return true;
   }
 

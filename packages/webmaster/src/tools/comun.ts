@@ -7,7 +7,11 @@ import type { SitioContext } from "../ports.js";
 
 export type Entorno = {
   readonly sitio: SitioContext;
-  readonly opciones: { fetch?: typeof globalThis.fetch; abortSignal?: AbortSignal };
+  readonly opciones: {
+    fetch?: typeof globalThis.fetch;
+    abortSignal?: AbortSignal;
+    resolver?: (host: string) => Promise<readonly string[]>;
+  };
 };
 
 /** Contexto de sitio + las opciones de red que necesitan los clientes HTTP. */
@@ -17,6 +21,7 @@ export function entorno(ctx: ToolContext, toolSlug: string): Entorno {
     sitio,
     opciones: {
       ...(sitio.fetch ? { fetch: sitio.fetch } : {}),
+      ...(sitio.resolverDns ? { resolver: sitio.resolverDns } : {}),
       ...(ctx.abortSignal ? { abortSignal: ctx.abortSignal } : {}),
     },
   };

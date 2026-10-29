@@ -16,7 +16,7 @@ import "server-only";
  * Supabase el nonce en claro: Supabase lo hashea y lo compara con el del
  * token, que es lo que impide reutilizar un id_token ajeno.
  */
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { cifrar, descifrar, leerClave } from "@strappy/db";
 
 const VIGENCIA_MS = 10 * 60_000;
@@ -47,10 +47,35 @@ export function destinoSeguro(valor: string | null | undefined): string {
   return valor;
 }
 
-export function urlDeAcceso(input: { app: AppGoogle; origen: string; siguiente: string }): string {
+/** Cookie que ata el `state` al navegador que empezó el acceso. */
+export const COOKIE_VINCULO = "strappy_acceso_google";
+
+export function nuevoVinculo(): string {
+  return randomBytes(24).toString("base64url");
+}
+
+function huella(vinculo: string): string {
+  return createHash("sha256").update(vinculo).digest("hex");
+}
+
+export function urlDeAcceso(input: {
+  app: AppGoogle;
+  origen: string;
+  siguiente: string;
+  /** Valor de `COOKIE_VINCULO` en el navegador que inicia el flujo. */
+  vinculo: string;
+}): string {
   const nonce = randomBytes(16).toString("hex");
+  // Sin `v`, cualquiera podía fabricar un retorno válido con SU cuenta de
+  // Google y hacérselo abrir a otra persona, que quedaba logueada en el
+  // espacio del atacante (login CSRF). El retorno exige la cookie que casa.
   const state = cifrar(
-    JSON.stringify({ s: destinoSeguro(input.siguiente), n: nonce, exp: Date.now() + VIGENCIA_MS }),
+    JSON.stringify({
+      s: destinoSeguro(input.siguiente),
+      n: nonce,
+      v: huella(input.vinculo),
+      exp: Date.now() + VIGENCIA_MS,
+    }),
     clave(),
   );
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
@@ -64,11 +89,18 @@ export function urlDeAcceso(input: { app: AppGoogle; origen: string; siguiente: 
   return url.toString();
 }
 
-export function leerEstado(state: string): { siguiente: string; nonce: string } | null {
+export function leerEstado(
+  state: string,
+  vinculo: string | null | undefined,
+): { siguiente: string; nonce: string } | null {
   try {
     const datos = JSON.parse(descifrar(state, clave())) as Record<string, unknown>;
-    const { s, n, exp } = datos;
-    if (typeof n !== "string" || typeof exp !== "number" || exp < Date.now()) return null;
+    const { s, n, v, exp } = datos;
+    if (typeof n !== "string" || typeof v !== "string" || typeof exp !== "number" || exp < Date.now()) return null;
+    if (!vinculo) return null;
+    const esperada = Buffer.from(v, "hex");
+    const recibida = Buffer.from(huella(vinculo), "hex");
+    if (esperada.length !== recibida.length || !timingSafeEqual(esperada, recibida)) return null;
     return { siguiente: destinoSeguro(typeof s === "string" ? s : "/app"), nonce: n };
   } catch {
     return null;

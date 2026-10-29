@@ -41,9 +41,17 @@ export const wpCrearUsuario = defineTool({
     });
     if (bloqueo) return bloqueo;
     const u = await wp.crearUsuario(requireWp(sitio, "wp_crear_usuario"), input, opciones);
-    // La contraseña se devuelve bajo una clave que el filtro de secretos borra
-    // antes de persistir o enseñar nada: el modelo no debe verla nunca.
-    return { id: u.id, username: input.username, role: input.role, password: u.password };
+    // La contraseña NO vuelve al modelo: el filtro de secretos solo limpiaba la
+    // copia del registro, y la salida cruda acababa en el contexto y en los
+    // mensajes persistidos de la tarea. El dueño la recibe por WordPress
+    // (correo de alta) o la restablece desde el propio sitio.
+    return {
+      id: u.id,
+      username: input.username,
+      role: input.role,
+      password_entregada: true,
+      nota: "La contraseña la recibe el dueño del sitio por WordPress; no se muestra aquí.",
+    };
   },
   simulate(_ctx, input) {
     return { simulado: true, username: input.username, role: input.role };

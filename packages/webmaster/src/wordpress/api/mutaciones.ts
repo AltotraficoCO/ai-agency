@@ -2,8 +2,12 @@
  * Mutaciones: contenido, plugins, ajustes, comentarios, términos, medios y
  * usuarios.
  */
+import { fetchPublico } from "@strappy/core";
 import type { WpCreds } from "../../ports.js";
 import { type WpClientOptions, baseUrl, authHeader, señal, WpError, wp, exigirOk } from "./http.js";
+
+/** Tope de un archivo subido a medios desde una URL. */
+const MAXIMO_MEDIA_BYTES = 25_000_000;
 import type { WpPostRaw, WpPlugin } from "./tipos.js";
 import { listarPlugins } from "./lectura.js";
 
@@ -200,10 +204,24 @@ export async function subirMediaDesdeUrl(
   o: WpClientOptions = {},
 ): Promise<{ id: number; url: string }> {
   const f = o.fetch ?? globalThis.fetch;
-  const archivo = await f(url, { signal: señal(30_000, o.abortSignal) });
+  // La URL la eligió el modelo (o quien le escribió). Un `fetch` a pelo aquí
+  // era un lector de la red interna del servidor que además publicaba lo leído
+  // en la biblioteca de medios del cliente: solo internet, comprobando cada
+  // redirección, y solo archivos que un sitio sube de verdad.
+  const archivo = await fetchPublico(url, {
+    fetch: f,
+    signal: señal(30_000, o.abortSignal),
+    ...(o.resolver ? { resolver: o.resolver } : {}),
+  });
   if (!archivo.ok) throw new Error(`No pude descargar el archivo (${archivo.status})`);
+  const contentType = (archivo.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();
+  if (!/^(image\/(png|jpeg|gif|webp|avif|svg\+xml)|application\/pdf)$/.test(contentType)) {
+    throw new Error(`Ese archivo no es una imagen ni un PDF (${contentType || "sin tipo"}).`);
+  }
   const buf = Buffer.from(await archivo.arrayBuffer());
-  const contentType = archivo.headers.get("content-type") ?? "image/png";
+  if (buf.byteLength > MAXIMO_MEDIA_BYTES) {
+    throw new Error(`El archivo pesa más de ${Math.round(MAXIMO_MEDIA_BYTES / 1_000_000)} MB.`);
+  }
   const res = await f(`${baseUrl(c)}/wp-json/wp/v2/media`, {
     method: "POST",
     headers: {
