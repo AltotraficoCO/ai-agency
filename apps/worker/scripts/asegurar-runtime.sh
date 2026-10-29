@@ -20,6 +20,50 @@ parcheada() {
   esac
 }
 
+# Sin gestor conocido: el tarball oficial de nodejs.org, con la suma
+# verificada, en /opt/node/<version>, y los binarios de node/npm/npx
+# sustituidos ALLÍ DONDE ESTÉN (lo que resuelve `command -v node`), para que
+# la unidad de systemd y el PATH sigan encontrándolos. Los viejos quedan con
+# sufijo .pre-node2shell por si hay que volver.
+instalar_tarball_oficial() {
+  local actual="$1" mayor objetivo arq dir tar ruta_node bindir f
+  mayor="${actual#v}"; mayor="${mayor%%.*}"
+  case "$mayor" in
+    22) objetivo="22.23.4" ;;
+    24) objetivo="24.22.1" ;;
+    *)  objetivo="26.12.1" ;;
+  esac
+  case "$(uname -m)" in
+    x86_64) arq="x64" ;;
+    aarch64|arm64) arq="arm64" ;;
+    *) echo "Arquitectura $(uname -m) sin tarball oficial; actualiza Node a mano." >&2; exit 1 ;;
+  esac
+  ruta_node="$(readlink -f "$(command -v node)")"
+  bindir="$(dirname "$ruta_node")"
+  echo "==> node viene de $ruta_node (sin gestor reconocido): instalando el tarball oficial $objetivo"
+  dir="/opt/node/v$objetivo"
+  tar="node-v$objetivo-linux-$arq.tar.xz"
+  mkdir -p /opt/node
+  (
+    cd /opt/node
+    curl -fsSLO "https://nodejs.org/dist/v$objetivo/$tar"
+    curl -fsSLO "https://nodejs.org/dist/v$objetivo/SHASUMS256.txt"
+    grep " $tar\$" SHASUMS256.txt | sha256sum -c - >/dev/null
+    rm -rf "$dir"
+    mkdir -p "$dir"
+    tar -xJf "$tar" -C "$dir" --strip-components=1
+    rm -f "$tar" SHASUMS256.txt
+  )
+  for f in node npm npx corepack; do
+    if [ -e "$bindir/$f" ] || [ -L "$bindir/$f" ]; then
+      [ -e "$bindir/$f.pre-node2shell" ] || mv "$bindir/$f" "$bindir/$f.pre-node2shell"
+    fi
+    [ -e "$dir/bin/$f" ] && ln -sfn "$dir/bin/$f" "$bindir/$f"
+  done
+  # pnpm lo trae corepack (el shim que haya en el PATH sigue valiendo).
+  echo "==> binarios de $bindir apuntando a $dir"
+}
+
 actual="$(node --version)"
 if parcheada "$actual"; then
   echo "==> node $actual: sin CVE-2026-111497"
@@ -36,8 +80,7 @@ else
     . "$NVM_DIR/nvm.sh"
     nvm install 26.12.1 && nvm alias default 26.12.1
   else
-    echo "No sé con qué se instaló Node en esta máquina: actualízalo a mano a 22.23.4, 24.22.1 o 26.12.1." >&2
-    exit 1
+    instalar_tarball_oficial "$actual"
   fi
   hash -r
   actual="$(node --version)"
