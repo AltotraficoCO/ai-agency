@@ -95,6 +95,7 @@ export { Topbar, type TopbarProps } from "./layout/topbar";
 export {
   Sidebar,
   SidebarRail,
+  Marca,
   type SidebarProps,
   type SidebarRailProps,
   type UsuarioSidebar,

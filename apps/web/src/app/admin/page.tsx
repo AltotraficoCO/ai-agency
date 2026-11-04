@@ -1,6 +1,18 @@
-import { TrendingDown, TrendingUp } from "lucide-react";
+import {
+  Building2,
+  CircleDollarSign,
+  Coins,
+  HandCoins,
+  RefreshCw,
+  TrendingDown,
+  TrendingUp,
+  UserCheck,
+  Users,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
-import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@strappy/ui";
+import { Card, CardBody, CardDescription, CardHeader, CardTitle, EncabezadoPagina } from "@strappy/ui";
 import { GraficoVentas } from "@/components/admin/grafico-ventas";
 import { creditosCompactos, dolares } from "@/lib/negocio/creditos";
 import { exigirSuperAdmin } from "@/lib/plataforma/acceso";
@@ -11,11 +23,27 @@ export const metadata = { title: "Ventas · Super admin" };
 
 const PESOS = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
-function Cifra({ etiqueta, valor, nota }: { etiqueta: string; valor: string; nota?: React.ReactNode }) {
+/** La misma tarjeta que los indicadores de Analítica. */
+function Cifra({
+  etiqueta,
+  valor,
+  nota,
+  icono: Icono,
+}: {
+  etiqueta: string;
+  valor: string;
+  nota?: React.ReactNode;
+  icono: LucideIcon;
+}) {
   return (
-    <Card>
-      <CardBody className="flex flex-col gap-1 pt-5">
-        <p className="text-sm text-fg-secondary">{etiqueta}</p>
+    <Card className="strappy-slide-up transition-colors duration-[var(--dur-fast)] hover:border-border-strong">
+      <CardBody className="flex flex-col gap-3 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-fg-secondary">{etiqueta}</span>
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary-fg">
+            <Icono size={16} strokeWidth={1.75} aria-hidden />
+          </span>
+        </div>
         <p className="text-2xl font-semibold tracking-tight text-fg tabular-nums">{valor}</p>
         {nota && <p className="flex items-center gap-1 text-2xs text-fg-muted">{nota}</p>}
       </CardBody>
@@ -31,16 +59,14 @@ export default async function PaginaVentas() {
 
   return (
     <>
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-fg">Ventas</h1>
-        <p className="text-sm text-fg-secondary">
-          Recargas aprobadas por Wompi. Los créditos dados a mano no cuentan como venta.
-        </p>
-      </header>
+      <EncabezadoPagina
+        titulo="Ventas"
+        descripcion="Recargas aprobadas por Wompi. Los créditos dados a mano no cuentan como venta."
+      />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Este mes">
         <Cifra
-          etiqueta="Ventas este mes"
+          etiqueta="Ventas este mes" icono={CircleDollarSign}
           valor={dolares(e.actual.usd)}
           nota={
             e.variacionMes === null ? (
@@ -57,10 +83,10 @@ export default async function PaginaVentas() {
             )
           }
         />
-        <Cifra etiqueta="Clientes que pagaron este mes" valor={String(e.actual.clientes)} nota={`${e.actual.recargas} recargas`} />
-        <Cifra etiqueta="Ventas totales" valor={dolares(e.ventasTotalUsd)} nota={`Recarga media: ${dolares(e.ticketMedioUsd)}`} />
+        <Cifra etiqueta="Clientes que pagaron este mes" icono={UserCheck} valor={String(e.actual.clientes)} nota={`${e.actual.recargas} recargas`} />
+        <Cifra etiqueta="Ventas totales" icono={HandCoins} valor={dolares(e.ventasTotalUsd)} nota={`Recarga media: ${dolares(e.ticketMedioUsd)}`} />
         <Cifra
-          etiqueta="De recarga automática este mes"
+          etiqueta="De recarga automática este mes" icono={RefreshCw}
           valor={dolares(e.automaticasMesUsd)}
           nota={`${e.espacios.conAutomatica} espacios la tienen encendida`}
         />
@@ -78,18 +104,18 @@ export default async function PaginaVentas() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Clientes y créditos">
         <Cifra
-          etiqueta="Espacios"
+          etiqueta="Espacios" icono={Building2}
           valor={String(e.espacios.total)}
-          nota={`${e.espacios.nuevosMes} nuevos este mes · ${e.espacios.suspendidos} suspendidos`}
+          nota={`${e.espacios.nuevosMes} ${e.espacios.nuevosMes === 1 ? "nuevo" : "nuevos"} este mes · ${e.espacios.suspendidos} ${e.espacios.suspendidos === 1 ? "suspendido" : "suspendidos"}`}
         />
-        <Cifra etiqueta="Han pagado alguna vez" valor={String(e.espacios.pagaron)} nota={`${tasa} % de los espacios`} />
+        <Cifra etiqueta="Han pagado alguna vez" icono={Users} valor={String(e.espacios.pagaron)} nota={`${tasa} % de los espacios`} />
         <Cifra
-          etiqueta="Créditos este mes"
+          etiqueta="Créditos este mes" icono={Coins}
           valor={creditosCompactos(e.creditos.consumidosMes)}
           nota={`consumidos · ${creditosCompactos(e.creditos.vendidosMes)} vendidos`}
         />
         <Cifra
-          etiqueta="Créditos sin gastar"
+          etiqueta="Créditos sin gastar" icono={Wallet}
           valor={creditosCompactos(e.creditos.saldoVivo)}
           nota="Lo que los clientes aún pueden consumir"
         />

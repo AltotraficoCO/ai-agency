@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Button, Input } from "@strappy/ui";
+import { Badge, Button, EncabezadoPagina, Input } from "@strappy/ui";
 import { creditosCompactos, dolares } from "@/lib/negocio/creditos";
 import { exigirSuperAdmin } from "@/lib/plataforma/acceso";
 import { CLIENTES_POR_PAGINA, listarClientes } from "@/lib/plataforma/clientes";
@@ -24,20 +24,20 @@ export default async function PaginaClientes({
 
   return (
     <>
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-fg">Clientes</h1>
-          <p className="text-sm text-fg-secondary">{total} espacios.</p>
-        </div>
-        <form className="flex items-center gap-2" role="search">
-          <Input name="q" defaultValue={q ?? ""} placeholder="Nombre o correo" aria-label="Buscar cliente" className="w-56" />
-          <Button type="submit" variant="secondary">
-            Buscar
-          </Button>
-        </form>
-      </header>
+      <EncabezadoPagina
+        titulo="Clientes"
+        descripcion={`${total} ${total === 1 ? "espacio" : "espacios"}.`}
+        acciones={
+          <form className="flex items-center gap-2" role="search">
+            <Input name="q" defaultValue={q ?? ""} placeholder="Nombre o correo" aria-label="Buscar cliente" className="w-56" />
+            <Button type="submit" variant="secondary">
+              Buscar
+            </Button>
+          </form>
+        }
+      />
 
-      <div className="overflow-x-auto rounded-xl border border-border bg-raised">
+      <div className="strappy-slide-up overflow-x-auto rounded-xl border border-border bg-raised shadow-e1">
         <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-border text-2xs tracking-wide text-fg-muted uppercase">

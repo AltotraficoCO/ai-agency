@@ -1,6 +1,7 @@
 import { obtenerTrm } from "@strappy/core/recargas";
 import { tokensDeAceptacion, validarLlaves } from "@strappy/core/wompi";
-import { Badge } from "@strappy/ui";
+import { Badge, EncabezadoPagina } from "@strappy/ui";
+import { History, KeyRound, SlidersHorizontal } from "lucide-react";
 import { FormularioCobro, FormularioLlaves } from "@/components/admin/formularios";
 import { SeccionAjustes } from "@/components/negocio/seccion-ajustes";
 import { exigirSuperAdmin } from "@/lib/plataforma/acceso";
@@ -31,13 +32,11 @@ export default async function PaginaCobro() {
 
   return (
     <>
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-fg">Cobro</h1>
-        <p className="text-sm text-fg-secondary">Pasarela y reglas de las recargas de todos los clientes.</p>
-      </header>
+      <EncabezadoPagina titulo="Cobro" descripcion="Pasarela y reglas de las recargas de todos los clientes." />
 
       <SeccionAjustes
         titulo="Wompi"
+        icono={<KeyRound size={18} strokeWidth={1.75} aria-hidden />}
         descripcion="Las llaves se guardan cifradas y no se vuelven a mostrar. Web y worker leen estas mismas."
         accion={
           <div className="flex flex-wrap gap-2">
@@ -67,12 +66,13 @@ export default async function PaginaCobro() {
 
       <SeccionAjustes
         titulo="Reglas de recarga"
+        icono={<SlidersHorizontal size={18} strokeWidth={1.75} aria-hidden />}
         descripcion={trm ? `TRM de hoy: ${PESOS.format(trm)} por dólar. El cambio no se configura: sale de la Superfinanciera.` : "No se pudo consultar la TRM ahora mismo."}
       >
         <FormularioCobro config={config} accion={guardarConfigCobro} />
       </SeccionAjustes>
 
-      <SeccionAjustes titulo="Últimos cambios">
+      <SeccionAjustes titulo="Últimos cambios" icono={<History size={18} strokeWidth={1.75} aria-hidden />}>
         {globales.length === 0 ? (
           <p className="text-sm text-fg-muted">Nadie ha cambiado nada todavía: se usan los valores por defecto.</p>
         ) : (
