@@ -45,10 +45,9 @@ const ICONOS: Readonly<Record<ChipIntencion["icono"], LucideIcon>> = {
 export interface InicioProps {
   nombre: string;
   hilos: readonly ResumenHilo[];
-  maxDisponible: boolean;
 }
 
-export function Inicio({ nombre, hilos, maxDisponible }: InicioProps) {
+export function Inicio({ nombre, hilos }: InicioProps) {
   const router = useRouter();
   const [texto, setTexto] = React.useState("");
   const [modo, setModo] = React.useState<ModoConstruccion>("lite");
@@ -99,8 +98,6 @@ export function Inicio({ nombre, hilos, maxDisponible }: InicioProps) {
           onEnviar={() => void arrancar(texto)}
           modo={modo}
           onModo={setModo}
-          maxDisponible={maxDisponible}
-          onAmpliarPlan={() => router.push("/ajustes/facturacion")}
           ocupado={abriendo}
           placeholder="Quiero un agente que atienda pedidos por WhatsApp…"
         />

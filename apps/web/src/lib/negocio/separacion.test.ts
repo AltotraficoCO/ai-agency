@@ -2,7 +2,6 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { combinarFactura } from "./factura";
-import { planPorClave } from "./planes";
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -16,11 +15,9 @@ import { planPorClave } from "./planes";
  * del total, y vigilando que nadie escriba una suma nueva que la cruce.
  */
 describe("la factura solo suma lo que facturamos nosotros", () => {
-  const plan = planPorClave("starter");
-
-  it("suma plan, agentes y recargas, y nada más", () => {
-    const factura = combinarFactura(plan, { planUsd: 99, agentesUsd: 20, recargasUsd: 25 });
-    expect(factura.totalUsd).toBe(144);
+  it("suma agentes y recargas, y nada más", () => {
+    const factura = combinarFactura({ agentesUsd: 20, recargasUsd: 25 });
+    expect(factura.totalUsd).toBe(45);
   });
 
   it("un gasto en Meta del mismo periodo no cambia el total", () => {
@@ -28,15 +25,15 @@ describe("la factura solo suma lo que facturamos nosotros", () => {
     // colarlo: la firma de `combinarFactura` no tiene dónde ponerlo.
     const gastoEnMeta = { origen: "meta" as const, costeUsd: 380.5 };
 
-    const sinMeta = combinarFactura(plan, { planUsd: 99, agentesUsd: 0, recargasUsd: 0 });
+    const sinMeta = combinarFactura({ agentesUsd: 0, recargasUsd: 99 });
     expect(sinMeta.totalUsd).toBe(99);
     expect(sinMeta.totalUsd).not.toBe(99 + gastoEnMeta.costeUsd);
     expect(Object.values(sinMeta)).not.toContain(gastoEnMeta.costeUsd);
   });
 
   it("los sumandos siguen visibles por separado para poder auditar el total", () => {
-    const factura = combinarFactura(plan, { planUsd: 99, agentesUsd: 12.5, recargasUsd: 0 });
-    expect(factura.planUsd + factura.agentesUsd + factura.recargasUsd).toBeCloseTo(factura.totalUsd, 6);
+    const factura = combinarFactura({ agentesUsd: 12.5, recargasUsd: 99 });
+    expect(factura.agentesUsd + factura.recargasUsd).toBeCloseTo(factura.totalUsd, 6);
   });
 });
 

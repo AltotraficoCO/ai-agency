@@ -46,7 +46,7 @@ const SECCIONES: readonly Seccion[] = [
     descripcion: "Tu sistema de facturación",
     icono: Receipt,
   },
-  { href: "/ajustes/facturacion", etiqueta: "Facturación", descripcion: "Plan, consumo y pagos", icono: CreditCard },
+  { href: "/ajustes/facturacion", etiqueta: "Facturación", descripcion: "Saldo, recargas y consumo", icono: CreditCard },
 ];
 
 function useSeccionActiva(): string {

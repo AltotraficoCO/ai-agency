@@ -28,7 +28,7 @@ export default async function PaginaAnalitica({ searchParams }: { searchParams: 
   const { rango, atajo } = rangoDesdeParametros(parametros, new Date(), espacio.zonaHoraria);
 
   // Las tres lecturas van en paralelo y NO se mezclan: `analitica` son créditos
-  // nuestros, `meta` son dólares que cobra Meta, y `negocio` es el plan.
+  // nuestros, `meta` son dólares que cobra Meta, y `negocio` es la cartera.
   const [analitica, meta, negocio] = await Promise.all([
     analiticaDeStrappy(marco.actual.workspaceId, rango),
     gastoEnMeta(marco.actual.workspaceId, rango, espacio.zonaHoraria),
@@ -55,7 +55,7 @@ export default async function PaginaAnalitica({ searchParams }: { searchParams: 
           acciones={<SelectorFechas rango={rango} atajo={atajo} />}
         />
 
-        <BannerCreditos estado={negocio.cartera.estado} proyeccion={negocio.cartera.proyeccion} />
+        <BannerCreditos estado={negocio.cartera.estado} disponible={negocio.cartera.disponible} />
 
         <Tabs defaultValue={pestana}>
           <TabsList className="overflow-x-auto">

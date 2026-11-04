@@ -301,15 +301,29 @@ Todo vive en **Ajustes**, cada cosa en su sección:
   cálculo. Con selector de fechas.
 - **Analítica** (`/analitica`): tres pestañas —**Conversaciones**,
   **Rendimiento** y **Consumo**—, con selector de fechas. Separa a propósito
-  tres cosas: los créditos de Strappy, lo que cobra Meta por WhatsApp, y el plan.
+  dos cosas: los créditos de Strappy y lo que cobra Meta por WhatsApp.
 
-### 4.10. Recargar créditos y cambiar de plan
+### 4.10. Recargar créditos
 
-1. El **widget de créditos** del menú muestra «14 K / 50 K» y cuándo se renueva.
-   Se puede pulsar.
-2. Lleva a **Facturación** (`/ajustes/facturacion`): plan actual, consumo del
-   periodo, paquetes de recarga y pagos.
-3. El pago va por Stripe y vuelve a la aplicación.
+1. El **widget de créditos** del menú muestra el saldo disponible. Se puede pulsar.
+2. Lleva a **Facturación** (`/ajustes/facturacion`): saldo, consumo del mes, recarga
+   de monto libre (desde 15 USD), recarga automática e historial.
+3. El pago va por Wompi, en pesos a la TRM del día, y vuelve a la aplicación. Los
+   créditos entran cuando Wompi confirma el pago por su evento.
+4. **Recarga automática**: con una tarjeta registrada y autorización expresa, el
+   worker carga el monto elegido (20, 50, 100, 300 USD o uno propio) al acabarse el saldo.
+
+### 4.10 bis. Panel de super admin
+
+Solo para los correos de `SUPERADMIN_EMAILS` con el correo confirmado; a los demás
+`/admin` les responde 404. No sale en el menú de la aplicación.
+
+- **Ventas** (`/admin`): recargas aprobadas por mes, clientes que pagan, créditos
+  vendidos, consumidos y sin gastar, y mejores clientes.
+- **Clientes** (`/admin/clientes`): buscar, ver saldo, consumo y recargas; dar o
+  quitar créditos con motivo; suspender y reactivar.
+- **Cobro** (`/admin/cobro`): llaves de Wompi (cifradas con `APP_ENCRYPTION_KEY`) y
+  reglas de recarga. Los cambios tardan hasta un minuto en llegar a todo el sistema.
 
 ### 4.11. Editar instrucciones, mejorarlas y publicar
 

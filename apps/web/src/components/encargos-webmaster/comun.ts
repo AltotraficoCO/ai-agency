@@ -42,7 +42,7 @@ export type AvisoDelSitio = {
 export type SitioConectado = { nombre: string; url: string };
 
 /** Lite o Max, para cambiarlo sin salir de la conversación. */
-export type ModoAgente = { agentId: string; actual: "lite" | "max"; planDePago: boolean };
+export type ModoAgente = { agentId: string; actual: "lite" | "max" };
 
 /** El trabajo que el agente repite solo, y cuántos hay. */
 export type TrabajoProgramado = { nodo: React.ReactNode; cuantos: number };

@@ -15,7 +15,7 @@
  * cliente.
  */
 import * as React from "react";
-import { ArrowUp, Lock, Zap } from "lucide-react";
+import { ArrowUp, Zap } from "lucide-react";
 import { IconButton, Tooltip, cn } from "@strappy/ui";
 import type { ModoConstruccion } from "@/lib/meta/tipos";
 
@@ -26,8 +26,6 @@ export interface ComposerProps {
   modo: ModoConstruccion;
   onModo: (modo: ModoConstruccion) => void;
   /** Sin Max en el plan, el botón queda con candado y ofrece ampliar. */
-  maxDisponible: boolean;
-  onAmpliarPlan?: () => void;
   ocupado?: boolean;
   placeholder?: string;
   autoFocus?: boolean;
@@ -39,8 +37,6 @@ export function Composer({
   onEnviar,
   modo,
   onModo,
-  maxDisponible,
-  onAmpliarPlan,
   ocupado = false,
   placeholder = "Cuéntame qué necesitas…",
   autoFocus = false,
@@ -78,8 +74,6 @@ export function Composer({
         <SelectorDeModo
           modo={modo}
           onModo={onModo}
-          maxDisponible={maxDisponible}
-          {...(onAmpliarPlan ? { onAmpliarPlan } : {})}
         />
         <IconButton
           label="Enviar"
@@ -98,13 +92,9 @@ export function Composer({
 export function SelectorDeModo({
   modo,
   onModo,
-  maxDisponible,
-  onAmpliarPlan,
 }: {
   modo: ModoConstruccion;
   onModo: (modo: ModoConstruccion) => void;
-  maxDisponible: boolean;
-  onAmpliarPlan?: () => void;
 }) {
   return (
     <div
@@ -118,26 +108,13 @@ export function SelectorDeModo({
         etiqueta="Lite"
         descripcion="Rápido y económico. Suficiente para la mayoría."
       />
-      {maxDisponible ? (
-        <BotonModo
-          activo={modo === "max"}
-          onClick={() => onModo("max")}
-          etiqueta="Max"
-          descripcion="Los modelos de frontera. Para agentes con matices."
-          icono={<Zap size={13} strokeWidth={2} aria-hidden />}
-        />
-      ) : (
-        <Tooltip content="Max viene con los planes de pago. Consume más créditos por respuesta.">
-          <button
-            type="button"
-            onClick={onAmpliarPlan}
-            className="inline-flex h-7 items-center gap-1 rounded-full px-3 text-sm text-fg-muted transition-colors hover:text-fg-secondary"
-          >
-            <Lock size={13} strokeWidth={2} aria-hidden />
-            Max
-          </button>
-        </Tooltip>
-      )}
+      <BotonModo
+        activo={modo === "max"}
+        onClick={() => onModo("max")}
+        etiqueta="Max"
+        descripcion="Los modelos de frontera. Para agentes con matices."
+        icono={<Zap size={13} strokeWidth={2} aria-hidden />}
+      />
     </div>
   );
 }

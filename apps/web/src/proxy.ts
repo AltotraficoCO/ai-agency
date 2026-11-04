@@ -20,7 +20,7 @@ import { createServerClient } from "@supabase/ssr";
 /**
  * Rutas que se ven sin haber entrado. Todo lo demás exige sesión.
  *
- * Los webhooks están aquí porque quien llama es Meta o Stripe, que nunca traen
+ * Los webhooks están aquí porque quien llama es Meta o Wompi, que nunca traen
  * cookie: sin la excepción, la verificación de Meta recibía un 307 a /entrar y
  * el endpoint no se podía dar de alta. Cada ruta comprueba su propia firma.
  */
@@ -34,7 +34,7 @@ const PUBLICAS = [
   "/auth",
   "/api/auth",
   "/api/webhooks",
-  "/api/stripe/webhook",
+  "/api/wompi/eventos",
 ];
 
 /** El dominio de la marca. La URL `*.vercel.app` de producción manda aquí. */

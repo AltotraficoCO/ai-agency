@@ -17,7 +17,6 @@ import {
   type EspecificacionAgente,
 } from "@strappy/db/spec";
 import { exigirUsuarioActual } from "./identidad";
-import { planIncluyeMax } from "./negocio/planes";
 import { conEspacio } from "./db/pool";
 import { esAvatarWhatsapp, esCaraDeAgente } from "./avatares";
 
@@ -201,9 +200,7 @@ export async function cambiarCaraAgente(agentId: string, cara: string): Promise<
  *
  * Max usa el modelo caro (Claude Sonnet 5 en vez de DeepSeek): acierta más a
  * la primera en encargos largos y cuesta bastante más. Lo decide el cliente,
- * agente por agente, y solo en los planes de pago: en el gratuito los créditos
- * los ponemos nosotros. El worker vuelve a comprobarlo antes de cada tarea
- * (`apps/worker/src/adaptadores/motor.ts`): esto es la interfaz, no la puerta.
+ * agente por agente, y sale de sus créditos.
  */
 export async function cambiarModoAgente(agentId: string, max: boolean): Promise<ResultadoAccion> {
   try {
@@ -212,13 +209,6 @@ export async function cambiarModoAgente(agentId: string, max: boolean): Promise<
       return { ok: false, error: "Solo el propietario o un administrador pueden cambiar el modo de un agente." };
     }
     const hecho = await conEspacio(usuario.workspaceId, async (scope) => {
-      if (max) {
-        const { rows } = await scope.query<{ plan: string }>(
-          `select plan from public.subscriptions where workspace_id = $1 limit 1`,
-          [scope.workspaceId],
-        );
-        if (!planIncluyeMax(rows[0]?.plan)) return "sin_plan" as const;
-      }
       const { rows } = await scope.query<{ id: string }>(
         `update public.agents set mode = $3, updated_at = now()
           where workspace_id = $1 and id = $2
@@ -227,9 +217,6 @@ export async function cambiarModoAgente(agentId: string, max: boolean): Promise<
       );
       return rows[0] ? ("ok" as const) : ("no_existe" as const);
     });
-    if (hecho === "sin_plan") {
-      return { ok: false, error: "El modo Max está en los planes de pago. Cambia de plan en Ajustes → Facturación." };
-    }
     if (hecho === "no_existe") return { ok: false, error: "Ese agente ya no está en tu espacio." };
 
     revalidatePath(`/agentes/${agentId}`);

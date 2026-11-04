@@ -1,113 +1,39 @@
 import { describe, expect, it } from "vitest";
-import {
-  estadoDelSaldo,
-  fraseDeProyeccion,
-  proyectarConsumo,
-  UMBRAL_AVISO,
-} from "./creditos";
+import { diasDeSaldo, estadoDelSaldo, fraseDeRitmo } from "./creditos";
 import { longitudEnDias, periodoAnterior, rangoDeAtajo } from "./fechas";
 
-/**
- * La proyección es la promesa del producto: «no vas a tener una factura
- * sorpresa». Si el número está mal, la promesa está rota, así que se prueba
- * contra casos con la cuenta hecha a mano.
- */
-describe("proyección de consumo", () => {
-  const inicio = new Date("2026-08-01T00:00:00Z");
-  const fin = new Date("2026-08-31T00:00:00Z"); // 30 días exactos
+describe("estado del saldo", () => {
+  const base = { umbralAviso: 5_000, haRecargado: true };
 
-  it("proyecta por regla de tres sobre el tiempo transcurrido", () => {
-    // A los 15 días (la mitad) con 20.000 gastados → 40.000 al cierre.
-    const p = proyectarConsumo({
-      consumidos: 20_000,
-      asignados: 50_000,
-      inicioPeriodo: inicio,
-      finPeriodo: fin,
-      ahora: new Date("2026-08-16T00:00:00Z"),
-    });
-    expect(p.avancePeriodo).toBeCloseTo(0.5, 6);
-    expect(p.proyectado).toBe(40_000);
-    expect(p.porcentajeProyectado).toBeCloseTo(0.8, 6);
-    expect(p.excede).toBe(false);
+  it("avisa por debajo del umbral y se agota en cero", () => {
+    expect(estadoDelSaldo({ ...base, disponible: 5_000 })).toBe("sano");
+    expect(estadoDelSaldo({ ...base, disponible: 4_999 })).toBe("aviso");
+    expect(estadoDelSaldo({ ...base, disponible: 0 })).toBe("agotado");
   });
 
-  it("usa el tiempo real y no los días redondeados", () => {
-    // Día 3 a mediodía: 2,5 días de 30 = 8,33%, no 10%.
-    const p = proyectarConsumo({
-      consumidos: 1_000,
-      asignados: 50_000,
-      inicioPeriodo: inicio,
-      finPeriodo: fin,
-      ahora: new Date("2026-08-03T12:00:00Z"),
-    });
-    expect(p.avancePeriodo).toBeCloseTo(2.5 / 30, 6);
-    expect(p.proyectado).toBe(12_000);
+  it("a quien nunca recargó no se le dice que se quedó sin créditos", () => {
+    expect(estadoDelSaldo({ ...base, disponible: 0, haRecargado: false })).toBe("sin_recargar");
   });
 
-  it("marca el exceso y cuánto faltaría", () => {
-    const p = proyectarConsumo({
-      consumidos: 41_000,
-      asignados: 50_000,
-      inicioPeriodo: inicio,
-      finPeriodo: fin,
-      ahora: new Date("2026-08-16T00:00:00Z"),
-    });
-    expect(p.proyectado).toBe(82_000);
-    expect(p.excede).toBe(true);
-    expect(p.excedente).toBe(32_000);
-    expect(fraseDeProyeccion(p)).toContain("164%");
-  });
-
-  it("no proyecta con una muestra demasiado corta", () => {
-    // 300 créditos en las primeras horas del día 1 proyectarían un disparate.
-    const p = proyectarConsumo({
-      consumidos: 300,
-      asignados: 50_000,
-      inicioPeriodo: inicio,
-      finPeriodo: fin,
-      ahora: new Date("2026-08-01T06:00:00Z"),
-    });
-    expect(p.fiable).toBe(false);
-    expect(fraseDeProyeccion(p)).toContain("pronto");
-  });
-
-  it("no divide por cero con un periodo degenerado", () => {
-    const p = proyectarConsumo({
-      consumidos: 500,
-      asignados: 1_000,
-      inicioPeriodo: inicio,
-      finPeriodo: inicio,
-      ahora: inicio,
-    });
-    expect(Number.isFinite(p.proyectado)).toBe(true);
-    expect(p.proyectado).toBe(500);
-  });
-
-  it("la frase del enunciado del producto sale exacta", () => {
-    // «Al ritmo actual terminarás el mes en 41 K (82%)».
-    const p = proyectarConsumo({
-      consumidos: 20_500,
-      asignados: 50_000,
-      inicioPeriodo: inicio,
-      finPeriodo: fin,
-      ahora: new Date("2026-08-16T00:00:00Z"),
-    });
-    expect(p.proyectado).toBe(41_000);
-    expect(fraseDeProyeccion(p)).toBe("Al ritmo actual terminarás el mes en 41 K (82%).");
+  it("el saldo comprado cuenta: recargar quita el aviso de agotado", () => {
+    expect(estadoDelSaldo({ ...base, disponible: 25_000 })).toBe("sano");
   });
 });
 
-describe("umbrales de saldo", () => {
-  it("avisa a partir del 80% y agota en el 100%", () => {
-    expect(estadoDelSaldo(0, 1000)).toBe("sano");
-    expect(estadoDelSaldo(799, 1000)).toBe("sano");
-    expect(estadoDelSaldo(UMBRAL_AVISO * 1000, 1000)).toBe("aviso");
-    expect(estadoDelSaldo(1000, 1000)).toBe("agotado");
-    expect(estadoDelSaldo(1200, 1000)).toBe("agotado");
+describe("para cuánto alcanza el saldo", () => {
+  it("regla de tres sobre el gasto reciente", () => {
+    // 30.000 en 30 días = 1.000 al día; con 12.500 alcanza para 12.
+    expect(diasDeSaldo({ disponible: 12_500, gastados: 30_000, diasDeHistorial: 30 })).toBe(12);
   });
 
-  it("sin asignación no hay saldo que gastar", () => {
-    expect(estadoDelSaldo(0, 0)).toBe("agotado");
+  it("con historial corto usa los días reales, no los 30", () => {
+    expect(diasDeSaldo({ disponible: 10_000, gastados: 10_000, diasDeHistorial: 5 })).toBe(5);
+  });
+
+  it("no promete nada con una muestra demasiado corta o sin gasto", () => {
+    expect(diasDeSaldo({ disponible: 10_000, gastados: 9_000, diasDeHistorial: 1 })).toBeNull();
+    expect(diasDeSaldo({ disponible: 10_000, gastados: 0, diasDeHistorial: 30 })).toBeNull();
+    expect(fraseDeRitmo(null)).toBeNull();
   });
 });
 

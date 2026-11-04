@@ -30,7 +30,6 @@ import { hayModeloReal } from "@/lib/motor/modelo";
 import { avisosDelSitio } from "@/lib/sitio/avisos-sitio";
 import { sitioDelEspacio } from "@/lib/sitio/sitio";
 import { conexionesDeAnuncios } from "@/lib/canales/anuncios";
-import { espacioConMax } from "@/lib/negocio/cartera";
 import { contabilidadDelEspacio } from "@/lib/contabilidad/contabilidad";
 
 export const metadata = { title: "Probar el agente" };
@@ -103,7 +102,6 @@ export default async function PaginaProbar({
           modo={{
             agentId: id,
             actual: agente.modo,
-            planDePago: marco.actual.esDesarrollo || (await espacioConMax(marco.actual.workspaceId)),
           }}
           sitio={sitio && sitio.estado === "active" ? { nombre: sitio.nombre, url: sitio.url } : null}
           encargos={encargos}
@@ -144,7 +142,7 @@ export default async function PaginaProbar({
   // hay ninguna, una nueva.
   const sesion = agente.publicado ? await abrirPrueba(marco.actual.workspaceId, id, conversacion) : null;
 
-  const saldo = Math.max(0, marco.creditos.total - marco.creditos.consumidos);
+  const saldo = marco.creditos.disponibles;
 
   return (
     <MarcoApp

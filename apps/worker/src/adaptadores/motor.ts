@@ -1,10 +1,9 @@
 /**
- * El modelo de cada tarea, según el plan del cliente.
+ * El modelo de cada tarea.
  *
  * Ningún modelo está escrito en el código:
- *  · El modo sale del agente (`lite` o `max`) y se rebaja a `lite` si el plan
- *    del espacio no incluye Max. Max es de los planes grandes; ofrecerlo en el
- *    gratuito es regalar el modelo caro.
+ *  · El modo sale del agente (`lite` o `max`): lo decide el cliente, y Max gasta
+ *    más créditos de los suyos.
  *  · El modelo concreto sale de `model_tiers` para la tarea `business_agent`
  *    (fila `negocio`), la de los agentes del negocio, y se resuelve contra la
  *    cartera del worker (`MODEL_WALLET`, hoy OpenRouter). Su clave es distinta
@@ -17,18 +16,6 @@ import { crearResolvedorDeModelo, resolveModel, type ModelMode } from "@strappy/
 import type { TenantScope } from "@strappy/db";
 import { cargarTablaDeModelos, cargarTarifas, crearCreditLedger } from "@strappy/db/adapters";
 import type { MotorTarea, SqlPool, TareaReclamada } from "../ports.js";
-
-/**
- * Planes que pueden usar el modo Max: TODOS los de pago. Quién lo enciende y
- * en qué agente lo decide el cliente (`agents.mode`), no el plan: Max gasta
- * más créditos de los suyos, así que negarlo a quien paga es decidir por él.
- * El gratuito no lo tiene: ahí los créditos los regalamos nosotros.
- *
- * Son las claves técnicas de `subscriptions.plan`; el nombre comercial de cada
- * una está en `apps/web/src/lib/negocio/planes.ts` (Pro es `starter`,
- * Scale-Up es `growth`, Prime es `business`).
- */
-const PLANES_CON_MAX = new Set(["starter", "growth", "business", "enterprise"]);
 
 export class MotorPorPlan {
   readonly #pool: SqlPool;
@@ -71,15 +58,11 @@ export class MotorPorPlan {
   }
 
   async #modo(tarea: TareaReclamada): Promise<ModelMode> {
-    const { rows } = await this.#pool.query<{ modo: string | null; plan: string | null }>(
-      `select (select mode from public.agents where workspace_id = $1 and id = $2) as modo,
-              (select plan from public.subscriptions where workspace_id = $1 limit 1) as plan`,
+    const { rows } = await this.#pool.query<{ modo: string | null }>(
+      `select mode as modo from public.agents where workspace_id = $1 and id = $2`,
       [tarea.workspaceId, tarea.agentId ?? null],
     );
-    const fila = rows[0];
-    // Sin fila de suscripción no hay plan de pago: lite. Con plan de pago, lo
-    // que diga el agente.
-    return fila?.modo === "max" && PLANES_CON_MAX.has(fila.plan ?? "") ? "max" : "lite";
+    return rows[0]?.modo === "max" ? "max" : "lite";
   }
 
   /**

@@ -27,7 +27,7 @@ import {
 
 type DatosMenu = {
   usuario: { nombre: string; correo: string; avatar?: string };
-  creditos: { consumidos: number; total: number; renovacion: string };
+  creditos: { disponibles: number; pocos: boolean };
   pendientes?: number;
   /** Fuerza el destino marcado cuando la URL no basta (p. ej. el detalle de un agente de WhatsApp). */
   rutaActiva?: Ruta;

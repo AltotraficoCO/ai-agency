@@ -6,16 +6,18 @@ import "server-only";
  */
 import { exigirUsuarioActual, type UsuarioActual } from "./identidad";
 import { conEspacio } from "./db/pool";
+import { obtenerConfigCobro } from "./plataforma/config";
 
 export type DatosMarco = {
   usuario: { nombre: string; correo: string; avatar?: string };
-  creditos: { consumidos: number; total: number; renovacion: string };
+  creditos: { disponibles: number; pocos: boolean };
   pendientes: number;
   actual: UsuarioActual;
 };
 
 export async function datosDelMarco(): Promise<DatosMarco> {
   const actual = await exigirUsuarioActual();
+  const config = await obtenerConfigCobro();
 
   const { cartera, pendientes } = await conEspacio(actual.workspaceId, async (scope) => {
     // Una detrás de otra: `scope` es UNA conexión dentro de una transacción, y
@@ -24,10 +26,8 @@ export async function datosDelMarco(): Promise<DatosMarco> {
     const monedero = await scope.query<{
       included_balance: string;
       purchased_balance: string;
-      included_granted: string;
-      period_end: string;
     }>(
-      `select included_balance, purchased_balance, included_granted, period_end
+      `select included_balance, purchased_balance
          from public.credit_wallets where workspace_id = $1`,
       [scope.workspaceId],
     );
@@ -39,7 +39,6 @@ export async function datosDelMarco(): Promise<DatosMarco> {
     return { cartera: monedero.rows[0], pendientes: Number(bandeja.rows[0]?.n ?? 0) };
   });
 
-  const otorgados = Number(cartera?.included_granted ?? 0);
   const disponibles = Number(cartera?.included_balance ?? 0) + Number(cartera?.purchased_balance ?? 0);
 
   return {
@@ -50,17 +49,10 @@ export async function datosDelMarco(): Promise<DatosMarco> {
       ...(actual.avatarUrl ? { avatar: actual.avatarUrl } : {}),
     },
     creditos: {
-      consumidos: Math.max(0, Math.round(otorgados - disponibles)),
-      total: Math.max(1, Math.round(otorgados)),
-      renovacion: formatearFecha(cartera?.period_end),
+      disponibles: Math.max(0, Math.round(disponibles)),
+      pocos: disponibles < config.umbralAviso,
     },
     pendientes,
   };
 }
 
-const FORMATO = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "long" });
-
-function formatearFecha(valor: string | undefined): string {
-  if (!valor) return "sin fecha";
-  return FORMATO.format(new Date(valor));
-}

@@ -6,12 +6,7 @@ import type { AgenteContratado } from "@/lib/negocio/cartera";
 import type { ResumenFactura } from "@/lib/negocio/factura";
 
 /**
- * «¿Cuánto pago este mes?», respondido de un vistazo.
- *
- * Es la tarjeta que la competencia no tiene. En Dapta el plan está en una
- * pantalla, los add-ons en otra y el consumo en una tercera, así que la
- * pregunta —que es LA pregunta de quien firma— no se puede responder sin abrir
- * tres pestañas y sumar a mano.
+ * «¿Cuánto pagué este mes?», respondido de un vistazo.
  *
  * Por eso el total va ARRIBA y en grande, y el desglose debajo: primero la
  * respuesta, después la cuenta. Ninguno de los sumandos es el gasto de Meta:
@@ -35,7 +30,7 @@ export function FacturaCombinada({
     <Card className={["strappy-slide-up flex flex-col", className].filter(Boolean).join(" ")}>
       <CardHeader className="gap-2">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>Lo que pagas este mes</CardTitle>
+          <CardTitle>Lo que pagaste este mes</CardTitle>
           <span className="grid size-8 place-items-center rounded-lg bg-hover text-fg-secondary">
             <Receipt size={16} strokeWidth={1.75} aria-hidden />
           </span>
@@ -43,15 +38,10 @@ export function FacturaCombinada({
         <p className="text-3xl font-semibold tracking-tight text-fg tabular-nums" data-total-factura={factura.totalUsd}>
           {dolares(factura.totalUsd)}
         </p>
-        <CardDescription>Tu plan, tus agentes y lo que hayas recargado. Sin sorpresas.</CardDescription>
+        <CardDescription>Lo que hayas recargado y tus agentes. Sin sorpresas.</CardDescription>
       </CardHeader>
       <CardBody className="flex flex-1 flex-col gap-4">
         <dl className="flex flex-col divide-y divide-[var(--border-subtle)] rounded-lg border border-[var(--border-subtle)] bg-inset text-sm">
-          <div className="flex items-center justify-between gap-3 px-3 py-2.5">
-            <dt className="text-fg-secondary">Plan {factura.plan.nombre}</dt>
-            <dd className="tabular-nums text-fg">{dolares(factura.planUsd)}</dd>
-          </div>
-
           {activos.length === 0 ? (
             <div className="flex items-center justify-between gap-3 px-3 py-2.5">
               <dt className="text-fg-secondary">Agentes contratados</dt>
@@ -65,7 +55,7 @@ export function FacturaCombinada({
                   <Badge tone="ia">Contratado</Badge>
                 </dt>
                 <dd className="tabular-nums text-fg">
-                  {a.costeUsd > 0 ? dolares(a.costeUsd) : "Incluido"}
+                  {a.costeUsd > 0 ? dolares(a.costeUsd) : "Sin cuota"}
                 </dd>
               </div>
             ))

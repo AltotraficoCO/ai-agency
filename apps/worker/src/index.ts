@@ -23,6 +23,10 @@ import { ConsumidorDeVigilancia } from "./consumers/vigilancia.js";
 import { VigilanciaPostgres } from "./adaptadores/vigilancia.js";
 import { ConsumidorDeProgramados } from "./consumers/programados.js";
 import { ProgramadorPostgres } from "./adaptadores/programador.js";
+import { ConsumidorDeRecargasAutomaticas } from "./consumers/recargas.js";
+import { RecargasAutomaticasPostgres } from "./adaptadores/recargas.js";
+import { obtenerTrm } from "@strappy/core/recargas";
+import { cobrarConFuenteDePago } from "@strappy/core/wompi";
 import { Runner } from "./runner.js";
 import type { SitioConectado, SqlPool } from "./ports.js";
 import { crearNavegadorPlaywright, type ReferencePort } from "@strappy/webmaster";
@@ -167,8 +171,16 @@ async function main(): Promise<void> {
     log,
   });
 
+  // Recarga automática: sin llaves de Wompi en el panel no cobra nada.
+  const recargas = new ConsumidorDeRecargasAutomaticas({
+    recargas: new RecargasAutomaticasPostgres(crudo),
+    cobrar: (cobro) => cobrarConFuenteDePago(cobro),
+    obtenerTrm: () => obtenerTrm(),
+    log,
+  });
+
   const runner = new Runner({
-    consumidores: [consumidor, vigilante, programados],
+    consumidores: [consumidor, vigilante, programados, recargas],
     pollMs: config.pollMs,
     log,
   });
@@ -186,7 +198,7 @@ async function main(): Promise<void> {
     });
   }
 
-  log(`worker ${config.workerId} · modelo según el plan de cada espacio · poll ${config.pollMs} ms`);
+  log(`worker ${config.workerId} · modelo según el modo de cada agente · poll ${config.pollMs} ms`);
   await runner.arrancar();
 }
 

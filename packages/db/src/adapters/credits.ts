@@ -135,10 +135,13 @@ function descripcionDe(entry: CreditEntry): string | null {
 }
 
 async function saldo(scope: TenantScope, ws: string): Promise<number> {
+  // Un espacio suspendido no tiene saldo que gastar: es el punto por el que pasan
+  // el motor, el worker y el programador, así que basta con decirlo aquí.
   const { rows } = await scope.query<{ disponible: string | null }>(
-    `select included_balance + purchased_balance - reserved_balance as disponible
-       from public.credit_wallets
-      where workspace_id = $1`,
+    `select c.included_balance + c.purchased_balance - c.reserved_balance as disponible
+       from public.credit_wallets c
+       join public.workspaces w on w.id = c.workspace_id
+      where c.workspace_id = $1 and w.status = 'active'`,
     [ws],
   );
   return aNumero(rows[0]?.disponible);

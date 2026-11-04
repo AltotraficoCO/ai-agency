@@ -13,6 +13,9 @@ import { revalidatePath } from "next/cache";
 import { exigirUsuarioActual } from "@/lib/identidad";
 import { conEspacio, consultar } from "@/lib/db/pool";
 import { cancelarAgente, contratarAgente } from "./catalogo";
+import { validarMonto } from "@strappy/core/recargas";
+import { obtenerConfigCobro } from "@/lib/plataforma/config";
+import { fijarRecargaAutomatica, olvidarTarjeta } from "./facturacion";
 import { limitesAAjustes, type LimitesGasto } from "./limites";
 
 const PAPELES_DE_MANDO = new Set(["owner", "admin"]);
@@ -124,7 +127,6 @@ export async function accionGuardarLimites(datos: FormData): Promise<Resultado> 
   const limites: LimitesGasto = {
     diario: entero(datos.get("diario")),
     porConversacion: entero(datos.get("por_conversacion")),
-    parada: datos.get("parada") === "blanda" ? "blanda" : "dura",
   };
 
   await consultar(
@@ -136,6 +138,40 @@ export async function accionGuardarLimites(datos: FormData): Promise<Resultado> 
 
   revalidatePath("/ajustes/facturacion");
   return { ok: true, mensaje: "Topes de gasto guardados." };
+}
+
+export async function accionGuardarRecargaAutomatica(datos: FormData): Promise<Resultado> {
+  const usuario = await exigirUsuarioActual();
+  if (!PAPELES_DE_MANDO.has(usuario.rol)) {
+    return { ok: false, error: "Solo el propietario o un administrador pueden cambiar la recarga automática." };
+  }
+  const monto = validarMonto(datos.get("monto"), await obtenerConfigCobro());
+  if (!monto.ok) return { ok: false, error: monto.motivo };
+
+  const activa = datos.get("activa") === "on";
+  if (activa && datos.get("autorizo") !== "on") {
+    return { ok: false, error: "Para encenderla hace falta tu autorización para cargar la tarjeta." };
+  }
+  const hecho = await fijarRecargaAutomatica({
+    workspaceId: usuario.workspaceId,
+    usuarioId: usuario.id,
+    activa,
+    usd: monto.usd,
+  });
+  if (!hecho) return { ok: false, error: "Primero registra una tarjeta." };
+
+  revalidatePath("/ajustes/facturacion");
+  return { ok: true, mensaje: activa ? "Recarga automática encendida." : "Recarga automática apagada." };
+}
+
+export async function accionOlvidarTarjeta(): Promise<Resultado> {
+  const usuario = await exigirUsuarioActual();
+  if (!PAPELES_DE_MANDO.has(usuario.rol)) {
+    return { ok: false, error: "Solo el propietario o un administrador pueden quitar la tarjeta." };
+  }
+  await olvidarTarjeta(usuario.workspaceId);
+  revalidatePath("/ajustes/facturacion");
+  return { ok: true, mensaje: "Tarjeta eliminada. La recarga automática quedó apagada." };
 }
 
 // ── Equipo ──────────────────────────────────────────────────────────────────

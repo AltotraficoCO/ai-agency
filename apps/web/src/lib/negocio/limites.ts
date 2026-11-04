@@ -31,18 +31,11 @@ export type LimitesGasto = {
   readonly diario: number | null;
   /** Créditos como máximo en una sola conversación. */
   readonly porConversacion: number | null;
-  /**
-   * `dura` (por defecto): al llegar a cero el bot para.
-   * `blanda`: se permite seguir con saldo negativo y se factura después. Solo
-   * para clientes con contrato y método de pago verificado.
-   */
-  readonly parada: "dura" | "blanda";
 };
 
 export const LIMITES_POR_DEFECTO: LimitesGasto = {
   diario: null,
   porConversacion: 2_000,
-  parada: "dura",
 };
 
 /** Motivo por el que el bot no responde. Coincide con `agent_runs.skip_reason`. */
@@ -68,7 +61,7 @@ const PERMITIDO: DecisionEjecucion = {
 };
 
 export function decidirEjecucion(entrada: {
-  /** Saldo disponible: incluido + comprado − reservado. */
+  /** Saldo disponible: lo que queda menos lo reservado. */
   saldoDisponible: number;
   /** Coste estimado del turno, en créditos. */
   costeEstimado: number;
@@ -101,7 +94,8 @@ export function decidirEjecucion(entrada: {
     };
   }
 
-  if (limites.parada === "dura" && entrada.saldoDisponible < coste) {
+  // El crédito es prepago: sin saldo no hay «ya se cobrará después».
+  if (entrada.saldoDisponible < coste) {
     return {
       permitido: false,
       motivo: "no_credits",
@@ -119,14 +113,12 @@ export function decidirEjecucion(entrada: {
 export function limitesDesdeAjustes(settings: unknown): LimitesGasto {
   const raiz = esObjeto(settings) ? settings : {};
   const nodo = esObjeto(raiz["limites_credito"]) ? (raiz["limites_credito"] as Record<string, unknown>) : {};
-  const parada = nodo["parada"] === "blanda" ? "blanda" : "dura";
   return {
     diario: enteroPositivoONulo(nodo["diario"]),
     porConversacion:
       nodo["por_conversacion"] === undefined
         ? LIMITES_POR_DEFECTO.porConversacion
         : enteroPositivoONulo(nodo["por_conversacion"]),
-    parada,
   };
 }
 
@@ -136,7 +128,6 @@ export function limitesAAjustes(limites: LimitesGasto): Record<string, unknown> 
     limites_credito: {
       diario: limites.diario,
       por_conversacion: limites.porConversacion,
-      parada: limites.parada,
     },
   };
 }

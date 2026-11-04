@@ -66,7 +66,7 @@ export function CabeceraEncargos({
             </Badge>
           ) : null}
           {modo ? (
-            <BotonModo agentId={modo.agentId} modo={modo.actual} planDePago={modo.planDePago} />
+            <BotonModo agentId={modo.agentId} modo={modo.actual} />
           ) : null}
           {programado ? (
             <Button size="sm" variant="secondary" onClick={() => setProgramadoAbierto(true)}>

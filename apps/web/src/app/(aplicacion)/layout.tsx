@@ -10,10 +10,13 @@
  * La barra superior sí la pinta cada página (`MarcoApp`), porque su título y
  * sus acciones son distintos en cada una.
  */
+import { redirect } from "next/navigation";
 import { ArmazonApp } from "@/components/marco-app";
+import { cuentaSuspendida } from "@/lib/plataforma/acceso";
 import { datosDelMarco } from "@/lib/marco";
 
 export default async function LayoutAplicacion({ children }: { children: React.ReactNode }) {
+  if (await cuentaSuspendida()) redirect("/cuenta-suspendida");
   const marco = await datosDelMarco();
   return (
     <ArmazonApp usuario={marco.usuario} creditos={marco.creditos} pendientes={marco.pendientes}>

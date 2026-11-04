@@ -124,10 +124,9 @@ export default function Muestrario() {
           linkComponent={EnlaceDemo}
           usuario={{ nombre: "Valentina Ruiz", correo: "valentina@acme.co" }}
           creditos={{
-            consumidos: 12400,
-            total: 50000,
-            renovacion: "3 de septiembre",
-            onAmpliar: () => toast.info("Aquí abriría la comparación de planes."),
+            disponibles: 37600,
+            pocos: false,
+            onRecargar: () => toast.info("Aquí abriría la recarga."),
           }}
           className="hidden lg:flex"
         />
@@ -458,8 +457,8 @@ export default function Muestrario() {
             </Card>
 
             <Panel
-              title="Créditos del plan"
-              description="Se renuevan cada mes"
+              title="Créditos"
+              description="No caducan"
               actions={
                 <Button variant="ghost" size="sm">
                   Historial
@@ -467,8 +466,8 @@ export default function Muestrario() {
               }
             >
               <div className="grid gap-3">
-                <CreditsWidget consumidos={12400} total={50000} renovacion="3 de septiembre" onAmpliar={() => {}} />
-                <CreditsWidget consumidos={46200} total={50000} renovacion="3 de septiembre" onAmpliar={() => {}} />
+                <CreditsWidget disponibles={37600} pocos={false} onRecargar={() => {}} />
+                <CreditsWidget disponibles={3800} pocos onRecargar={() => {}} />
               </div>
             </Panel>
           </div>

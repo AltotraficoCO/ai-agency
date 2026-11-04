@@ -43,8 +43,8 @@ export default function Pagina() {
       <h2>4. Créditos y pagos</h2>
       <ul>
         <li>
-          El trabajo de los agentes se paga con créditos. Cada plan incluye una cantidad mensual y
-          puedes recargar más.
+          El trabajo de los agentes se paga con créditos, que compras por adelantado con una recarga
+          desde 15 USD. No hay planes ni cuotas mensuales.
         </li>
         <li>
           El coste de cada tarea se muestra antes o inmediatamente después de ejecutarla, y el
@@ -52,14 +52,22 @@ export default function Pagina() {
         </li>
         <li>
           Los créditos no son reembolsables ni canjeables por dinero, salvo que la ley disponga otra
-          cosa. Los del plan caducan al terminar el ciclo; los de recarga no caducan mientras la
-          cuenta esté activa.
+          cosa. No caducan mientras la cuenta esté activa.
         </li>
         <li>
           Los precios pueden cambiar. Te avisaremos con al menos 30 días de antelación y el cambio
-          aplicará en tu siguiente ciclo.
+          aplicará a las recargas posteriores.
         </li>
-        <li>Los pagos los procesa Stripe. Los impuestos aplicables se añaden según tu país.</li>
+        <li>
+          Los pagos los procesa Wompi y se cobran en pesos colombianos, a la TRM del día en que se
+          hace la recarga. El monto en pesos se muestra antes de pagar.
+        </li>
+        <li>
+          Puedes activar la recarga automática: al acabarse tu saldo, cargamos a la tarjeta que
+          registraste el monto que elegiste, en pesos a la TRM del día. Se activa con tu autorización
+          expresa y puedes apagarla o quitar la tarjeta en cualquier momento desde Ajustes →
+          Facturación.
+        </li>
       </ul>
 
       <h2>5. Aprobaciones y responsabilidad sobre lo que hacen los agentes</h2>

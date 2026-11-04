@@ -30,7 +30,7 @@ export default function Pagina() {
       <h3>Datos de tu cuenta</h3>
       <p>
         Nombre, correo electrónico, contraseña cifrada, nombre de tu empresa, datos de facturación
-        y el historial de créditos consumidos. Los pagos los procesa Stripe; Strappy no guarda el
+        y el historial de créditos consumidos. Los pagos los procesa Wompi; Strappy no guarda el
         número de tu tarjeta.
       </p>
       <h3>Datos de las herramientas que conectas</h3>
@@ -95,7 +95,7 @@ export default function Pagina() {
           <strong>Vercel</strong>: donde se ejecuta la aplicación.
         </li>
         <li>
-          <strong>Stripe</strong>: el cobro.
+          <strong>Wompi</strong>: el cobro y la custodia de la tarjeta, si registras una.
         </li>
         <li>
           <strong>Meta, Google, TikTok, Alegra y WordPress</strong>: las plataformas que tú mismo

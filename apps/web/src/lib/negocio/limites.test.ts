@@ -37,14 +37,14 @@ describe("agotamiento de saldo", () => {
         costeEstimado: 10,
         gastadoHoy: 999,
         gastadoEnConversacion: 0,
-        limites: { diario: 1_000, porConversacion: null, parada: "dura" as const },
+        limites: { diario: 1_000, porConversacion: null },
       },
       {
         saldoDisponible: 10_000,
         costeEstimado: 10,
         gastadoHoy: 0,
         gastadoEnConversacion: 1_995,
-        limites: { diario: null, porConversacion: 2_000, parada: "dura" as const },
+        limites: { diario: null, porConversacion: 2_000 },
       },
     ];
     for (const caso of casos) {
@@ -65,15 +65,16 @@ describe("agotamiento de saldo", () => {
     expect(decision.motivo).toBeNull();
   });
 
-  it("la parada blanda deja seguir en negativo", () => {
+  it("un ajuste viejo de «seguir y facturar después» ya no deja gastar sin saldo", () => {
+    const limites = limitesDesdeAjustes({ limites_credito: { parada: "blanda" } });
     const decision = decidirEjecucion({
       saldoDisponible: 0,
       costeEstimado: 5,
       gastadoHoy: 0,
       gastadoEnConversacion: 0,
-      limites: { diario: null, porConversacion: null, parada: "blanda" },
+      limites,
     });
-    expect(decision.permitido).toBe(true);
+    expect(decision.motivo).toBe("no_credits");
   });
 });
 
@@ -85,7 +86,7 @@ describe("topes de gasto", () => {
       costeEstimado: 50,
       gastadoHoy: 0,
       gastadoEnConversacion: 1_990,
-      limites: { diario: null, porConversacion: 2_000, parada: "dura" },
+      limites: { diario: null, porConversacion: 2_000 },
     });
     expect(decision.motivo).toBe("tope_conversacion");
   });
@@ -96,7 +97,7 @@ describe("topes de gasto", () => {
       costeEstimado: 50,
       gastadoHoy: 4_990,
       gastadoEnConversacion: 0,
-      limites: { diario: 5_000, porConversacion: null, parada: "dura" },
+      limites: { diario: 5_000, porConversacion: null },
     });
     expect(decision.motivo).toBe("tope_diario");
   });
@@ -104,13 +105,12 @@ describe("topes de gasto", () => {
   it("por defecto hay tope por conversación pero no diario", () => {
     expect(LIMITES_POR_DEFECTO.porConversacion).toBe(2_000);
     expect(LIMITES_POR_DEFECTO.diario).toBeNull();
-    expect(LIMITES_POR_DEFECTO.parada).toBe("dura");
   });
 });
 
 describe("lectura y escritura de los topes en los ajustes", () => {
   it("ida y vuelta sin perder nada", () => {
-    const limites = { diario: 500, porConversacion: 100, parada: "blanda" as const };
+    const limites = { diario: 500, porConversacion: 100 };
     expect(limitesDesdeAjustes(limitesAAjustes(limites))).toEqual(limites);
   });
 

@@ -1,25 +1,16 @@
 import "server-only";
 
 /**
- * Cartera, plan y agentes contratados: todo lo que hace falta para responder
- * «¿cuánto pago este mes?» de un vistazo.
- *
- * La respuesta tiene TRES sumandos y ninguno es evidente por separado:
- *   1. la cuota del plan,
- *   2. el fijo mensual de cada agente del catálogo que tengas contratado,
- *   3. las recargas de crédito que hayas comprado en el periodo.
- *
- * En la competencia estos tres viven en tres pantallas distintas y el cliente
- * no puede sumarlos. Aquí se suman una vez, aquí, y la interfaz solo pinta.
+ * Cartera y agentes contratados: cuánto queda, cuánto se gastó y cuánto se pagó.
  *
  * NO se suma nada de Meta. El gasto de WhatsApp lo cobra Meta directamente al
  * cliente y vive en `meta.ts`, con otro tipo, a propósito.
  */
 import { conEspacio } from "@/lib/db/pool";
+import { obtenerConfigCobro } from "@/lib/plataforma/config";
 import { limitesDesdeAjustes, type LimitesGasto } from "./limites";
 import { combinarFactura, type ResumenFactura } from "./factura";
-import { planPorClave, planIncluyeMax, creditosAUsd, type Plan } from "./planes";
-import { estadoDelSaldo, proyectarConsumo, type EstadoSaldo, type Proyeccion } from "./creditos";
+import { creditosAUsd, diasDeSaldo, estadoDelSaldo, type EstadoSaldo } from "./creditos";
 
 export type AgenteContratado = {
   readonly slug: string;
@@ -35,24 +26,20 @@ export type AgenteContratado = {
 };
 
 export type Cartera = {
-  readonly saldoIncluido: number;
-  readonly saldoComprado: number;
-  readonly reservado: number;
   /** Lo que el motor puede gastar ahora mismo. */
   readonly disponible: number;
-  /** Créditos incluidos otorgados en el periodo. */
-  readonly otorgados: number;
-  readonly consumidosEnPeriodo: number;
-  readonly inicioPeriodo: Date;
-  readonly finPeriodo: Date;
-  readonly proyeccion: Proyeccion;
+  readonly reservado: number;
+  readonly consumidosEnMes: number;
+  readonly inicioMes: Date;
+  /** Para cuántos días alcanza al ritmo reciente. `null` si aún no se puede saber. */
+  readonly diasDeSaldo: number | null;
   readonly estado: EstadoSaldo;
+  /** Identifica la última recarga; abre un ciclo nuevo de avisos. */
+  readonly cicloDeAvisos: string;
 };
 
 export type EstadoNegocio = {
   readonly cartera: Cartera;
-  readonly plan: Plan;
-  readonly estadoSuscripcion: string;
   readonly agentes: readonly AgenteContratado[];
   readonly factura: ResumenFactura;
   readonly limites: LimitesGasto;
@@ -62,85 +49,85 @@ type FilaCartera = {
   included_balance: string;
   purchased_balance: string;
   reserved_balance: string;
-  included_granted: string;
-  period_start: string;
-  period_end: string;
 };
 
 /**
- * Un único viaje a la base por visita. Son cinco consultas por clave primaria o
- * por índice de espacio; el coste real es el ida y vuelta, no el trabajo.
+ * Un único viaje a la base por visita. El mes es el natural en la zona horaria
+ * del espacio: es el que el cliente tiene en la cabeza al leer «este mes».
  */
-export async function estadoDelNegocio(workspaceId: string, ahora = new Date()): Promise<EstadoNegocio> {
+export async function estadoDelNegocio(workspaceId: string): Promise<EstadoNegocio> {
+  const config = await obtenerConfigCobro();
   return conEspacio(workspaceId, async (scope) => {
-    const [cartera, suscripcion, contratados, recargas, espacio] = await Promise.all([
-      scope.query<FilaCartera>(
-        `select included_balance, purchased_balance, reserved_balance, included_granted,
-                period_start, period_end
-           from public.credit_wallets where workspace_id = $1`,
-        [workspaceId],
-      ),
-      scope.query<{ plan: string; status: string; current_period_start: string; current_period_end: string }>(
-        `select plan, status, current_period_start, current_period_end
-           from public.subscriptions where workspace_id = $1`,
-        [workspaceId],
-      ),
-      scope.query<{
-        slug: string;
-        name: string;
-        tagline: string | null;
-        status: string;
-        agent_id: string | null;
-        monthly_credits: number;
-        started_at: string;
-      }>(
-        `select c.slug, c.name, c.tagline, s.status, s.agent_id, c.monthly_credits, s.started_at
-           from public.agent_subscriptions s
-           join public.catalog_agents c on c.slug = s.catalog_slug
-          where s.workspace_id = $1
-          order by s.started_at asc`,
-        [workspaceId],
-      ),
-      scope.query<{ creditos: string | null }>(
-        `select coalesce(sum(amount), 0) as creditos
-           from public.credit_ledger
-          where workspace_id = $1
-            and direction = 'credit'
-            and source = 'topup'
-            and created_at >= (select period_start from public.credit_wallets where workspace_id = $1)`,
-        [workspaceId],
-      ),
-      // `workspaces` usa su propio `id` como clave de espacio: la política del
-      // worker es `id = current_workspace()`, así que esta lectura es legítima.
-      scope.query<{ settings: unknown }>(`select settings from public.workspaces where id = $1`, [
-        workspaceId,
-      ]),
-    ]);
+    const cartera = await scope.query<FilaCartera>(
+      `select included_balance, purchased_balance, reserved_balance
+         from public.credit_wallets where workspace_id = $1`,
+      [workspaceId],
+    );
+    const contratados = await scope.query<{
+      slug: string;
+      name: string;
+      tagline: string | null;
+      status: string;
+      agent_id: string | null;
+      monthly_credits: number;
+      started_at: string;
+    }>(
+      `select c.slug, c.name, c.tagline, s.status, s.agent_id, c.monthly_credits, s.started_at
+         from public.agent_subscriptions s
+         join public.catalog_agents c on c.slug = s.catalog_slug
+        where s.workspace_id = $1
+        order by s.started_at asc`,
+      [workspaceId],
+    );
+    const movimientos = await scope.query<{
+      inicio_mes: string;
+      gastado_mes: string;
+      gastado_30: string;
+      primer_gasto_30: string | null;
+    }>(
+      `with mes as (
+         select date_trunc('month', now() at time zone timezone) at time zone timezone as inicio
+           from public.workspaces where id = $1
+       )
+       select (select inicio from mes) as inicio_mes,
+              coalesce(sum(amount) filter (where created_at >= (select inicio from mes)), 0) as gastado_mes,
+              coalesce(sum(amount) filter (where created_at >= now() - interval '30 days'), 0) as gastado_30,
+              min(created_at) filter (where created_at >= now() - interval '30 days') as primer_gasto_30
+         from public.credit_ledger
+        where workspace_id = $1 and direction = 'debit' and source <> 'admin_adjustment'
+          and created_at >= least((select inicio from mes), now() - interval '30 days')`,
+      [workspaceId],
+    );
+    const recargas = await scope.query<{
+      recargado_mes: string;
+      ultima: string | null;
+    }>(
+      `select coalesce(sum(usd_amount) filter (
+                where credited_at >= (
+                  select date_trunc('month', now() at time zone timezone) at time zone timezone
+                    from public.workspaces where id = $1)
+              ), 0) as recargado_mes,
+              max(credited_at) as ultima
+         from public.credit_topups
+        where workspace_id = $1 and credited_at is not null`,
+      [workspaceId],
+    );
+    // `workspaces` usa su propio `id` como clave de espacio: la política del
+    // worker es `id = current_workspace()`, así que esta lectura es legítima.
+    const espacio = await scope.query<{ settings: unknown }>(
+      `select settings from public.workspaces where id = $1`,
+      [workspaceId],
+    );
 
     const w = cartera.rows[0];
-    const inicioPeriodo = w ? new Date(w.period_start) : inicioDeMes(ahora);
-    const finPeriodo = w ? new Date(w.period_end) : finDeMes(ahora);
-
-    const saldoIncluido = num(w?.included_balance);
-    const saldoComprado = num(w?.purchased_balance);
+    const saldo = num(w?.included_balance) + num(w?.purchased_balance);
     const reservado = num(w?.reserved_balance);
-    const otorgados = num(w?.included_granted);
+    const disponible = Math.max(0, saldo - reservado);
 
-    // Lo consumido del periodo es lo otorgado menos lo que queda del bolsillo
-    // incluido. El comprado no entra: no caduca y no pertenece al periodo.
-    const consumidos = Math.max(0, otorgados - saldoIncluido);
-    const asignados = Math.max(otorgados, 1);
-
-    const proyeccion = proyectarConsumo({
-      consumidos,
-      asignados,
-      inicioPeriodo,
-      finPeriodo,
-      ahora,
-    });
-
-    const fila = suscripcion.rows[0];
-    const plan = planPorClave(fila?.plan);
+    const m = movimientos.rows[0];
+    const r = recargas.rows[0];
+    const primerGasto = m?.primer_gasto_30 ? new Date(m.primer_gasto_30).getTime() : null;
+    const diasDeHistorial = primerGasto === null ? 0 : (Date.now() - primerGasto) / 86_400_000;
 
     const agentes: AgenteContratado[] = contratados.rows.map((f) => ({
       slug: f.slug,
@@ -156,32 +143,24 @@ export async function estadoDelNegocio(workspaceId: string, ahora = new Date()):
     const agentesUsd = agentes
       .filter((a) => a.estado === "active")
       .reduce((total, a) => total + a.costeUsd, 0);
-    const recargasUsd = creditosAUsd(num(recargas.rows[0]?.creditos));
-
-    const limites = limitesDesdeAjustes(espacio.rows[0]?.settings ?? null);
 
     return {
       cartera: {
-        saldoIncluido,
-        saldoComprado,
+        disponible,
         reservado,
-        disponible: Math.max(0, saldoIncluido + saldoComprado - reservado),
-        otorgados,
-        consumidosEnPeriodo: consumidos,
-        inicioPeriodo,
-        finPeriodo,
-        proyeccion,
-        estado: estadoDelSaldo(consumidos, asignados),
+        consumidosEnMes: num(m?.gastado_mes),
+        inicioMes: m?.inicio_mes ? new Date(m.inicio_mes) : new Date(),
+        diasDeSaldo: diasDeSaldo({ disponible, gastados: num(m?.gastado_30), diasDeHistorial }),
+        estado: estadoDelSaldo({
+          disponible,
+          umbralAviso: config.umbralAviso,
+          haRecargado: Boolean(r?.ultima),
+        }),
+        cicloDeAvisos: r?.ultima ? new Date(r.ultima).toISOString() : "inicial",
       },
-      plan,
-      estadoSuscripcion: fila?.status ?? "trialing",
       agentes,
-      factura: combinarFactura(plan, {
-        planUsd: plan.precioUsd,
-        agentesUsd,
-        recargasUsd,
-      }),
-      limites,
+      factura: combinarFactura({ agentesUsd, recargasUsd: num(r?.recargado_mes) }),
+      limites: limitesDesdeAjustes(espacio.rows[0]?.settings ?? null),
     };
   });
 }
@@ -209,26 +188,4 @@ export async function ajustesDelEspacio(workspaceId: string): Promise<{
 function num(valor: string | null | undefined): number {
   const n = Number(valor ?? 0);
   return Number.isFinite(n) ? n : 0;
-}
-
-function inicioDeMes(ahora: Date): Date {
-  return new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), 1));
-}
-
-function finDeMes(ahora: Date): Date {
-  return new Date(Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth() + 1, 1));
-}
-
-/**
- * Si el espacio puede ofrecer el modo Max. Lo usan la portada de Strap y la
- * ficha de cada agente; el worker lo vuelve a comprobar antes de cada tarea.
- */
-export async function espacioConMax(workspaceId: string): Promise<boolean> {
-  return conEspacio(workspaceId, async (scope) => {
-    const { rows } = await scope.query<{ plan: string }>(
-      `select plan from public.subscriptions where workspace_id = $1 limit 1`,
-      [workspaceId],
-    );
-    return planIncluyeMax(rows[0]?.plan);
-  });
 }

@@ -23,3 +23,4 @@ export * from './scheduling.js';
 export * from './secrets.js';
 export * from './http.js';
 export * from './runtime.js';
+export * from './plataforma.js';

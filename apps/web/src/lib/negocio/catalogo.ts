@@ -10,14 +10,14 @@ import "server-only";
  * sin agente no atiende a nadie.
  *
  * El precio del agente NO se escribe aquí: sale de `catalog_agents.monthly_credits`.
- * Hoy la semilla lo deja en cero y por eso la ficha dice «incluido en tu plan»;
+ * Hoy la semilla lo deja en cero y por eso la ficha dice «sin cuota»;
  * el día que se ponga precio, la ficha lo dirá sola sin tocar este archivo.
  */
 import { desdePlantillaDeCatalogo, type EspecificacionAgente } from "@strappy/db/spec";
 import { conEspacio } from "@/lib/db/pool";
 import { cuentasDeCobroDelEspacio } from "@/lib/contabilidad/contabilidad";
 import { instruccionesDeAjustes } from "./ajustes-agente";
-import { creditosAUsd } from "./planes";
+import { creditosAUsd } from "./creditos";
 import {
   CONTENIDO_POR_AGENTE,
   capacidadesDeRespaldo,

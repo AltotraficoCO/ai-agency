@@ -8,7 +8,6 @@ import { SelectorFoto } from "@/components/agentes/selector-foto";
 import { InterruptorMax } from "@/components/agentes/interruptor-max";
 import { datosDelMarco } from "@/lib/marco";
 import { leerAgente } from "@/lib/agentes";
-import { espacioConMax } from "@/lib/negocio/cartera";
 import { SeccionRepositorio } from "@/components/negocio/seccion-repositorio";
 import { sitioDelEspacio } from "@/lib/sitio/sitio";
 
@@ -26,9 +25,6 @@ export default async function PaginaInstrucciones({
   const marco = await datosDelMarco();
   const agente = await leerAgente(marco.actual.workspaceId, id);
   if (!agente) notFound();
-  // El modo Max está en todos los planes de pago; lo enciende el cliente por
-  // agente. En el gratuito se enseña apagado y se dice por qué.
-  const planDePago = marco.actual.esDesarrollo || (await espacioConMax(marco.actual.workspaceId));
   const seccion = seccionDe(agente.tipo);
   // El Webmaster necesita saber DÓNDE trabaja, y el cliente lo busca aquí, en
   // la ficha de su agente, no solo en Ajustes.
@@ -70,7 +66,7 @@ export default async function PaginaInstrucciones({
               nombre={agente.nombre}
               variante={agente.tipo === "conversational" ? "whatsapp" : "catalogo"}
             />
-            <InterruptorMax agentId={id} modo={agente.modo} planDePago={planDePago} />
+            <InterruptorMax agentId={id} modo={agente.modo} />
             {esWebmaster && (
               <>
                 <DondeTrabaja sitio={sitio} />

@@ -24,7 +24,7 @@ export type DatosIniciales = {
   workspaceId: string;
   esDesarrollo: boolean;
   usuario: { nombre: string; correo: string; avatar?: string };
-  creditos: { consumidos: number; total: number; renovacion: string };
+  creditos: { disponibles: number; pocos: boolean };
 };
 
 export function useEstadoBandeja(inicial: DatosIniciales) {

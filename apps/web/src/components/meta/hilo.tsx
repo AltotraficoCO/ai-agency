@@ -47,7 +47,6 @@ export interface HiloProps {
   mensajesIniciales: UIMessage[];
   borradorInicial: Record<string, unknown>;
   modoInicial: ModoConstruccion;
-  maxDisponible: boolean;
   /** Mensaje que se envía solo al abrir. Viene del chip o del composer de inicio. */
   mensajeDeApertura?: string;
 }
@@ -57,7 +56,6 @@ export function Hilo({
   mensajesIniciales,
   borradorInicial,
   modoInicial,
-  maxDisponible,
   mensajeDeApertura,
 }: HiloProps) {
   const [modo, setModo] = React.useState<ModoConstruccion>(modoInicial);
@@ -184,7 +182,6 @@ export function Hilo({
             }}
             modo={modo}
             onModo={setModo}
-            maxDisponible={maxDisponible}
             ocupado={ocupado}
             placeholder="Responde o cuéntame otra cosa…"
           />

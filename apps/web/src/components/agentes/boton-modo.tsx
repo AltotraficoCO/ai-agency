@@ -10,18 +10,16 @@
  */
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Lock, Zap } from "lucide-react";
+import { Zap } from "lucide-react";
 import { Tooltip, cn } from "@strappy/ui";
 import { cambiarModoAgente } from "@/lib/acciones-agente";
 
 export function BotonModo({
   agentId,
   modo,
-  planDePago,
 }: {
   agentId: string;
   modo: "lite" | "max";
-  planDePago: boolean;
 }) {
   const router = useRouter();
   const [actual, setActual] = React.useState(modo);
@@ -54,22 +52,13 @@ export function BotonModo({
         etiqueta="Lite"
         descripcion="Rápido y económico. Suficiente para la mayoría de los encargos."
       />
-      {planDePago ? (
-        <Opcion
-          activo={actual === "max"}
-          onClick={() => void elegir("max")}
-          etiqueta="Max"
-          descripcion="El modelo más capaz. Acierta más a la primera en encargos largos y gasta bastantes más créditos."
-          icono={<Zap size={13} strokeWidth={2} aria-hidden />}
-        />
-      ) : (
-        <Tooltip content="Max viene con los planes de pago. Usa el modelo más capaz y consume más créditos.">
-          <span className="inline-flex h-7 items-center gap-1 rounded-full px-3 text-sm text-fg-muted">
-            <Lock size={13} strokeWidth={2} aria-hidden />
-            Max
-          </span>
-        </Tooltip>
-      )}
+      <Opcion
+        activo={actual === "max"}
+        onClick={() => void elegir("max")}
+        etiqueta="Max"
+        descripcion="El modelo más capaz. Acierta más a la primera en encargos largos y gasta bastantes más créditos."
+        icono={<Zap size={13} strokeWidth={2} aria-hidden />}
+      />
     </div>
   );
 }

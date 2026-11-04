@@ -1,74 +1,74 @@
-import {
-  Bell,
-  Check,
-  Download,
-  FileText,
-  Gauge,
-  Layers,
-  OctagonAlert,
-  RefreshCw,
-  ShieldAlert,
-  Zap,
-} from "lucide-react";
+import { Bell, CreditCard, FileText, Gauge, OctagonAlert, RefreshCw, ShieldAlert, Wallet, Zap } from "lucide-react";
+import { obtenerTrm } from "@strappy/core/recargas";
+import { tokensDeAceptacion } from "@strappy/core/wompi";
 import { Badge } from "@strappy/ui";
 import { MarcoApp } from "@/components/marco-app";
 import { DisposicionAjustes } from "@/components/nav-ajustes";
 import { BannerCreditos } from "@/components/negocio/banner-creditos";
 import { BarraConsumo } from "@/components/negocio/barra-consumo";
 import { FacturaCombinada } from "@/components/negocio/factura-combinada";
-import { BotonPago, BotonPortal, FormularioLimites } from "@/components/negocio/formularios-ajustes";
+import { FormularioLimites } from "@/components/negocio/formularios-ajustes";
+import { FormularioRecarga, RecargaAutomaticaPanel } from "@/components/negocio/recarga";
 import { AvisoAjustes, SeccionAjustes } from "@/components/negocio/seccion-ajustes";
 import { datosDelMarco } from "@/lib/marco";
-import { accionGuardarLimites } from "@/lib/negocio/acciones";
+import { accionGuardarLimites, accionGuardarRecargaAutomatica, accionOlvidarTarjeta } from "@/lib/negocio/acciones";
 import { analiticaDeStrappy } from "@/lib/negocio/analitica";
 import { ajustesDelEspacio, estadoDelNegocio } from "@/lib/negocio/cartera";
 import { avisarSiHaceFalta } from "@/lib/negocio/avisos";
-import { creditosCompactos, creditosEnDolares, dolares } from "@/lib/negocio/creditos";
-import { clienteStripeDelEspacio } from "@/lib/negocio/facturacion";
+import { creditosCompactos, creditosEnDolares, dolares, fraseDeRitmo } from "@/lib/negocio/creditos";
+import { recargaAutomaticaDelEspacio, recargasDelEspacio } from "@/lib/negocio/facturacion";
+import { obtenerConfigCobro, obtenerLlavesWompi } from "@/lib/plataforma/config";
 import { diaEnZona, type RangoDias } from "@/lib/negocio/fechas";
-import { PLANES, RECARGAS } from "@/lib/negocio/planes";
-import { facturasDelCliente, hayStripe } from "@/lib/negocio/stripe";
 
 export const metadata = { title: "Facturación" };
 export const dynamic = "force-dynamic";
 
 /**
  * Facturación, en el orden en que se pregunta:
- *   1. ¿Qué plan tengo y cuánto pago este mes? — arriba y en grande.
- *   2. ¿Cuánto llevo gastado y dónde acabaré? — la barra con la proyección.
- *   3. ¿Cómo consigo más? — recargas y planes como tarjetas que se eligen.
- *   4. Lo que se toca una vez: topes, facturas y avisos.
+ *   1. ¿Cuánto me queda y cuánto pagué este mes? — arriba y en grande.
+ *   2. ¿Cómo consigo más? — la recarga, y que se haga sola.
+ *   3. ¿En qué se me va? — el consumo del mes.
+ *   4. Lo que se toca una vez: topes, historial y avisos.
  */
-export default async function PaginaFacturacion() {
+export default async function PaginaFacturacion({
+  searchParams,
+}: {
+  searchParams: Promise<{ resultado?: string }>;
+}) {
+  const { resultado } = await searchParams;
   const marco = await datosDelMarco();
   const espacio = await ajustesDelEspacio(marco.actual.workspaceId);
   const negocio = await estadoDelNegocio(marco.actual.workspaceId);
+  const { cartera } = negocio;
 
-  // El consumo detallado se mira sobre el PERIODO DE FACTURACIÓN, no sobre los
-  // últimos 30 días: es el periodo que el cliente va a ver en su factura.
   const rango: RangoDias = {
-    desde: diaEnZona(negocio.cartera.inicioPeriodo, espacio.zonaHoraria),
+    desde: diaEnZona(cartera.inicioMes, espacio.zonaHoraria),
     hasta: diaEnZona(new Date(), espacio.zonaHoraria),
   };
 
-  const [analitica, cliente] = await Promise.all([
+  const [llaves, config] = await Promise.all([obtenerLlavesWompi(), obtenerConfigCobro()]);
+  const llavePublica = llaves.publica || null;
+  const [analitica, recargas, automatica, trm, contratos] = await Promise.all([
     analiticaDeStrappy(marco.actual.workspaceId, rango),
-    clienteStripeDelEspacio(marco.actual.workspaceId),
+    recargasDelEspacio(marco.actual.workspaceId),
+    recargaAutomaticaDelEspacio(marco.actual.workspaceId),
+    // La TRM cambia una vez al día: no hace falta pedirla en cada visita.
+    obtenerTrm({ peticion: { next: { revalidate: 3600 } } as RequestInit }),
+    llavePublica ? tokensDeAceptacion(llavePublica) : Promise.resolve(null),
   ]);
-  const facturas = await facturasDelCliente(cliente);
 
-  // Aviso del 80% / 100%: se dispara aquí y una sola vez por periodo. La página
-  // no depende de ello para pintarse.
+  // El aviso se dispara aquí y una sola vez por recarga. La página no depende de
+  // ello para pintarse.
   await avisarSiHaceFalta({
     workspaceId: marco.actual.workspaceId,
     correo: marco.actual.correo,
     nombreEspacio: espacio.nombre,
-    proyeccion: negocio.cartera.proyeccion,
-    inicioPeriodo: negocio.cartera.inicioPeriodo,
+    estado: cartera.estado,
+    disponible: cartera.disponible,
+    ciclo: cartera.cicloDeAvisos,
   }).catch(() => null);
 
   const puedeEditar = marco.actual.rol === "owner" || marco.actual.rol === "admin";
-  const plan = negocio.plan;
 
   return (
     <MarcoApp
@@ -81,45 +81,47 @@ export default async function PaginaFacturacion() {
       <DisposicionAjustes
         ancho="amplio"
         titulo="Facturación"
-        descripcion="Tu plan, lo que llevas gastado este periodo y cómo conseguir más créditos."
-        acciones={puedeEditar ? <BotonPortal /> : undefined}
+        descripcion="Tu saldo, cómo recargarlo y en qué se va."
       >
-        <BannerCreditos estado={negocio.cartera.estado} proyeccion={negocio.cartera.proyeccion} />
+        <BannerCreditos estado={cartera.estado} disponible={cartera.disponible} />
 
-        {!hayStripe() && (
+        {resultado === "procesando" && (
+          <AvisoAjustes>
+            Estamos confirmando tu pago con Wompi. Los créditos entran en cuanto se apruebe: puede tardar unos minutos.
+          </AvisoAjustes>
+        )}
+
+        {!llavePublica && (
           <AvisoAjustes>
             Los pagos aún no están configurados en esta instalación: los botones de pago te lo dirán al pulsarlos.
           </AvisoAjustes>
         )}
 
         <div className="grid gap-4 lg:grid-cols-5">
-          <section className="strappy-slide-up relative flex flex-col overflow-hidden rounded-xl border border-border bg-raised p-5 shadow-e1 lg:col-span-3">
+          <section className="strappy-slide-up relative flex flex-col justify-center overflow-hidden rounded-xl border border-border bg-raised p-5 shadow-e1 lg:col-span-3">
             <span
               aria-hidden
               className="pointer-events-none absolute -right-20 -top-20 size-56 rounded-full bg-[radial-gradient(circle,color-mix(in_oklab,var(--brand),transparent_86%),transparent_70%)]"
             />
             <div className="relative flex items-start justify-between gap-3">
               <div>
-                <p className="text-2xs font-medium tracking-wide text-fg-muted uppercase">Tu plan</p>
-                <p className="mt-1 text-3xl font-semibold tracking-tight text-fg">{plan.nombre}</p>
-                <p className="text-sm text-fg-secondary">
-                  {creditosCompactos(plan.creditosIncluidos)} créditos al mes ·{" "}
-                  {plan.precioUsd === 0 ? "Gratis" : `${dolares(plan.precioUsd)} al mes`}
+                <p className="flex items-center gap-1.5 text-2xs font-medium tracking-wide text-fg-muted uppercase">
+                  <Wallet size={13} strokeWidth={2} aria-hidden />
+                  Tu saldo
                 </p>
+                <p className="mt-1 text-3xl font-semibold tracking-tight text-fg tabular-nums">
+                  {creditosCompactos(cartera.disponible)}
+                  <span className="ml-1.5 text-base font-normal text-fg-secondary">créditos</span>
+                </p>
+                <p className="text-sm text-fg-secondary">Equivalen a {creditosEnDolares(cartera.disponible)}. No caducan.</p>
               </div>
-              <Badge tone={negocio.estadoSuscripcion === "active" ? "exito" : "aviso"}>
-                {ESTADO[negocio.estadoSuscripcion] ?? negocio.estadoSuscripcion}
+              <Badge tone={automatica.activa ? "exito" : "aviso"}>
+                {automatica.activa ? `Recarga automática: ${dolares(automatica.usd)}` : "Recarga manual"}
               </Badge>
             </div>
-            <p className="relative mt-4 text-sm text-fg-secondary">{plan.resumen}</p>
-            <ul className="relative mt-3 grid gap-2 sm:grid-cols-2">
-              {plan.incluye.map((linea) => (
-                <li key={linea} className="flex items-center gap-2 text-sm text-fg">
-                  <Check size={14} strokeWidth={2.5} className="shrink-0 text-primary-fg" aria-hidden />
-                  {linea}
-                </li>
-              ))}
-            </ul>
+            {fraseDeRitmo(cartera.diasDeSaldo) && (
+              <p className="relative mt-4 text-sm text-fg-secondary">{fraseDeRitmo(cartera.diasDeSaldo)}</p>
+            )}
           </section>
 
           <FacturaCombinada
@@ -131,98 +133,41 @@ export default async function PaginaFacturacion() {
         </div>
 
         <SeccionAjustes
-          titulo="Consumo del periodo"
+          titulo="Recargar créditos"
+          descripcion="Elige cuánto. Los créditos no caducan y tus agentes gastan de ahí."
+          icono={<Zap size={18} strokeWidth={1.75} aria-hidden />}
+        >
+          <FormularioRecarga trm={trm} puedeEditar={puedeEditar} config={config} />
+        </SeccionAjustes>
+
+        <SeccionAjustes
+          titulo="Recarga automática"
+          descripcion="Para que tus agentes no se detengan: al acabarse el saldo, se carga tu tarjeta."
+          icono={<CreditCard size={18} strokeWidth={1.75} aria-hidden />}
+        >
+          <RecargaAutomaticaPanel
+            estado={automatica}
+            llavePublica={llavePublica}
+            contratos={contratos}
+            trm={trm}
+            config={config}
+            puedeEditar={puedeEditar}
+            guardar={accionGuardarRecargaAutomatica}
+            olvidar={accionOlvidarTarjeta}
+          />
+        </SeccionAjustes>
+
+        <SeccionAjustes
+          titulo="Consumo del mes"
           descripcion="Créditos de IA: lo único que te cobramos por uso."
           icono={<Gauge size={18} strokeWidth={1.75} aria-hidden />}
         >
-          <div className="flex flex-col gap-5">
-            <BarraConsumo proyeccion={negocio.cartera.proyeccion} segmentos={analitica.consumoPorAgente} />
-            <dl className="grid gap-3 sm:grid-cols-3">
-              <Cifra etiqueta="Saldo del plan">{creditosCompactos(negocio.cartera.saldoIncluido)} créditos</Cifra>
-              <Cifra etiqueta="Saldo comprado" nota="no caduca">
-                {creditosCompactos(negocio.cartera.saldoComprado)} créditos
-              </Cifra>
-              <Cifra etiqueta="Equivale a">
-                {creditosEnDolares(negocio.cartera.saldoIncluido + negocio.cartera.saldoComprado)}
-              </Cifra>
-            </dl>
-          </div>
-        </SeccionAjustes>
-
-        <SeccionAjustes
-          titulo="Recargar créditos"
-          descripcion="No caducan: primero se gasta lo incluido en tu plan y después lo que compraste."
-          icono={<Zap size={18} strokeWidth={1.75} aria-hidden />}
-        >
-          <ul className="grid gap-3 sm:grid-cols-3">
-            {RECARGAS.map((r) => (
-              <li
-                key={r.clave}
-                className="group flex flex-col gap-4 rounded-xl border border-border bg-page p-4 transition-[transform,border-color,box-shadow] duration-[var(--dur-base)] ease-[var(--ease-out-quart)] hover:-translate-y-0.5 hover:border-[color-mix(in_oklab,var(--brand),transparent_55%)] hover:shadow-e2 motion-reduce:hover:translate-y-0"
-              >
-                <div>
-                  <p className="text-2xl font-semibold tracking-tight text-fg tabular-nums">
-                    {creditosCompactos(r.creditos)}
-                    <span className="ml-1.5 text-sm font-normal text-fg-secondary">créditos</span>
-                  </p>
-                  <p className="mt-1 text-lg font-medium text-fg tabular-nums">{dolares(r.precioUsd)}</p>
-                  <p className="text-2xs text-fg-muted">
-                    {dolares(r.precioUsd / (r.creditos / 1000))} por cada 1.000
-                  </p>
-                </div>
-                {puedeEditar && (
-                  <BotonPago cuerpo={{ recarga: r.clave }} variant="secondary" size="md" anchoCompleto>
-                    Recargar
-                  </BotonPago>
-                )}
-              </li>
-            ))}
-          </ul>
-        </SeccionAjustes>
-
-        <SeccionAjustes
-          titulo="Cambiar de plan"
-          descripcion="Lo que cambia es cuántos créditos incluye cada mes."
-          icono={<Layers size={18} strokeWidth={1.75} aria-hidden />}
-        >
-          <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            {PLANES.map((p) => {
-              const actual = p.clave === plan.clave;
-              return (
-                <li
-                  key={p.clave}
-                  className={`flex flex-col gap-3 rounded-xl border p-4 transition-[border-color,box-shadow] duration-[var(--dur-base)] ${
-                    actual
-                      ? "border-primary bg-primary-soft"
-                      : "border-border bg-page hover:border-[color-mix(in_oklab,var(--brand),transparent_55%)] hover:shadow-e2"
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-base font-semibold text-fg">{p.nombre}</span>
-                    {actual ? (
-                      <Badge tone="ia">Tu plan</Badge>
-                    ) : p.destacado ? (
-                      <Badge tone="info">Recomendado</Badge>
-                    ) : null}
-                  </div>
-                  <div>
-                    <p className="text-xl font-semibold tracking-tight text-fg tabular-nums">
-                      {p.precioUsd === 0 ? "Gratis" : dolares(p.precioUsd)}
-                      {p.precioUsd > 0 && <span className="ml-1 text-sm font-normal text-fg-secondary">al mes</span>}
-                    </p>
-                    <p className="text-2xs text-fg-muted">{creditosCompactos(p.creditosIncluidos)} créditos al mes</p>
-                  </div>
-                  {puedeEditar && !actual && p.precioUsd > 0 && (
-                    <div className="mt-auto">
-                      <BotonPago cuerpo={{ plan: p.clave }} variant="secondary" anchoCompleto>
-                        Cambiar a {p.nombre}
-                      </BotonPago>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          <BarraConsumo
+            consumidos={cartera.consumidosEnMes}
+            disponible={cartera.disponible}
+            fraseRitmo={fraseDeRitmo(cartera.diasDeSaldo)}
+            segmentos={analitica.consumoPorAgente}
+          />
         </SeccionAjustes>
 
         <SeccionAjustes
@@ -234,41 +179,33 @@ export default async function PaginaFacturacion() {
             accion={accionGuardarLimites}
             diario={negocio.limites.diario}
             porConversacion={negocio.limites.porConversacion}
-            parada={negocio.limites.parada}
             puedeEditar={puedeEditar}
           />
         </SeccionAjustes>
 
         <div className="grid gap-4 lg:grid-cols-2">
           <SeccionAjustes
-            titulo="Facturas"
-            descripcion="Las emite Stripe a nombre de tu organización."
+            titulo="Historial de recargas"
+            descripcion="Lo que has recargado y cómo terminó cada pago."
             icono={<FileText size={18} strokeWidth={1.75} aria-hidden />}
           >
-            {facturas.length === 0 ? (
-              <p className="text-sm text-fg-muted">
-                Aún no hay facturas. Aparecerán aquí en cuanto se cobre el primer periodo.
-              </p>
+            {recargas.length === 0 ? (
+              <p className="text-sm text-fg-muted">Aún no hay recargas. Aparecerán aquí en cuanto hagas la primera.</p>
             ) : (
               <ul className="-my-2 flex flex-col divide-y divide-[var(--border-subtle)]">
-                {facturas.map((f) => (
-                  <li key={f.id} className="flex flex-wrap items-center gap-3 py-2.5">
+                {recargas.map((r) => (
+                  <li key={r.id} className="flex flex-wrap items-center gap-3 py-2.5">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-fg">{f.numero}</p>
-                      <p className="text-2xs text-fg-muted">{FECHA.format(new Date(f.fecha))}</p>
+                      <p className="truncate text-sm font-medium text-fg">
+                        {creditosCompactos(r.creditos)} créditos
+                        {r.automatica && <span className="ml-1.5 text-2xs font-normal text-fg-muted">automática</span>}
+                      </p>
+                      <p className="text-2xs text-fg-muted">
+                        {FECHA.format(new Date(r.fecha))} · {PESOS.format(r.pesos)}
+                      </p>
                     </div>
-                    <span className="tabular-nums text-sm text-fg">{dolares(f.totalUsd)}</span>
-                    {f.urlPdf && (
-                      <a
-                        href={f.urlPdf}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label={`Descargar la factura ${f.numero} en PDF`}
-                        className="grid size-8 cursor-pointer place-items-center rounded-md text-fg-muted transition-colors hover:bg-hover hover:text-primary-fg"
-                      >
-                        <Download size={16} strokeWidth={1.75} aria-hidden />
-                      </a>
-                    )}
+                    <span className="tabular-nums text-sm text-fg">{dolares(r.usd)}</span>
+                    <Badge tone={TONO_RECARGA[r.estado] ?? "aviso"}>{ESTADO_RECARGA[r.estado] ?? r.estado}</Badge>
                   </li>
                 ))}
               </ul>
@@ -276,49 +213,29 @@ export default async function PaginaFacturacion() {
           </SeccionAjustes>
 
           <SeccionAjustes
-            titulo="Avisos de consumo"
+            titulo="Avisos de saldo"
             descripcion={`Te escribimos a ${marco.actual.correo}.`}
             icono={<Bell size={18} strokeWidth={1.75} aria-hidden />}
           >
             <ul className="flex flex-col gap-3 text-sm">
-              <Aviso icono={<Bell size={14} strokeWidth={2} aria-hidden />} tono="text-warning-fg" titulo="Al 80% del saldo">
-                Un correo y un aviso ámbar, una vez por periodo.
+              <Aviso icono={<Bell size={14} strokeWidth={2} aria-hidden />} tono="text-warning-fg" titulo="Con poco saldo">
+                Un correo y un aviso ámbar cuando bajas de {creditosCompactos(config.umbralAviso)} créditos.
               </Aviso>
               <Aviso
                 icono={<OctagonAlert size={14} strokeWidth={2} aria-hidden />}
                 tono="text-danger-fg"
-                titulo="Al 100%"
+                titulo="Sin saldo"
               >
                 El agente deja de responder solo; tu equipo sigue contestando a mano.
               </Aviso>
-              <Aviso icono={<RefreshCw size={14} strokeWidth={2} aria-hidden />} tono="text-primary-fg" titulo="Al renovar">
-                Se reponen los créditos del plan; los comprados siguen intactos.
+              <Aviso icono={<RefreshCw size={14} strokeWidth={2} aria-hidden />} tono="text-primary-fg" titulo="Al recargar">
+                El agente vuelve a trabajar en cuanto se confirma el pago.
               </Aviso>
             </ul>
           </SeccionAjustes>
         </div>
       </DisposicionAjustes>
     </MarcoApp>
-  );
-}
-
-function Cifra({
-  etiqueta,
-  nota,
-  children,
-}: {
-  etiqueta: string;
-  nota?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-lg border border-[var(--border-subtle)] bg-inset px-3.5 py-3">
-      <dt className="text-2xs text-fg-muted">{etiqueta}</dt>
-      <dd className="mt-0.5 text-base font-medium text-fg tabular-nums">
-        {children}
-        {nota && <span className="ml-1.5 text-2xs font-normal text-fg-muted">{nota}</span>}
-      </dd>
-    </div>
   );
 }
 
@@ -345,10 +262,16 @@ function Aviso({
 
 const FECHA = new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", year: "numeric" });
 
-const ESTADO: Record<string, string> = {
-  trialing: "En prueba",
-  active: "Activo",
-  past_due: "Pago pendiente",
-  paused: "En pausa",
-  cancelled: "Cancelado",
+const PESOS = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+
+const ESTADO_RECARGA: Record<string, string> = {
+  pending: "Pendiente",
+  approved: "Aprobada",
+  declined: "Rechazada",
+  voided: "Anulada",
+  error: "Con error",
+};
+
+const TONO_RECARGA: Record<string, "exito" | "aviso"> = {
+  approved: "exito",
 };

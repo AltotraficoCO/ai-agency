@@ -1,36 +1,39 @@
 import "server-only";
 
 /**
- * Avisos de saldo: 80% y 100%.
+ * Avisos de saldo: poco saldo y saldo agotado.
  *
- * Un aviso solo sirve si llega UNA vez. Si el banner del 80% mandara un correo
- * en cada visita a la aplicación, el cliente lo filtraría el segundo día y no
- * leería el del 100%, que es el que importa. Por eso cada aviso se reclama en
- * `credit_idempotency` con una clave que incluye el periodo: uno por umbral y
- * por periodo, y la renovación vuelve a habilitarlos sola.
+ * Un aviso solo sirve si llega UNA vez. Si el banner mandara un correo en cada
+ * visita a la aplicación, el cliente lo filtraría el segundo día y no leería el
+ * de saldo agotado, que es el que importa. Por eso cada aviso se reclama en
+ * `credit_idempotency` con una clave que incluye la última recarga: uno por
+ * umbral y por recarga, y la siguiente recarga vuelve a habilitarlos sola.
  *
  * El envío es opcional a propósito. Sin `RESEND_API_KEY` el aviso igualmente
  * queda anotado en la bitácora: el banner de la interfaz no depende del correo,
  * y una instalación sin proveedor de correo no debe romperse por esto.
  */
 import { conEspacio } from "@/lib/db/pool";
-import { creditosCompactos, fraseDeProyeccion, type Proyeccion } from "./creditos";
+import { creditosCompactos, type EstadoSaldo } from "./creditos";
 
-export type Umbral = "80" | "100";
+export type Umbral = "poco" | "agotado";
 
 export async function avisarSiHaceFalta(entrada: {
   workspaceId: string;
   correo: string;
   nombreEspacio: string;
-  proyeccion: Proyeccion;
-  inicioPeriodo: Date;
+  estado: EstadoSaldo;
+  disponible: number;
+  /** Fecha de la última recarga: cada recarga abre un ciclo de avisos nuevo. */
+  ciclo: string;
 }): Promise<Umbral | null> {
-  const fraccion = entrada.proyeccion.porcentajeActual;
-  const umbral: Umbral | null = fraccion >= 1 ? "100" : fraccion >= 0.8 ? "80" : null;
+  // `sin_recargar` no avisa: nadie quiere un correo de «te quedaste sin créditos»
+  // el día que se registra.
+  const umbral: Umbral | null =
+    entrada.estado === "agotado" ? "agotado" : entrada.estado === "aviso" ? "poco" : null;
   if (!umbral) return null;
 
-  const periodo = entrada.inicioPeriodo.toISOString().slice(0, 10);
-  const clave = `aviso:${umbral}:${periodo}`;
+  const clave = `aviso:${umbral}:${entrada.ciclo}`;
 
   const nuevo = await conEspacio(entrada.workspaceId, async (scope) => {
     const { rows } = await scope.query<{ ok: boolean }>(
@@ -47,12 +50,8 @@ export async function avisarSiHaceFalta(entrada: {
        values ($1, 'system', $2, 'credit_wallet', $3::jsonb)`,
       [
         entrada.workspaceId,
-        umbral === "100" ? "creditos.agotados" : "creditos.aviso_80",
-        JSON.stringify({
-          consumidos: entrada.proyeccion.consumidos,
-          asignados: entrada.proyeccion.asignados,
-          proyectado: entrada.proyeccion.proyectado,
-        }),
+        umbral === "agotado" ? "creditos.agotados" : "creditos.saldo_bajo",
+        JSON.stringify({ disponible: entrada.disponible }),
       ],
     );
     return true;
@@ -63,34 +62,30 @@ export async function avisarSiHaceFalta(entrada: {
   await enviarCorreo({
     para: entrada.correo,
     asunto:
-      umbral === "100"
+      umbral === "agotado"
         ? `Te quedaste sin créditos en ${entrada.nombreEspacio}`
-        : `Llevas el 80% de tus créditos en ${entrada.nombreEspacio}`,
-    cuerpo: cuerpoDelAviso(umbral, entrada.proyeccion),
+        : `Te quedan pocos créditos en ${entrada.nombreEspacio}`,
+    cuerpo: cuerpoDelAviso(umbral, entrada.disponible),
   });
 
   return umbral;
 }
 
-/** El texto del correo. Dice lo mismo que el banner, palabra por palabra. */
-export function cuerpoDelAviso(umbral: Umbral, proyeccion: Proyeccion): string {
-  if (umbral === "100") {
+/** El texto del correo. Dice lo mismo que el banner. */
+export function cuerpoDelAviso(umbral: Umbral, disponible: number): string {
+  if (umbral === "agotado") {
     return [
       "Te quedaste sin créditos.",
       "",
       "Tu agente dejó de responder automáticamente. Tu bandeja, tus contactos y tu historial siguen funcionando con normalidad: tu equipo puede seguir contestando a mano mientras tanto.",
       "",
-      "Recarga desde Ajustes → Facturación y el agente vuelve a responder al instante. Los créditos que compres no caducan.",
+      "Recarga desde Ajustes → Facturación y el agente vuelve a responder en cuanto se confirme el pago. Los créditos que compres no caducan.",
     ].join("\n");
   }
   return [
-    `Llevas ${creditosCompactos(proyeccion.consumidos)} de ${creditosCompactos(
-      proyeccion.asignados,
-    )} créditos usados este periodo.`,
+    `Te quedan ${creditosCompactos(disponible)} créditos.`,
     "",
-    fraseDeProyeccion(proyeccion),
-    "",
-    "Si llegas al 100%, el agente deja de responder solo; tu bandeja sigue funcionando. Puedes recargar o cambiar de plan desde Ajustes → Facturación.",
+    "Si llegas a cero, el agente deja de responder solo; tu bandeja sigue funcionando. Puedes recargar desde Ajustes → Facturación.",
   ].join("\n");
 }
 

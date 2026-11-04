@@ -361,7 +361,8 @@ cp .env.example .env.local
 | `ENCRYPTION_KEY` | AES-256-GCM para credenciales de terceros | ✅ |
 | `META_APP_ID` · `META_APP_SECRET` | App de Meta para el alta de clientes | — |
 | `META_WEBHOOK_VERIFY_TOKEN` | Verificación del webhook | — |
-| `STRIPE_SECRET_KEY` · `STRIPE_WEBHOOK_SECRET` | Suscripciones y recargas | — |
+| `SUPERADMIN_EMAILS` | Correos con acceso a `/admin` | — |
+| `WOMPI_PUBLIC_KEY` · `WOMPI_PRIVATE_KEY` · `WOMPI_INTEGRITY_SECRET` · `WOMPI_EVENTS_SECRET` | Respaldo de lo que `/admin/cobro` no tenga guardado | — |
 
 > ⚠️ Este repositorio es **público**. Ninguna clave debe llegar al árbol de trabajo: todas por variables de entorno. El `.gitignore` bloquea los `.env`, pero la disciplina es tuya.
 

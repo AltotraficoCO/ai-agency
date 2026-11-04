@@ -4,7 +4,7 @@ import { BarraConsumo } from "@/components/negocio/barra-consumo";
 import { FacturaCombinada } from "@/components/negocio/factura-combinada";
 import { TarjetaGastoMeta } from "@/components/negocio/gasto-meta";
 import { VerComoTabla } from "@/components/negocio/tabla-equivalente";
-import { creditosCompactos, creditosEnDolares } from "@/lib/negocio/creditos";
+import { creditosCompactos, creditosEnDolares, fraseDeRitmo } from "@/lib/negocio/creditos";
 import type { AnaliticaStrappy } from "@/lib/negocio/analitica";
 import type { EstadoNegocio } from "@/lib/negocio/cartera";
 import type { GastoEnMeta } from "@/lib/negocio/meta";
@@ -48,14 +48,16 @@ export function PestanaConsumo({
 
         <Card>
           <CardHeader>
-            <CardTitle>Créditos del periodo</CardTitle>
+            <CardTitle>Créditos de este mes</CardTitle>
             <CardDescription>
-              Del {formatoFecha(negocio.cartera.inicioPeriodo)} al {formatoFecha(negocio.cartera.finPeriodo)}.
+              Desde el {formatoFecha(negocio.cartera.inicioMes)}.
             </CardDescription>
           </CardHeader>
           <CardBody>
             <BarraConsumo
-              proyeccion={negocio.cartera.proyeccion}
+              consumidos={negocio.cartera.consumidosEnMes}
+              disponible={negocio.cartera.disponible}
+              fraseRitmo={fraseDeRitmo(negocio.cartera.diasDeSaldo)}
               segmentos={analitica.consumoPorAgente}
             />
           </CardBody>
