@@ -38,7 +38,7 @@ Todo por entorno; el proceso se niega a arrancar si falta algo.
 | --- | --- | --- |
 | `DATABASE_URL` | sí | cola y adaptadores |
 | `APP_ENCRYPTION_KEY` | sí | descifra las credenciales de los sitios; la misma que usa la web |
-| `OPENROUTER_API_KEY` | sí | clave de la cartera de modelos (o `AI_GATEWAY_API_KEY` con `MODEL_WALLET=vercel-gateway`) |
+| `OPENROUTER_API_KEY` | no | respaldo de la clave de la cartera de modelos: manda la guardada en `/admin/cobro`, que el worker lee de la base (o `AI_GATEWAY_API_KEY` con `MODEL_WALLET=vercel-gateway`) |
 | `WORKER_ID` | no | identifica al worker en el arrendamiento |
 | `WORKER_POLL_MS` | no | cada cuánto consulta la cola cuando está vacía |
 | `WORKER_CHROME_PATH` | no | Chrome para la verificación visual |

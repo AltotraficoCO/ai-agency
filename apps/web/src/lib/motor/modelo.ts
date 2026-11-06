@@ -9,6 +9,9 @@
  * `zai/glm-4.7-flash` en el gateway de Vercel). Cambiar de modelo sigue siendo
  * cambiar una fila de `model_tiers`.
  *
+ * La clave sale del entorno, donde la deja el panel de super admin (ver
+ * `lib/plataforma/config.ts`) o el `.env` si el panel no tiene ninguna.
+ *
  * Sin clave de cartera la aplicación no se queda muda: entra un modelo de
  * ENSAYO, local y determinista, que responde en español y declara un consumo de
  * tokens realista. Sirve para probar el circuito completo —motor, persistencia,
@@ -36,15 +39,20 @@ export function hayModeloReal(): boolean {
   return Boolean(claveDeCartera());
 }
 
-/** Se construye una vez: crearlo por turno abriría un cliente en cada mensaje. */
-let resolvedor: ReturnType<typeof crearResolvedorDeModelo> | null = null;
+/**
+ * Se construye una vez por clave: crearlo por turno abriría un cliente en cada
+ * mensaje, y conservarlo al cambiar la clave desde el panel seguiría llamando
+ * con la vieja.
+ */
+let resolvedor: { conClave: string; valor: ReturnType<typeof crearResolvedorDeModelo> } | null = null;
 
 export function resolveLanguageModel(modelId: string): LanguageModel {
-  if (!hayModeloReal()) return new ModeloDeEnsayo(modelId);
+  const clave = claveDeCartera();
+  if (!clave) return new ModeloDeEnsayo(modelId);
   // La clave la lee `crearResolvedorDeModelo` del entorno: no pasa por aquí y
   // por tanto no puede acabar en un registro ni en un mensaje de error.
-  resolvedor ??= crearResolvedorDeModelo();
-  return resolvedor.resolver(modelId);
+  if (resolvedor?.conClave !== clave) resolvedor = { conClave: clave, valor: crearResolvedorDeModelo() };
+  return resolvedor.valor.resolver(modelId);
 }
 
 /**

@@ -13,8 +13,9 @@ import { cifrar } from "@strappy/db";
 import { claveDePlataforma } from "@strappy/db/adapters";
 import { conEspacio, consultar } from "@/lib/db/pool";
 import { superAdminActual, type SuperAdmin } from "./acceso";
-import { obtenerLlavesWompi, olvidarAjustesRecordados } from "./config";
+import { obtenerClaveDeCartera, obtenerLlavesWompi, olvidarAjustesRecordados } from "./config";
 import { repartirDescuento } from "./ajustes";
+import { comprobarClaveDeCartera, validarClaveDeCartera } from "./cartera";
 
 export type ResultadoAdmin = { ok: true; mensaje: string } | { ok: false; error: string };
 
@@ -86,6 +87,64 @@ export async function guardarLlavesWompi(datos: FormData): Promise<ResultadoAdmi
     ok: true,
     mensaje: `Llaves de ${validadas.ambiente === "produccion" ? "producción" : "pruebas"} guardadas y cifradas.`,
   };
+}
+
+/**
+ * La clave de OpenRouter con la que hablan todos los modelos, de la web y del
+ * worker. Se guarda cifrada y, a diferencia de las de Wompi, se comprueba
+ * contra OpenRouter antes de guardarla: una clave mala dejaría mudos a todos
+ * los agentes a la vez.
+ */
+export async function guardarClaveDeCartera(datos: FormData): Promise<ResultadoAdmin> {
+  const actor = await superAdminActual();
+  if (!actor) return NO_AUTORIZADO;
+
+  const validada = validarClaveDeCartera(datos.get("openrouter"));
+  if (!validada.ok) return { ok: false, error: validada.motivo };
+
+  const respuesta = await comprobarClaveDeCartera(validada.clave);
+  if (respuesta.estado === "rechaza") {
+    return { ok: false, error: "OpenRouter no acepta esa clave. Revisa que esté vigente y copiada entera." };
+  }
+
+  let cifrado: string;
+  try {
+    cifrado = cifrar(JSON.stringify({ openrouter: validada.clave }), claveDePlataforma());
+  } catch {
+    return { ok: false, error: "Falta APP_ENCRYPTION_KEY o no es válida: sin ella no se pueden guardar secretos." };
+  }
+
+  await consultar(
+    `insert into public.platform_settings (key, value, encrypted, updated_by, updated_at)
+     values ('modelos', '{}'::jsonb, $1, $2, now())
+     on conflict (key) do update
+       set encrypted = excluded.encrypted, updated_by = excluded.updated_by, updated_at = now()`,
+    [cifrado, actor.id],
+  );
+  await anotar(actor, "modelos.clave", { comprobada: respuesta.estado === "acepta" });
+  olvidarAjustesRecordados();
+  revalidatePath("/admin/cobro");
+  return {
+    ok: true,
+    mensaje:
+      respuesta.estado === "acepta"
+        ? "Clave guardada y cifrada. OpenRouter la acepta; el worker la toma en menos de un minuto."
+        : "Clave guardada y cifrada. OpenRouter no respondió ahora mismo, así que no se pudo comprobar.",
+  };
+}
+
+/** Vuelve a la clave del entorno (o al modo de ensayo si no hay ninguna). */
+export async function olvidarClaveDeCartera(): Promise<ResultadoAdmin> {
+  const actor = await superAdminActual();
+  if (!actor) return NO_AUTORIZADO;
+
+  await consultar(`delete from public.platform_settings where key = 'modelos'`, []);
+  await anotar(actor, "modelos.olvidar", {});
+  olvidarAjustesRecordados();
+  // La siguiente lectura devuelve al entorno la clave del `.env`, si había.
+  await obtenerClaveDeCartera();
+  revalidatePath("/admin/cobro");
+  return { ok: true, mensaje: "Clave olvidada. Si el entorno tiene una, se usa esa; si no, los agentes entran en modo de ensayo." };
 }
 
 /**

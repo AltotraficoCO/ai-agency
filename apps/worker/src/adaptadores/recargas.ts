@@ -3,7 +3,7 @@
  * y cruza espacios a propósito: tiene que encontrar quién se quedó sin saldo.
  */
 import { randomUUID } from "node:crypto";
-import { leerAjustesDeCobro, type AjustesDeCobro } from "@strappy/db/adapters";
+import { aplicarClaveDeCartera, leerAjustesDeCobro, type AjustesDeCobro } from "@strappy/db/adapters";
 import {
   ORDEN_PENDIENTE_CADUCA_MS,
   type EstadoRecarga,
@@ -21,10 +21,15 @@ export class RecargasAutomaticasPostgres implements RecargasAutomaticasPort {
     this.#pool = pool;
   }
 
-  /** El worker consulta cada pocos segundos: un cambio del panel tarda hasta un minuto. */
+  /**
+   * El worker consulta cada pocos segundos: un cambio del panel tarda hasta un
+   * minuto. De paso deja la clave de la cartera de modelos en el entorno, que
+   * es donde la leen el motor, el estudio y los embeddings.
+   */
   async ajustes(): Promise<AjustesDeCobro> {
     if (this.#ajustes && this.#ajustes.hasta > Date.now()) return this.#ajustes.valor;
     const valor = await leerAjustesDeCobro((texto, valores) => this.#pool.query(texto, valores));
+    aplicarClaveDeCartera(valor.cartera);
     this.#ajustes = { valor, hasta: Date.now() + 60_000 };
     return valor;
   }

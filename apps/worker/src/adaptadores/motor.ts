@@ -6,8 +6,9 @@
  *    más créditos de los suyos.
  *  · El modelo concreto sale de `model_tiers` para la tarea `business_agent`
  *    (fila `negocio`), la de los agentes del negocio, y se resuelve contra la
- *    cartera del worker (`MODEL_WALLET`, hoy OpenRouter). Su clave es distinta
- *    de la de la web y solo permite los modelos de esa fila.
+ *    cartera del worker (`MODEL_WALLET`, hoy OpenRouter). La clave la deja en
+ *    el entorno el lector de ajustes del panel (adaptadores/recargas.ts), o
+ *    viene del `.env` si el panel no tiene ninguna.
  *  · Las tarifas salen de `credit_rates` y el cobro va al mismo libro que el
  *    resto de Strappy, así que una tarea del Webmaster se ve y se paga igual
  *    que una conversación.
@@ -19,8 +20,12 @@ import type { MotorTarea, SqlPool, TareaReclamada } from "../ports.js";
 
 export class MotorPorPlan {
   readonly #pool: SqlPool;
-  /** Se construye una vez: crearlo por tarea abriría un cliente en cada una. */
-  #resolvedor: ReturnType<typeof crearResolvedorDeModelo> | null = null;
+  /**
+   * Se construye una vez por clave: crearlo por tarea abriría un cliente en
+   * cada una, y conservarlo al cambiar la clave desde el panel seguiría
+   * llamando con la vieja.
+   */
+  #resolvedor: { conClave: string; valor: ReturnType<typeof crearResolvedorDeModelo> } | null = null;
 
   constructor(pool: SqlPool) {
     this.#pool = pool;
@@ -35,11 +40,14 @@ export class MotorPorPlan {
     ]);
 
     const eleccion = resolveModel(tabla, { mode: modo, task: "business_agent" });
-    this.#resolvedor ??= crearResolvedorDeModelo();
+    const clave = process.env.OPENROUTER_API_KEY ?? process.env.AI_GATEWAY_API_KEY ?? "";
+    if (this.#resolvedor?.conClave !== clave) {
+      this.#resolvedor = { conClave: clave, valor: crearResolvedorDeModelo() };
+    }
     const libro = crearCreditLedger(ambito);
 
     return {
-      model: this.#resolvedor.resolver(eleccion.primary),
+      model: this.#resolvedor.valor.resolver(eleccion.primary),
       modelId: eleccion.primary,
       modo,
       rates,

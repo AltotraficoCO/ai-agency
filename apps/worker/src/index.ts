@@ -171,9 +171,17 @@ async function main(): Promise<void> {
     log,
   });
 
+  // Los ajustes del panel, leídos una vez antes de la primera tarea: así la
+  // clave de la cartera guardada ahí ya está en el entorno cuando el motor la
+  // busque. Si la base no responde todavía, arranca con la del `.env`.
+  const ajustes = new RecargasAutomaticasPostgres(crudo);
+  await ajustes.ajustes().catch((e: unknown) => {
+    log(`ajustes del panel no disponibles al arrancar: ${e instanceof Error ? e.message : String(e)}`);
+  });
+
   // Recarga automática: sin llaves de Wompi en el panel no cobra nada.
   const recargas = new ConsumidorDeRecargasAutomaticas({
-    recargas: new RecargasAutomaticasPostgres(crudo),
+    recargas: ajustes,
     cobrar: (cobro) => cobrarConFuenteDePago(cobro),
     obtenerTrm: () => obtenerTrm(),
     log,

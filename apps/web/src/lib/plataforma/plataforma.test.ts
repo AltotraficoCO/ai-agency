@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { correoEsSuperAdmin } from "./acceso";
 import { repartirDescuento } from "./ajustes";
+import { validarClaveDeCartera } from "./cartera";
 import { patronDeBusqueda } from "./clientes";
 import { completarMeses, variacion } from "./estadisticas";
 
@@ -56,5 +57,18 @@ describe("ventas por mes", () => {
   it("sin mes anterior no inventa una variación", () => {
     expect(variacion(100, 0)).toBeNull();
     expect(variacion(150, 100)).toBeCloseTo(0.5);
+  });
+});
+
+describe("clave de la cartera de modelos", () => {
+  it("reconoce una clave de OpenRouter y la limpia", () => {
+    expect(validarClaveDeCartera("  sk-or-v1-abcdefghijklmnop  ")).toEqual({ ok: true, clave: "sk-or-v1-abcdefghijklmnop" });
+  });
+
+  it("rechaza lo que no es una clave", () => {
+    expect(validarClaveDeCartera("")).toMatchObject({ ok: false });
+    expect(validarClaveDeCartera("sk-or-v1 abcdefghijklmnop")).toMatchObject({ ok: false });
+    expect(validarClaveDeCartera("sk-proj-abcdefghijklmnop")).toMatchObject({ ok: false });
+    expect(validarClaveDeCartera("sk-or-corta")).toMatchObject({ ok: false });
   });
 });

@@ -125,6 +125,56 @@ export function FormularioLlaves({
   );
 }
 
+export function FormularioCartera({
+  actual,
+  accion,
+  olvidar,
+}: {
+  /** Solo el final de la clave y de dónde salió. */
+  actual: { final: string; origen: "panel" | "entorno" | "ninguno" };
+  accion: Accion;
+  olvidar: () => Promise<ResultadoAdmin>;
+}) {
+  const { ref, estado, alEnviar, pendiente } = useAccion(accion);
+  const [estadoOlvidar, enviarOlvidar, olvidando] = useActionState<ResultadoAdmin | null, void>(
+    async () => olvidar(),
+    null,
+  );
+  const ayuda =
+    actual.origen === "panel"
+      ? `Guardada en el panel: termina en ${actual.final}. Pega otra para sustituirla.`
+      : actual.origen === "entorno"
+        ? `Sale del entorno del servidor: termina en ${actual.final}. Pega una aquí para que mande sobre esa.`
+        : "Sin clave: los agentes responden en modo de ensayo.";
+  return (
+    <form ref={ref} onSubmit={alEnviar} className="flex flex-col gap-5" autoComplete="off">
+      <Campo etiqueta="Clave de OpenRouter" ayuda={ayuda}>
+        {(id) => <Input id={id} name="openrouter" type="password" autoComplete="off" placeholder="sk-or-v1-…" required />}
+      </Campo>
+      <Resultado estado={estado ?? estadoOlvidar} />
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" loading={pendiente} loadingLabel="Comprobando…">
+          Guardar clave
+        </Button>
+        {actual.origen === "panel" && (
+          <Button
+            type="button"
+            variant="secondary"
+            loading={olvidando}
+            loadingLabel="Olvidando…"
+            onClick={() => {
+              if (!window.confirm("¿Olvidar la clave del panel? Volverá a usarse la del entorno, o el modo de ensayo si no hay.")) return;
+              React.startTransition(() => enviarOlvidar());
+            }}
+          >
+            Olvidar clave
+          </Button>
+        )}
+      </div>
+    </form>
+  );
+}
+
 export function FormularioAjuste({
   workspaceId,
   nonce,
