@@ -32,6 +32,7 @@ import {
   type ModoConstruccion,
   type ResumenHilo,
 } from "@/lib/meta/tipos";
+import { AvisoSinCreditos } from "./aviso-sin-creditos";
 import { Composer } from "./composer";
 import { Orbe } from "./orbe";
 
@@ -45,9 +46,11 @@ const ICONOS: Readonly<Record<ChipIntencion["icono"], LucideIcon>> = {
 export interface InicioProps {
   nombre: string;
   hilos: readonly ResumenHilo[];
+  conCreditos: boolean;
+  minimoUsd: number;
 }
 
-export function Inicio({ nombre, hilos }: InicioProps) {
+export function Inicio({ nombre, hilos, conCreditos, minimoUsd }: InicioProps) {
   const router = useRouter();
   const [texto, setTexto] = React.useState("");
   const [modo, setModo] = React.useState<ModoConstruccion>("lite");
@@ -65,6 +68,12 @@ export function Inicio({ nombre, hilos }: InicioProps) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ titulo: limpio.slice(0, 60) }),
       });
+      // El saldo pudo acabarse con la pantalla abierta: se repinta con el aviso.
+      if (respuesta.status === 402) {
+        setAbriendo(false);
+        router.refresh();
+        return;
+      }
       if (!respuesta.ok) throw new Error("No se pudo abrir la conversación.");
       const { id } = (await respuesta.json()) as { id: string };
       router.push(`/c/${id}?abrir=${encodeURIComponent(limpio)}&modo=${modo}`);
@@ -91,19 +100,25 @@ export function Inicio({ nombre, hilos }: InicioProps) {
       </div>
 
       <div className="strappy-slide-up w-full [animation-delay:60ms]">
-        <Composer
-          autoFocus
-          valor={texto}
-          onCambio={setTexto}
-          onEnviar={() => void arrancar(texto)}
-          modo={modo}
-          onModo={setModo}
-          ocupado={abriendo}
-          placeholder="Quiero un agente que atienda pedidos por WhatsApp…"
-        />
-        <p className="pt-2 text-center text-sm text-fg-muted">
-          Enter para enviar · Shift + Enter para saltar de línea
-        </p>
+        {conCreditos ? (
+          <>
+            <Composer
+              autoFocus
+              valor={texto}
+              onCambio={setTexto}
+              onEnviar={() => void arrancar(texto)}
+              modo={modo}
+              onModo={setModo}
+              ocupado={abriendo}
+              placeholder="Quiero un agente que atienda pedidos por WhatsApp…"
+            />
+            <p className="pt-2 text-center text-sm text-fg-muted">
+              Enter para enviar · Shift + Enter para saltar de línea
+            </p>
+          </>
+        ) : (
+          <AvisoSinCreditos minimoUsd={minimoUsd} />
+        )}
       </div>
 
       <section aria-labelledby="inicio-atajos" className="strappy-slide-up [animation-delay:120ms]">
@@ -111,7 +126,7 @@ export function Inicio({ nombre, hilos }: InicioProps) {
           O empieza por aquí
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          {CHIPS_INTENCION.map((chip) => (
+          {CHIPS_INTENCION.filter((chip) => conCreditos || chip.href).map((chip) => (
             <TarjetaAtajo
               key={chip.id}
               chip={chip}

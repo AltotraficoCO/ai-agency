@@ -9,6 +9,7 @@
 import { z } from "zod";
 import { obtenerUsuarioActual } from "@/lib/identidad";
 import { crearHilo } from "@/lib/meta/borradores";
+import { respuestaSinCreditos, tieneCreditosParaStrap } from "@/lib/negocio/acceso-strap";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,8 @@ export async function POST(peticion: Request): Promise<Response> {
   if (!leido.success) {
     return Response.json({ error: "La petición no tiene la forma esperada." }, { status: 400 });
   }
+
+  if (!(await tieneCreditosParaStrap(usuario.workspaceId))) return respuestaSinCreditos();
 
   const id = await crearHilo({
     workspaceId: usuario.workspaceId,

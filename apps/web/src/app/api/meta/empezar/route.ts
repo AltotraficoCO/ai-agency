@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import { obtenerUsuarioActual } from "@/lib/identidad";
 import { crearHilo } from "@/lib/meta/borradores";
+import { tieneCreditosParaStrap } from "@/lib/negocio/acceso-strap";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,10 @@ export async function GET(peticion: Request): Promise<Response> {
 
   const intencion = INTENCIONES[url.searchParams.get("intencion") ?? ""];
   if (!intencion) return NextResponse.redirect(new URL("/", url));
+
+  if (!(await tieneCreditosParaStrap(usuario.workspaceId))) {
+    return NextResponse.redirect(new URL("/ajustes/facturacion", url), 303);
+  }
 
   const id = await crearHilo({
     workspaceId: usuario.workspaceId,

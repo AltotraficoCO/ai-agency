@@ -32,6 +32,7 @@ export default async function PaginaHilo({
   const hilo = await leerHilo(marco.actual.workspaceId, id);
   if (!hilo) notFound();
   const hilos = await listarHilos(marco.actual.workspaceId, 30);
+  const conCreditos = marco.creditos.paraStrap;
 
   const abrir = typeof busqueda["abrir"] === "string" ? busqueda["abrir"] : undefined;
   const modo = busqueda["modo"] === "max" ? "max" : "lite";
@@ -72,7 +73,9 @@ export default async function PaginaHilo({
             mensajesIniciales={hilo.mensajes as UIMessage[]}
             borradorInicial={hilo.borrador}
             modoInicial={modo}
-            {...(abrir ? { mensajeDeApertura: abrir } : {})}
+            conCreditos={conCreditos}
+            minimoUsd={marco.creditos.minimoUsd}
+            {...(abrir && conCreditos ? { mensajeDeApertura: abrir } : {})}
           />
         </div>
       </div>

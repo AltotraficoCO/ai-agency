@@ -12,6 +12,7 @@
 import { z } from "zod";
 import type { UIMessage } from "ai";
 import { obtenerUsuarioActual } from "@/lib/identidad";
+import { respuestaSinCreditos, tieneCreditosParaStrap } from "@/lib/negocio/acceso-strap";
 import { responderTurnoDeStrap } from "@/lib/meta/strap";
 
 export const runtime = "nodejs";
@@ -45,6 +46,8 @@ export async function POST(peticion: Request): Promise<Response> {
   const modo = leido.data.modo === "max" ? "max" : "lite";
 
   try {
+    if (!(await tieneCreditosParaStrap(usuario.workspaceId))) return respuestaSinCreditos();
+
     return await responderTurnoDeStrap({
       usuario,
       hiloId: leido.data.hiloId,

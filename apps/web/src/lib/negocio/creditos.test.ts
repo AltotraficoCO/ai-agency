@@ -1,6 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { diasDeSaldo, estadoDelSaldo, fraseDeRitmo } from "./creditos";
+import {
+  CODIGO_SIN_CREDITOS,
+  diasDeSaldo,
+  esErrorSinCreditos,
+  estadoDelSaldo,
+  fraseDeRitmo,
+  puedeHablarConStrap,
+} from "./creditos";
 import { longitudEnDias, periodoAnterior, rangoDeAtajo } from "./fechas";
+
+describe("acceso a Strap", () => {
+  it("exige saldo positivo", () => {
+    expect(puedeHablarConStrap(1)).toBe(true);
+    expect(puedeHablarConStrap(0.5)).toBe(true);
+    expect(puedeHablarConStrap(0)).toBe(false);
+    expect(puedeHablarConStrap(-10)).toBe(false);
+  });
+
+  it("un saldo ilegible no deja pasar", () => {
+    expect(puedeHablarConStrap(Number.NaN)).toBe(false);
+    expect(puedeHablarConStrap(Number.POSITIVE_INFINITY)).toBe(false);
+  });
+
+  it("distingue el rechazo por saldo de cualquier otro error", () => {
+    expect(esErrorSinCreditos(JSON.stringify({ codigo: CODIGO_SIN_CREDITOS }))).toBe(true);
+    expect(esErrorSinCreditos("Failed to fetch")).toBe(false);
+    expect(esErrorSinCreditos(undefined)).toBe(false);
+  });
+});
 
 describe("estado del saldo", () => {
   const base = { umbralAviso: 5_000, haRecargado: true };

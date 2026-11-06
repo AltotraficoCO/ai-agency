@@ -1,7 +1,7 @@
 /**
  * El inicio de Strappy.
  *
- * Es el chat con Strap, no un panel. Todo lo que se lee aquí —quién eres, qué
+ * Es el chat con Strap, no un panel; sin créditos, la caja de escribir pide recargar. Todo lo que se lee aquí —quién eres, qué
  * conversaciones tienes abiertas— se resuelve en el servidor; la pantalla no
  * hace ni una consulta al montar.
  */
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function PaginaInicio() {
   const marco = await datosDelMarco();
   const hilos = await listarHilos(marco.actual.workspaceId);
-
+  const conCreditos = marco.creditos.paraStrap;
 
   return (
     <MarcoApp
@@ -27,6 +27,8 @@ export default async function PaginaInicio() {
       <Inicio
         nombre={primerNombre(marco.actual.nombre)}
         hilos={hilos}
+        conCreditos={conCreditos}
+        minimoUsd={marco.creditos.minimoUsd}
       />
     </MarcoApp>
   );

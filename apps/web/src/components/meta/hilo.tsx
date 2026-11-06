@@ -23,11 +23,13 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart, type UIMessage } from "ai";
 import { CircleAlert, RotateCcw } from "lucide-react";
 import { Button, IndicadorEscribiendo, Spinner } from "@strappy/ui";
+import { esErrorSinCreditos } from "@/lib/negocio/creditos";
 import type {
   ModoConstruccion,
   SalidaHerramientaStrap,
   SalidaPreguntar,
 } from "@/lib/meta/tipos";
+import { AvisoSinCreditos } from "./aviso-sin-creditos";
 import { Composer } from "./composer";
 import { Orbe } from "./orbe";
 import {
@@ -49,6 +51,8 @@ export interface HiloProps {
   modoInicial: ModoConstruccion;
   /** Mensaje que se envía solo al abrir. Viene del chip o del composer de inicio. */
   mensajeDeApertura?: string;
+  conCreditos: boolean;
+  minimoUsd: number;
 }
 
 export function Hilo({
@@ -57,6 +61,8 @@ export function Hilo({
   borradorInicial,
   modoInicial,
   mensajeDeApertura,
+  conCreditos,
+  minimoUsd,
 }: HiloProps) {
   const [modo, setModo] = React.useState<ModoConstruccion>(modoInicial);
   const [texto, setTexto] = React.useState("");
@@ -75,6 +81,8 @@ export function Hilo({
   });
 
   const ocupado = status === "submitted" || status === "streaming";
+  // El saldo puede acabarse con el hilo abierto: el servidor lo rechaza y aquí se ve igual.
+  const sinCreditos = !conCreditos || esErrorSinCreditos(error?.message);
 
   const enviar = React.useCallback(
     (contenido: string, respuestas?: { clave: string; valores: string[] }[]) => {
@@ -128,7 +136,7 @@ export function Hilo({
   };
 
   const ultimo = messages[messages.length - 1];
-  const atascado = !ocupado && !error && ultimo !== undefined && !terminoBien(ultimo);
+  const atascado = !sinCreditos && !ocupado && !error && ultimo !== undefined && !terminoBien(ultimo);
 
   return (
     <div className="flex h-full flex-col">
@@ -140,7 +148,7 @@ export function Hilo({
             <Mensaje
               key={mensaje.id}
               mensaje={mensaje}
-              esUltimo={mensaje.id === ultimo?.id}
+              esUltimo={!sinCreditos && mensaje.id === ultimo?.id}
               borrador={borrador}
               onResponder={responder}
               onEditar={editarLinea}
@@ -157,7 +165,7 @@ export function Hilo({
             </div>
           ) : null}
 
-          {error || atascado ? (
+          {!sinCreditos && (error || atascado) ? (
             <AvisoDeCorte
               detalle={error ? error.message : ultimoError(ultimo)}
               onReintentar={reintentar}
@@ -170,21 +178,25 @@ export function Hilo({
 
       <div className="border-t border-border bg-page">
         <div className="mx-auto w-full max-w-[760px] px-5 py-4">
-          <Composer
-            valor={texto}
-            onCambio={setTexto}
-            onEnviar={() => {
-              const limpio = texto.trim();
-              if (limpio.length === 0) return;
-              setTexto("");
-              clearError();
-              enviar(limpio);
-            }}
-            modo={modo}
-            onModo={setModo}
-            ocupado={ocupado}
-            placeholder="Responde o cuéntame otra cosa…"
-          />
+          {sinCreditos ? (
+            <AvisoSinCreditos minimoUsd={minimoUsd} />
+          ) : (
+            <Composer
+              valor={texto}
+              onCambio={setTexto}
+              onEnviar={() => {
+                const limpio = texto.trim();
+                if (limpio.length === 0) return;
+                setTexto("");
+                clearError();
+                enviar(limpio);
+              }}
+              modo={modo}
+              onModo={setModo}
+              ocupado={ocupado}
+              placeholder="Responde o cuéntame otra cosa…"
+            />
+          )}
         </div>
       </div>
     </div>

@@ -32,6 +32,19 @@ export function estadoDelSaldo(entrada: {
   return entrada.disponible < entrada.umbralAviso ? "aviso" : "sano";
 }
 
+/** Con qué se reconoce el rechazo por falta de saldo al otro lado de la petición. */
+export const CODIGO_SIN_CREDITOS = "sin_creditos";
+
+/** Strap conversa solo con saldo positivo. */
+export function puedeHablarConStrap(disponible: number): boolean {
+  return Number.isFinite(disponible) && disponible > 0;
+}
+
+/** `useChat` entrega como mensaje de error el cuerpo de la respuesta rechazada. */
+export function esErrorSinCreditos(mensaje: string | undefined): boolean {
+  return mensaje?.includes(CODIGO_SIN_CREDITOS) ?? false;
+}
+
 /** Bajo estos días de historial, el ritmo de gasto todavía no dice nada. */
 const DIAS_MINIMOS_DE_RITMO = 3;
 const VENTANA_DE_RITMO = 30;
