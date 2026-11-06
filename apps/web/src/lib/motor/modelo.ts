@@ -9,8 +9,8 @@
  * `zai/glm-4.7-flash` en el gateway de Vercel). Cambiar de modelo sigue siendo
  * cambiar una fila de `model_tiers`.
  *
- * La clave sale del entorno, donde la deja el panel de super admin (ver
- * `lib/plataforma/config.ts`) o el `.env` si el panel no tiene ninguna.
+ * La clave sale del panel de super admin, y nada más: `lib/plataforma/config.ts`
+ * la deja en el entorno, que es solo el conducto hasta `@strappy/core`.
  *
  * Sin clave de cartera la aplicación no se queda muda: entra un modelo de
  * ENSAYO, local y determinista, que responde en español y declara un consumo de

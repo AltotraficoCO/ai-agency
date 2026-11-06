@@ -2,8 +2,9 @@
  * Ajustes de la plataforma: lo que se configura en el panel de super admin y
  * leen por igual la web y el worker.
  *
- * Las llaves de Wompi y la de la cartera de modelos salen primero de la base y,
- * campo por campo, de las variables de entorno. Si no se puede descifrar lo
+ * Las llaves de Wompi salen primero de la base y, campo por campo, de las
+ * variables de entorno. La clave de la cartera de modelos sale SOLO del panel:
+ * no hay variable de entorno que la sustituya. Si no se puede descifrar lo
  * guardado se trata como si no estuviera: mejor no cobrar que cobrar con una
  * llave equivocada.
  */
@@ -26,13 +27,12 @@ export function claveDePlataforma(env: NodeJS.ProcessEnv = process.env): Buffer 
 type Consulta = (texto: string, valores?: unknown[]) => Promise<{ rows: unknown[] }>;
 
 /**
- * La clave de OpenRouter, la cartera de modelos. Vacía si no hay ninguna: la
- * aplicación entra entonces en modo de ensayo y lo dice.
+ * La clave de OpenRouter, la cartera de modelos. Vacía si el panel no tiene
+ * ninguna: la aplicación entra entonces en modo de ensayo y lo dice.
  */
 export type ClaveDeCartera = {
   readonly openrouter: string;
-  /** De dónde salió: para que el panel diga si manda la base o el entorno. */
-  readonly origen: 'panel' | 'entorno' | 'ninguno';
+  readonly origen: 'panel' | 'ninguno';
 };
 
 export type AjustesDeCobro = {
@@ -42,35 +42,16 @@ export type AjustesDeCobro = {
 };
 
 /**
- * Lo que el entorno traía antes de que el panel lo pisara, por proceso. Hace
- * falta para dos cosas: que «olvidar la clave del panel» devuelva la del `.env`
- * sin reiniciar, y que al leer los ajustes el respaldo sea la del `.env` y no
- * la del panel que ya está puesta.
- */
-const DEL_ENTORNO = new WeakMap<NodeJS.ProcessEnv, string>();
-
-function claveOriginalDelEntorno(env: NodeJS.ProcessEnv): string {
-  let original = DEL_ENTORNO.get(env);
-  if (original === undefined) {
-    original = env['OPENROUTER_API_KEY'] ?? '';
-    DEL_ENTORNO.set(env, original);
-  }
-  return original;
-}
-
-/**
  * Deja la clave de la cartera donde la leen `@strappy/core` y `@strappy/rag`:
- * el entorno del proceso. Esos paquetes reciben el entorno como un objeto y no
- * saben de base de datos; así una clave guardada en el panel manda sobre la del
- * `.env` sin que ellos cambien, y si el panel deja de tenerla vuelve la del
- * `.env`. Devuelve si cambió, para rehacer los clientes que la tenían dentro.
+ * `OPENROUTER_API_KEY` en el entorno del proceso. Esos paquetes reciben el
+ * entorno como un objeto y no saben de base de datos; la variable es el
+ * conducto, no una configuración: lo que haya en ella al arrancar se ignora y
+ * se sobrescribe con lo del panel, o se borra si el panel no tiene nada.
+ * Devuelve si cambió, para rehacer los clientes que la tenían dentro.
  */
 export function aplicarClaveDeCartera(cartera: ClaveDeCartera, env: NodeJS.ProcessEnv = process.env): boolean {
-  // Siempre antes de pisar nada: es la única oportunidad de recordar la original.
-  const original = claveOriginalDelEntorno(env);
-  const deseada = cartera.origen === 'panel' ? cartera.openrouter : original;
-  if ((env['OPENROUTER_API_KEY'] ?? '') === deseada) return false;
-  if (deseada) env['OPENROUTER_API_KEY'] = deseada;
+  if ((env['OPENROUTER_API_KEY'] ?? '') === cartera.openrouter) return false;
+  if (cartera.openrouter) env['OPENROUTER_API_KEY'] = cartera.openrouter;
   else delete env['OPENROUTER_API_KEY'];
   return true;
 }
@@ -108,10 +89,9 @@ export async function leerAjustesDeCobro(
       console.error('[plataforma] no se pudo descifrar la clave de la cartera:', e instanceof Error ? e.message : e);
     }
   }
-  const openrouterDelEntorno = claveOriginalDelEntorno(env);
   const cartera: ClaveDeCartera = openrouterDelPanel
     ? { openrouter: openrouterDelPanel, origen: 'panel' }
-    : { openrouter: openrouterDelEntorno, origen: openrouterDelEntorno ? 'entorno' : 'ninguno' };
+    : { openrouter: '', origen: 'ninguno' };
 
   return {
     config: normalizarConfigCobro(filas.find((f) => f.key === 'cobro')?.value),

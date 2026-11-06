@@ -75,11 +75,11 @@ export default async function PaginaCobro() {
       <SeccionAjustes
         titulo="Cartera de modelos"
         icono={<BrainCircuit size={18} strokeWidth={1.75} aria-hidden />}
-        descripcion="La clave de OpenRouter con la que hablan todos los agentes, en la web y en el worker. Se guarda cifrada y manda sobre la del entorno."
+        descripcion="La clave de OpenRouter con la que hablan todos los agentes, en la web y en el worker. Se guarda cifrada y es la única: no hay variable de entorno."
         accion={
           <div className="flex flex-wrap gap-2">
-            <Badge tone={cartera.origen === "panel" ? "exito" : cartera.origen === "entorno" ? "info" : "aviso"}>
-              {cartera.origen === "panel" ? "Del panel" : cartera.origen === "entorno" ? "Del entorno" : "Modo de ensayo"}
+            <Badge tone={cartera.origen === "panel" ? "exito" : "aviso"}>
+              {cartera.origen === "panel" ? "Configurada" : "Modo de ensayo"}
             </Badge>
             {openrouter && (
               <Badge tone={openrouter.estado === "acepta" ? "exito" : "aviso"}>

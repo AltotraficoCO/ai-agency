@@ -130,8 +130,8 @@ export function FormularioCartera({
   accion,
   olvidar,
 }: {
-  /** Solo el final de la clave y de dónde salió. */
-  actual: { final: string; origen: "panel" | "entorno" | "ninguno" };
+  /** Solo el final de la clave, si hay. */
+  actual: { final: string; origen: "panel" | "ninguno" };
   accion: Accion;
   olvidar: () => Promise<ResultadoAdmin>;
 }) {
@@ -142,10 +142,8 @@ export function FormularioCartera({
   );
   const ayuda =
     actual.origen === "panel"
-      ? `Guardada en el panel: termina en ${actual.final}. Pega otra para sustituirla.`
-      : actual.origen === "entorno"
-        ? `Sale del entorno del servidor: termina en ${actual.final}. Pega una aquí para que mande sobre esa.`
-        : "Sin clave: los agentes responden en modo de ensayo.";
+      ? `Guardada: termina en ${actual.final}. Pega otra para sustituirla.`
+      : "Sin clave: los agentes responden en modo de ensayo.";
   return (
     <form ref={ref} onSubmit={alEnviar} className="flex flex-col gap-5" autoComplete="off">
       <Campo etiqueta="Clave de OpenRouter" ayuda={ayuda}>
@@ -163,7 +161,7 @@ export function FormularioCartera({
             loading={olvidando}
             loadingLabel="Olvidando…"
             onClick={() => {
-              if (!window.confirm("¿Olvidar la clave del panel? Volverá a usarse la del entorno, o el modo de ensayo si no hay.")) return;
+              if (!window.confirm("¿Olvidar la clave? Los agentes pasarán a modo de ensayo hasta que guardes otra.")) return;
               React.startTransition(() => enviarOlvidar());
             }}
           >

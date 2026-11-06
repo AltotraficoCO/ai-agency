@@ -35,11 +35,10 @@ async function ajustes(): Promise<AjustesDeCobro> {
     // Antes de aplicar la migración, o con la base caída un instante, el menú de
     // todas las pantallas no puede romperse por esto.
     console.error("[plataforma] no se pudieron leer los ajustes:", e instanceof Error ? e.message : e);
-    const openrouter = process.env.OPENROUTER_API_KEY ?? "";
     return {
       config: CONFIG_COBRO_POR_DEFECTO,
       llaves: { publica: "", privada: "", integridad: "", eventos: "" },
-      cartera: { openrouter, origen: openrouter ? "entorno" : "ninguno" },
+      cartera: { openrouter: "", origen: "ninguno" },
     };
   }
 }

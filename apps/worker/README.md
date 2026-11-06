@@ -38,7 +38,7 @@ Todo por entorno; el proceso se niega a arrancar si falta algo.
 | --- | --- | --- |
 | `DATABASE_URL` | sí | cola y adaptadores |
 | `APP_ENCRYPTION_KEY` | sí | descifra las credenciales de los sitios; la misma que usa la web |
-| `OPENROUTER_API_KEY` | no | respaldo de la clave de la cartera de modelos: manda la guardada en `/admin/cobro`, que el worker lee de la base (o `AI_GATEWAY_API_KEY` con `MODEL_WALLET=vercel-gateway`) |
+| `AI_GATEWAY_API_KEY` | no | solo con `MODEL_WALLET=vercel-gateway`. Con OpenRouter la clave se configura en `/admin/cobro` y el worker la lee de la base |
 | `WORKER_ID` | no | identifica al worker en el arrendamiento |
 | `WORKER_POLL_MS` | no | cada cuánto consulta la cola cuando está vacía |
 | `WORKER_CHROME_PATH` | no | Chrome para la verificación visual |

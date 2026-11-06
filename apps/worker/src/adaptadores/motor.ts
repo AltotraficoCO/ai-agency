@@ -6,9 +6,9 @@
  *    más créditos de los suyos.
  *  · El modelo concreto sale de `model_tiers` para la tarea `business_agent`
  *    (fila `negocio`), la de los agentes del negocio, y se resuelve contra la
- *    cartera del worker (`MODEL_WALLET`, hoy OpenRouter). La clave la deja en
- *    el entorno el lector de ajustes del panel (adaptadores/recargas.ts), o
- *    viene del `.env` si el panel no tiene ninguna.
+ *    cartera del worker (`MODEL_WALLET`, hoy OpenRouter). La clave sale del
+ *    panel de super admin y la deja en el entorno el lector de ajustes
+ *    (adaptadores/recargas.ts); no hay variable de entorno que la sustituya.
  *  · Las tarifas salen de `credit_rates` y el cobro va al mismo libro que el
  *    resto de Strappy, así que una tarea del Webmaster se ve y se paga igual
  *    que una conversación.

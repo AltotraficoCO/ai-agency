@@ -133,7 +133,7 @@ export async function guardarClaveDeCartera(datos: FormData): Promise<ResultadoA
   };
 }
 
-/** Vuelve a la clave del entorno (o al modo de ensayo si no hay ninguna). */
+/** Sin clave en el panel los agentes entran en modo de ensayo. */
 export async function olvidarClaveDeCartera(): Promise<ResultadoAdmin> {
   const actor = await superAdminActual();
   if (!actor) return NO_AUTORIZADO;
@@ -141,10 +141,10 @@ export async function olvidarClaveDeCartera(): Promise<ResultadoAdmin> {
   await consultar(`delete from public.platform_settings where key = 'modelos'`, []);
   await anotar(actor, "modelos.olvidar", {});
   olvidarAjustesRecordados();
-  // La siguiente lectura devuelve al entorno la clave del `.env`, si había.
+  // La siguiente lectura la retira del entorno de este proceso.
   await obtenerClaveDeCartera();
   revalidatePath("/admin/cobro");
-  return { ok: true, mensaje: "Clave olvidada. Si el entorno tiene una, se usa esa; si no, los agentes entran en modo de ensayo." };
+  return { ok: true, mensaje: "Clave olvidada. Los agentes responden en modo de ensayo hasta que guardes otra." };
 }
 
 /**

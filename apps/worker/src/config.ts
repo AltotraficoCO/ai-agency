@@ -6,9 +6,9 @@
  * que se niega a arrancar.
  *
  * El modelo NO se configura aquí: sale del plan de cada espacio y de
- * `model_tiers` (ver adaptadores/motor.ts). La clave de la cartera
- * (`OPENROUTER_API_KEY`, o `AI_GATEWAY_API_KEY` con `MODEL_WALLET=vercel-gateway`)
- * la lee directamente `@strappy/core`.
+ * `model_tiers` (ver adaptadores/motor.ts). La clave de la cartera tampoco:
+ * sale del panel de super admin (ver adaptadores/recargas.ts). Solo con
+ * `MODEL_WALLET=vercel-gateway` se lee `AI_GATEWAY_API_KEY` del entorno.
  */
 import { z } from "zod";
 import { masterKeyFromEnv } from "@strappy/webmaster";

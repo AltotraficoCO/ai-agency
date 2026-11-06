@@ -173,7 +173,7 @@ async function main(): Promise<void> {
 
   // Los ajustes del panel, leídos una vez antes de la primera tarea: así la
   // clave de la cartera guardada ahí ya está en el entorno cuando el motor la
-  // busque. Si la base no responde todavía, arranca con la del `.env`.
+  // busque. Si la base no responde todavía, se reintenta en el primer ciclo.
   const ajustes = new RecargasAutomaticasPostgres(crudo);
   await ajustes.ajustes().catch((e: unknown) => {
     log(`ajustes del panel no disponibles al arrancar: ${e instanceof Error ? e.message : String(e)}`);
